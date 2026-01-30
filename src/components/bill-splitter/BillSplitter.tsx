@@ -138,19 +138,43 @@ export function BillSplitter() {
             ? receiptGrandTotal / calculatedSubtotal
             : 1;
 
+    // Distribute rounding differences
+    let finalDistributions = personSubtotals.map((sub) => sub * multiplier);
+    let roundedAmounts = finalDistributions.map((amt) => Math.round(amt * 100) / 100);
+
+    if (receiptGrandTotal > 0 && calculatedSubtotal > 0) {
+        const currentSum = roundedAmounts.reduce((a, b) => a + b, 0);
+        let diff = receiptGrandTotal - currentSum;
+        diff = Math.round(diff * 100) / 100;
+        let cents = Math.round(diff * 100);
+
+        let i = 0;
+        while (cents !== 0) {
+            const idx = i % people.length;
+            if (personSubtotals[idx] > 0) {
+                roundedAmounts[idx] += cents > 0 ? 0.01 : -0.01;
+                roundedAmounts[idx] = Math.round(roundedAmounts[idx] * 100) / 100;
+                cents -= cents > 0 ? 1 : -1;
+            }
+            i++;
+            if (i > 1000) break;
+        }
+    }
+
     return (
         <div className="w-full overflow-x-auto text-xs font-mono pb-20">
 
             {/* 1. TOP BAR: Totals & Validation */}
-            <div className="flex flex-wrap gap-8 mb-6 items-end border border-black p-4">
+            <div className="flex flex-col md:flex-row flex-wrap gap-6 mb-6 items-start md:items-end border border-black p-4">
                 {/* Main Inputs Grouped */}
-                <div className="flex gap-4">
-                    <div className="flex flex-col">
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                    <div className="flex flex-col w-full sm:w-auto">
                         <label className="uppercase font-bold mb-1">Receipt Subtotal</label>
-                        <div className={`flex items-center border border-black w-32 ${validationColor}`}>
+                        <div className={`flex items-center border border-black w-full sm:w-32 ${validationColor}`}>
                             <span className="pl-2 font-bold text-lg">$</span>
                             <input
                                 type="number"
+                                inputMode="decimal"
                                 placeholder="0.00"
                                 value={receiptSubtotalInput}
                                 onChange={(e) => setReceiptSubtotalInput(e.target.value)}
@@ -159,13 +183,14 @@ export function BillSplitter() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col">
-                        <label className="uppercase font-bold mb-1">Receipt Grand Total</label>
-                        <div className="flex items-center border border-black w-32 bg-yellow-50">
+                    <div className="flex flex-col w-full sm:w-auto">
+                        <label className="uppercase font-bold mb-1">Including Tax/Tip</label>
+                        <div className="flex items-center border border-black w-full sm:w-36 bg-yellow-50">
                             <span className="pl-2 font-bold text-lg">$</span>
                             <input
                                 type="number"
-                                placeholder="Tax/Tip"
+                                inputMode="decimal"
+                                placeholder="Total"
                                 value={receiptGrandTotalInput}
                                 onChange={(e) => setReceiptGrandTotalInput(e.target.value)}
                                 className="p-2 w-full font-bold text-lg focus:outline-none text-right bg-transparent no-arrows"
@@ -174,23 +199,23 @@ export function BillSplitter() {
                     </div>
                 </div>
 
-                <div className="h-10 border-r border-black mx-4 hidden sm:block"></div>
+                <div className="h-px w-full md:w-px md:h-10 bg-black md:border-r md:border-black md:bg-transparent mx-0 md:mx-4 my-2 md:my-0"></div>
 
                 {/* Validation Status */}
-                <div className="flex flex-col">
+                <div className="flex flex-col w-full sm:w-auto">
                     <label className="uppercase font-bold mb-1 text-neutral-400">Calculated Sum</label>
-                    <div className={`border border-black p-2 w-32 bg-neutral-50 text-right ${subtotalMismatch && receiptSubtotal > 0 ? "text-red-500 font-bold border-red-500" : ""}`}>
+                    <div className={`border border-black p-2 w-full sm:w-32 bg-neutral-50 text-right ${subtotalMismatch && receiptSubtotal > 0 ? "text-red-500 font-bold border-red-500" : ""}`}>
                         ${calculatedSubtotal.toFixed(2)}
                     </div>
                 </div>
 
                 {subtotalMismatch && receiptSubtotal > 0 && (
-                    <div className="text-red-600 font-bold self-center animate-pulse uppercase tracking-widest text-sm border border-red-600 px-2 py-1">
+                    <div className="text-red-600 font-bold self-start md:self-center animate-pulse uppercase tracking-widest text-sm border border-red-600 px-2 py-1 mt-2 md:mt-0">
                         ⚠ Check Sum Mismatch
                     </div>
                 )}
 
-                <div className="flex flex-col ml-auto">
+                <div className="flex flex-col ml-auto mt-2 md:mt-0">
                     <label className="uppercase font-bold mb-1 text-neutral-400">Multiplier</label>
                     <div className="p-2 font-mono text-neutral-500">
                         x{multiplier.toFixed(4)}
@@ -224,6 +249,7 @@ export function BillSplitter() {
                                         <span className="absolute left-0 top-0 font-bold text-xs">$</span>
                                         <input
                                             type="number"
+                                            inputMode="decimal"
                                             value={s.amount}
                                             onChange={(e) => handleSharedAmountChange(s.id, e.target.value)}
                                             className="w-full border-b-2 border-black text-right focus:outline-none placeholder-neutral-300 font-bold bg-yellow-50 text-xs pl-3 no-arrows"
@@ -298,6 +324,7 @@ export function BillSplitter() {
                                 <td key={p.id} className="border border-black p-0">
                                     <input
                                         type="number"
+                                        inputMode="decimal"
                                         placeholder="-"
                                         className="w-full h-full p-0.5 text-center focus:bg-yellow-50 focus:outline-none font-medium placeholder-neutral-200 text-xs no-arrows"
                                         value={p.individualItems[row.id] || ""}
@@ -328,9 +355,9 @@ export function BillSplitter() {
                     </tr>
                     <tr className="bg-black text-white border-t-8 border-black text-sm">
                         <td className="p-2 font-bold uppercase border-r border-white/50 text-right pr-4">Final Owed</td>
-                        {personSubtotals.map((sub, i) => (
+                        {roundedAmounts.map((amt, i) => (
                             <td key={i} className="p-1 text-center font-mono font-bold border-r border-white/50 text-md">
-                                ${(sub * multiplier).toFixed(2)}
+                                ${amt.toFixed(2)}
                             </td>
                         ))}
                         <td className="border-l border-white/50"></td>
