@@ -102,7 +102,7 @@ export default function Home() {
       </header>
 
       {/* Bird Grid - 3 columns, no gaps/lines visually implied other than whitespace if images don't fill */}
-      <main className="max-w-5xl mx-auto px-4">
+      <main className="max-w-5xl mx-auto px-4 pb-12">
         <div className="grid grid-cols-3 gap-8">
           {BIRDS.map((bird) => (
             <Link key={bird.slug} href={`/${bird.slug}`} className="block relative aspect-square w-full group overflow-hidden">
