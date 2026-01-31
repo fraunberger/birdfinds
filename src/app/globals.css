@@ -137,3 +137,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 10s linear infinite;
+}
+.animate-marquee-reverse {
+  display: inline-block;
+  animation: marquee-reverse 10s linear infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes whiz {
+  0% { left: -300px; }
+  100% { left: 120%; }
+}
+.animate-whiz {
+  animation: whiz linear forwards;
+}

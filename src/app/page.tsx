@@ -8,20 +8,80 @@ const BIRDS = [
     slug: "australian_magpie",
   },
   {
+    filename: "european_greenfinch.png",
+    slug: "european_greenfinch",
+  },
+  {
+    filename: "cardinal.png",
+    slug: "cardinal",
+  },
+  {
     filename: "australian_pied_cormorant.png",
     slug: "australian_pied_cormorant",
   },
   {
-    filename: "eastern_blue_bird.png",
-    slug: "eastern_blue_bird",
+    filename: "yellowhammer.png",
+    slug: "yellowhammer",
+  },
+  {
+    filename: "great_blue_heron.png",
+    slug: "great_blue_heron",
   },
   {
     filename: "takahe.png",
     slug: "takahe",
   },
   {
-    filename: "yellowhammer.png",
-    slug: "yellowhammer",
+    filename: "california_quail.png",
+    slug: "california_quail",
+  },
+  {
+    filename: "eastern_blue_bird.png",
+    slug: "eastern_blue_bird",
+  },
+  {
+    filename: "pileated_woodpecker.png",
+    slug: "pileated_woodpecker",
+  },
+  {
+    filename: "new_zealand_pigeon.png",
+    slug: "new_zealand_pigeon",
+  },
+  {
+    filename: "silver_gull.png",
+    slug: "silver_gull",
+  },
+  {
+    filename: "kaka.png",
+    slug: "kaka",
+  },
+  {
+    filename: "black_billed_gull.png",
+    slug: "black_billed_gull",
+  },
+  {
+    filename: "chaffinch.png",
+    slug: "chaffinch",
+  },
+  {
+    filename: "spotted_shag.png",
+    slug: "spotted_shag",
+  },
+  {
+    filename: "new_zealand_bellbird.png",
+    slug: "new_zealand_bellbird",
+  },
+  {
+    filename: "norther_mockingbird.png",
+    slug: "norther_mockingbird",
+  },
+  {
+    filename: "coot.png",
+    slug: "coot",
+  },
+  {
+    filename: "house_sparrow.png",
+    slug: "house_sparrow",
   },
 ];
 
@@ -29,10 +89,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Centered Header */}
-      <header className="py-8 flex justify-center">
-        <h1 className="text-xl font-bold font-mono tracking-widest text-black">
-          birdfinds.com
-        </h1>
+      <header className="py-2 flex justify-center">
+        <div className="relative w-16 h-16">
+          <Image
+            src="/logo.svg"
+            alt="BirdFinds Logo"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
       </header>
 
       {/* Bird Grid - 3 columns, no gaps/lines visually implied other than whitespace if images don't fill */}
@@ -47,8 +113,8 @@ export default function Home() {
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                 sizes="(max-width: 768px) 33vw, 33vw"
               />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <span className="text-white font-mono font-bold uppercase tracking-widest text-center px-2">
+              <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <span className="text-white text-[10px] font-mono font-medium uppercase tracking-widest drop-shadow-md">
                   {bird.slug.replace(/_/g, " ")}
                 </span>
               </div>

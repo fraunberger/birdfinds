@@ -1,4 +1,6 @@
+import { BlackjackTrainer } from "@/components/blackjack-trainer/BlackjackTrainer";
 import { BillSplitter } from "@/components/bill-splitter/BillSplitter";
+import { BenRiceShrine } from "@/components/ben-rice-shrine/BenRiceShrine";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -10,6 +12,21 @@ const BIRDS = {
     "eastern_blue_bird": "eastern_blue_bird.png",
     "takahe": "takahe.png",
     "yellowhammer": "yellowhammer.png",
+    "european_greenfinch": "european_greenfinch.png",
+    "cardinal": "cardinal.png",
+    "great_blue_heron": "great_blue_heron.png",
+    "california_quail": "california_quail.png",
+    "pileated_woodpecker": "pileated_woodpecker.png",
+    "new_zealand_pigeon": "new_zealand_pigeon.png",
+    "silver_gull": "silver_gull.png",
+    "kaka": "kaka.png",
+    "black_billed_gull": "black_billed_gull.png",
+    "chaffinch": "chaffinch.png",
+    "spotted_shag": "spotted_shag.png",
+    "new_zealand_bellbird": "new_zealand_bellbird.png",
+    "norther_mockingbird": "norther_mockingbird.png",
+    "coot": "coot.png",
+    "house_sparrow": "house_sparrow.png",
 };
 
 export default async function BirdPage({
@@ -19,17 +36,39 @@ export default async function BirdPage({
 }) {
     const { slug } = await params;
 
-    // The first bird (australian_magpie) triggers the bill splitter
-    // You can change which bird triggers it here.
+    // App Mappings
     const isBillSplitter = slug === "australian_magpie";
+    const isBenRice = false; // slug === "australian_pied_cormorant"; // Disabled for now
+    const isBlackjack = slug === "eastern_blue_bird";
 
     if (isBillSplitter) {
         return (
             <div className="min-h-screen bg-white font-mono text-black p-4">
-                <Link href="/" className="text-sm underline mb-4 block hover:no-underline">
-                    &larr; birdfinds.com
+                <Link href="/" className="inline-flex items-center gap-2 mb-4 hover:opacity-70 transition-opacity group">
+                    <span className="text-xl group-hover:-translate-x-1 transition-transform">&larr;</span>
+                    <div className="relative w-12 h-8">
+                        <Image src="/logo.svg" alt="Home" fill className="object-contain" />
+                    </div>
                 </Link>
                 <BillSplitter />
+            </div>
+        );
+    }
+
+    if (isBenRice) {
+        return <BenRiceShrine />;
+    }
+
+    if (isBlackjack) {
+        return (
+            <div className="min-h-screen bg-gray-50 font-sans text-black p-4 flex flex-col items-center">
+                <Link href="/" className="self-start inline-flex items-center gap-2 mb-8 hover:opacity-70 transition-opacity group">
+                    <span className="text-xl group-hover:-translate-x-1 transition-transform">&larr;</span>
+                    <div className="relative w-12 h-8">
+                        <Image src="/logo.svg" alt="Home" fill className="object-contain" />
+                    </div>
+                </Link>
+                <BlackjackTrainer />
             </div>
         );
     }
@@ -50,8 +89,11 @@ export default async function BirdPage({
 
     return (
         <div className="min-h-screen bg-white font-mono text-black p-4 flex flex-col items-center">
-            <Link href="/" className="self-start text-sm underline hover:no-underline mb-12">
-                &larr; birdfinds.com
+            <Link href="/" className="self-start inline-flex items-center gap-2 mb-12 hover:opacity-70 transition-opacity group">
+                <span className="text-xl group-hover:-translate-x-1 transition-transform">&larr;</span>
+                <div className="relative w-12 h-8">
+                    <Image src="/logo.svg" alt="Home" fill className="object-contain" />
+                </div>
             </Link>
 
             <div className="max-w-xl w-full text-center">
