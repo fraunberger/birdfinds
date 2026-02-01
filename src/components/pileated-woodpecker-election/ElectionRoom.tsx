@@ -30,17 +30,25 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
     const [hasVoted, setHasVoted] = useState(false);
 
     // Fetch Loop
+    const [errorCount, setErrorCount] = useState(0);
+
     const fetchElection = async () => {
         try {
             const res = await fetch(`/api/elections/${electionId}`);
             if (!res.ok) {
-                if (res.status === 404) onExit();
+                if (res.status === 404) {
+                    setErrorCount(prev => prev + 1);
+                    // Don't exit immediately, wait for a few consecutive failures
+                    if (errorCount > 3) onExit();
+                }
                 return;
             }
             const data = await res.json();
             setElection(data);
+            setErrorCount(0); // Reset on success
         } catch (e) {
             console.error(e);
+            // Network error, ignore and retry
         } finally {
             setLoading(false);
         }
@@ -222,8 +230,16 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
     };
 
     // ... Design Updates
-    if (loading) return <div className="text-center p-8">Loading...</div>;
-    if (!election) return <div className="text-center p-8">Election not found</div>;
+    if (loading) return <div className="text-center p-8 font-mono animate-pulse">Establishing Connection...</div>;
+    if (!election) return (
+        <div className="max-w-md mx-auto mt-20 p-8 bg-white border border-gray-900 text-center">
+            <h2 className="text-xl font-bold mb-4 uppercase">Connection Lost</h2>
+            <p className="text-gray-500 mb-8 text-sm">We couldn't find this election. It may have ended or your connection was interrupted.</p>
+            <button onClick={onExit} className="w-full py-3 bg-black text-white font-bold uppercase tracking-wide hover:bg-gray-800">
+                Back to Menu
+            </button>
+        </div>
+    );
 
     if (!isAuthenticated) return (
         <div className="max-w-md mx-auto mt-20 p-8 bg-white border border-gray-900 text-gray-900">

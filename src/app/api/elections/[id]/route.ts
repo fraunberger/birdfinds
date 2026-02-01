@@ -7,7 +7,7 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
-    const election = store.getElection(id);
+    const election = await store.getElection(id);
 
     if (!election) {
         return NextResponse.json({ error: "Not Found" }, { status: 404 });

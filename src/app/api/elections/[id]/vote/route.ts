@@ -9,7 +9,7 @@ export async function POST(
     const body = await request.json();
     const { voterName, rankings, groupCodeword } = body;
 
-    const election = store.getElection(id);
+    const election = await store.getElection(id);
     if (!election) return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
     if (election.groupCodeword !== groupCodeword) {
@@ -34,7 +34,7 @@ export async function POST(
         rankings // Array of nomination IDs
     };
 
-    store.addVote(id, vote);
+    await store.addVote(id, vote);
 
     return NextResponse.json({ success: true });
 }

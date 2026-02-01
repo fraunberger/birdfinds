@@ -24,7 +24,7 @@ export async function POST(req: Request) {
             createdAt: Date.now(),
         };
 
-        store.createElection(election);
+        await store.createElection(election);
 
         return NextResponse.json(election);
     } catch (error) {
@@ -33,13 +33,9 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-    // @ts-ignore - inspecting the private map for the list if needed, but I exposed a getter implicitly via the instance or I can just access it if I change store to export the map? 
-    // Store logic:
-    // private elections: Map<string, Election>;  -> It is private. 
-    // I should update store.ts to allow listing. But for now I'll cast to any.
-
-    const electionsMap = (store as any).elections as Map<string, Election>;
-    const elections = Array.from(electionsMap.values()).sort((a, b) => b.createdAt - a.createdAt);
+    const elections = await store.getAllElections();
+    // Sort logic needs to happen here as adapter returns unsorted array usually
+    elections.sort((a, b) => b.createdAt - a.createdAt);
 
     return NextResponse.json(elections.map(e => {
         let status = e.state || 'nomination';

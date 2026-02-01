@@ -9,7 +9,7 @@ export async function POST(
     const body = await request.json();
     const { nominatorName, restaurantName, groupCodeword } = body;
 
-    const election = store.getElection(id);
+    const election = await store.getElection(id);
     if (!election) return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
     if (election.groupCodeword !== groupCodeword) {
@@ -29,7 +29,7 @@ export async function POST(
         createdAt: Date.now()
     };
 
-    store.addNomination(id, nomination);
+    await store.addNomination(id, nomination);
 
     return NextResponse.json(nomination);
 }

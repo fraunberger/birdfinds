@@ -14,13 +14,13 @@ export async function POST(
     const body = await request.json();
     const { groupCodeword } = body;
 
-    const election = store.getElection(id);
+    const election = await store.getElection(id);
     if (!election) return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
     if (groupCodeword && election.groupCodeword !== groupCodeword) {
         return NextResponse.json({ error: "Invalid Codeword" }, { status: 403 });
     }
 
-    store.finalizeElection(id);
+    await store.finalizeElection(id);
     return NextResponse.json({ success: true });
 }
