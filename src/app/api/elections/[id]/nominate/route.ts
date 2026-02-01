@@ -1,0 +1,35 @@
+import { store } from "@/lib/election/store";
+import { NextResponse } from "next/server";
+
+export async function POST(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const { id } = await params;
+    const body = await request.json();
+    const { nominatorName, restaurantName, groupCodeword } = body;
+
+    const election = store.getElection(id);
+    if (!election) return NextResponse.json({ error: "Not Found" }, { status: 404 });
+
+    if (election.groupCodeword !== groupCodeword) {
+        return NextResponse.json({ error: "Invalid Codeword" }, { status: 403 });
+    }
+
+    // Check timing - allow during voting for write-ins
+    // if (Date.now() >= election.voteStartTime) {
+    //   return NextResponse.json({ error: "Nominations Closed" }, { status: 400 });
+    // }
+
+    const nomination = {
+        id: Math.random().toString(36).substring(2, 9),
+        nominatorName,
+        restaurantName,
+        isWriteIn: body.isWriteIn,
+        createdAt: Date.now()
+    };
+
+    store.addNomination(id, nomination);
+
+    return NextResponse.json(nomination);
+}

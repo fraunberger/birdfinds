@@ -1,6 +1,7 @@
 import { BlackjackTrainer } from "@/components/blackjack-trainer/BlackjackTrainer";
 import { BillSplitter } from "@/components/bill-splitter/BillSplitter";
 import { BenRiceShrine } from "@/components/ben-rice-shrine/BenRiceShrine";
+import { VotingApp } from "@/components/pileated-woodpecker-election/VotingApp";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -40,6 +41,7 @@ export default async function BirdPage({
     const isBillSplitter = slug === "australian_magpie";
     const isBenRice = false; // slug === "australian_pied_cormorant"; // Disabled for now
     const isBlackjack = slug === "eastern_blue_bird";
+    const isElection = slug === "pileated_woodpecker";
 
     if (isBillSplitter) {
         return (
@@ -71,6 +73,10 @@ export default async function BirdPage({
                 <BlackjackTrainer />
             </div>
         );
+    }
+
+    if (isElection) {
+        return <VotingApp />;
     }
 
     // Generic View for other birds
