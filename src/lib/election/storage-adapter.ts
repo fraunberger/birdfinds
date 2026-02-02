@@ -1,7 +1,7 @@
 
 import { Election } from "./types";
 import { kv } from "@vercel/kv";
-import Redis from "ioredis";
+import { createClient } from "redis";
 import fs from "fs";
 import path from "path";
 
@@ -10,7 +10,7 @@ export interface StorageAdapter {
     save(elections: Election[]): Promise<void>;
 }
 
-// 1. Vercel KV via HTTP (Preferred for Serverless)
+// 1. Vercel KV via HTTP (Preferred for Serverless - No connection management needed)
 export class VercelKvAdapter implements StorageAdapter {
     async load(): Promise<Election[]> {
         try {
@@ -31,23 +31,26 @@ export class VercelKvAdapter implements StorageAdapter {
     }
 }
 
-// 2. Standard Redis via TCP (ioredis) - Supports REDIS_URL
+// 2. Standard Redis via TCP (node-redis) - For REDIS_URL
 export class RedisUrlAdapter implements StorageAdapter {
-    private client: Redis;
+    private client: any;
+    private isConnected = false;
 
     constructor(url: string) {
-        // Use tls option for secure Vercel/Upstash connections usually required
-        this.client = new Redis(url, {
-            // Most cloud redis requires TLS. If REDIS_URL starts with reddish:// (secure), ioredis handles it.
-            // If manual control needed, check url. usually just passing url works for ioredis.
-            family: 0, // IPv4/IPv6
-        });
+        this.client = createClient({ url });
+        this.client.on('error', (err: any) => console.error('Redis Client Error', err));
+    }
 
-        this.client.on('error', (err) => console.error('Redis Client Error', err));
+    private async ensureConnection() {
+        if (!this.isConnected) {
+            await this.client.connect();
+            this.isConnected = true;
+        }
     }
 
     async load(): Promise<Election[]> {
         try {
+            await this.ensureConnection();
             const data = await this.client.get("elections");
             return data ? JSON.parse(data) : [];
         } catch (e) {
@@ -58,6 +61,7 @@ export class RedisUrlAdapter implements StorageAdapter {
 
     async save(elections: Election[]): Promise<void> {
         try {
+            await this.ensureConnection();
             await this.client.set("elections", JSON.stringify(elections));
         } catch (e) {
             console.error("Redis URL Save Error:", e);
