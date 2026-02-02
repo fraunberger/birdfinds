@@ -21,7 +21,7 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
     const [name, setName] = useState('');
     const [adminName, setAdminName] = useState('');
     const [date, setDate] = useState(''); // YYYY-MM-DD
-    const [time, setTime] = useState('18:00'); // HH:MM
+    const [time, setTime] = useState('18:10'); // HH:MM
     const [codeword, setCodeword] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -40,6 +40,8 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
         const startDateTime = new Date(`${date}T${time}`);
         const timestamp = startDateTime.getTime();
 
+        const safeCodeword = codeword.trim().toLowerCase();
+
         const res = await fetch('/api/elections', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -47,7 +49,7 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
                 name,
                 adminName,
                 voteStartTime: timestamp,
-                groupCodeword: codeword
+                groupCodeword: safeCodeword
             })
         });
 

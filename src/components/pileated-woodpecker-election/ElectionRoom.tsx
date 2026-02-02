@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Election, Nomination } from '@/lib/election/types';
+import { Reorder } from "framer-motion";
 
 interface ExtendedElection extends Election {
     status: 'nomination' | 'voting' | 'completed';
@@ -68,7 +69,7 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                 const { username: u, codeword: c } = JSON.parse(stored);
                 if (u && c) {
                     setUsername(u);
-                    setCodeword(c);
+                    setCodeword(c.toLowerCase());
                     setIsAuthenticated(true);
                 }
             } catch (e) { }
@@ -102,14 +103,15 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
         if (!username || !codeword) return;
 
         // Call join endpoint to reserve name
+        const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: username, groupCodeword: codeword })
+            body: JSON.stringify({ name: username, groupCodeword: safeCodeword })
         });
 
         if (res.ok) {
-            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username, codeword }));
+            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username, codeword: safeCodeword }));
             setIsAuthenticated(true);
             fetchElection();
         } else {
@@ -122,13 +124,14 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
         e.preventDefault();
         if (!restaurant.trim()) return;
 
+        const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/nominate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nominatorName: username,
                 restaurantName: restaurant,
-                groupCodeword: codeword,
+                groupCodeword: safeCodeword,
                 isWriteIn: false
             })
         });
@@ -147,13 +150,14 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
 
         if (!confirm("This will add a new candidate for everyone. Are you sure?")) return;
 
+        const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/nominate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nominatorName: username,
                 restaurantName: writeInCandidate,
-                groupCodeword: codeword,
+                groupCodeword: safeCodeword,
                 isWriteIn: true
             })
         });
@@ -171,13 +175,14 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
     const submitVote = async () => {
         if (rankings.length === 0) return;
 
+        const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/vote`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 voterName: username,
                 rankings: rankings,
-                groupCodeword: codeword
+                groupCodeword: safeCodeword
             })
         });
 
@@ -192,10 +197,11 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
 
     const finishElection = async () => {
         if (!confirm("Are you sure you want to close voting for everyone?")) return;
+        const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/finalize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groupCodeword: codeword })
+            body: JSON.stringify({ groupCodeword: safeCodeword })
         });
         if (res.ok) fetchElection();
     };
@@ -371,30 +377,34 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                         {/* Ranking */}
                         <div>
                             <h3 className="text-sm font-bold uppercase text-red-600 mb-4 tracking-wider border-b border-red-100 pb-2">Your Ranking</h3>
-                            <div className="space-y-2 min-h-[200px] border-2 border-dashed border-gray-200 p-4 bg-gray-50/30">
+
+                            <Reorder.Group axis="y" values={rankings} onReorder={setRankings} className="space-y-2 min-h-[200px] border-2 border-dashed border-gray-200 p-4 bg-gray-50/30">
                                 {rankings.map((id, idx) => {
                                     const details = election.nominations.find(n => n.id === id);
                                     if (!details) return null;
                                     return (
-                                        <div key={id} className="bg-white border border-gray-300 p-3 shadow-[2px_2px_0px_rgba(0,0,0,0.1)] flex items-center gap-3">
-                                            <span className="flex-none w-6 h-6 bg-black text-white flex items-center justify-center text-xs font-bold font-mono">
+                                        <Reorder.Item key={id} value={id} className="bg-white border border-gray-300 p-3 shadow-[2px_2px_0px_rgba(0,0,0,0.1)] flex items-center gap-3 touch-none cursor-move active:shadow-lg active:scale-[1.02] transition-all">
+                                            <span className="flex-none w-6 h-6 bg-black text-white flex items-center justify-center text-xs font-bold font-mono select-none">
                                                 {idx + 1}
                                             </span>
-                                            <span className="flex-grow font-bold truncate">{details.restaurantName}</span>
-                                            <div className="flex gap-1">
-                                                <button onClick={() => moveRank(idx, -1)} disabled={idx === 0} className="hover:bg-gray-100 p-1 px-2 text-gray-400 hover:text-black disabled:opacity-20">▲</button>
-                                                <button onClick={() => moveRank(idx, 1)} disabled={idx === rankings.length - 1} className="hover:bg-gray-100 p-1 px-2 text-gray-400 hover:text-black disabled:opacity-20">▼</button>
-                                                <button onClick={() => toggleRank(id)} className="hover:bg-red-50 text-gray-300 hover:text-red-600 px-2 ml-2">×</button>
+                                            <span className="flex-grow font-bold truncate select-none">{details.restaurantName}</span>
+
+                                            {/* Drag Handle Icon */}
+                                            <div className="text-gray-300 px-2 cursor-grab active:cursor-grabbing">
+                                                ⋮⋮
                                             </div>
-                                        </div>
+
+                                            <button onClick={() => toggleRank(id)} className="hover:bg-red-50 text-gray-300 hover:text-red-600 px-2 ml-2">×</button>
+                                        </Reorder.Item>
                                     );
                                 })}
-                                {rankings.length === 0 && (
-                                    <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
-                                        Select candidates to start ranking
-                                    </div>
-                                )}
-                            </div>
+                            </Reorder.Group>
+
+                            {rankings.length === 0 && (
+                                <div className="text-gray-400 text-sm italic text-center mt-4">
+                                    Select candidates to start ranking
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
