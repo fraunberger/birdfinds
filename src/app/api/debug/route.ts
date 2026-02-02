@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getAdapter } from "@/lib/election/storage-adapter";
 import { kv } from "@vercel/kv";
+import { createClient } from "redis";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,23 +18,28 @@ export async function GET() {
         hasUrl: !!process.env.KV_REST_API_URL,
         hasToken: !!process.env.KV_REST_API_TOKEN,
         hasRedisUrl: !!process.env.REDIS_URL,
-        urlPrefix: process.env.KV_REST_API_URL ? process.env.KV_REST_API_URL.substring(0, 8) + '...' : null,
-        // List all keys that might be relevant (starts with KV, REDIS, VERCEL, or just all non-secret keys)
         allKeys: Object.keys(process.env).sort()
     };
 
     let redisPing = 'Skipped';
-    if (adapterName.includes('Redis') || adapterName.includes('VercelKv')) {
-        try {
-            // Test Save
-            await adapter.save([{ id: 'ping', name: 'pong' } as any]);
-            // Test Load
-            const res = await adapter.load();
-            const pong = res.find(e => e.id === 'ping');
-            redisPing = pong ? 'Success' : 'Failed Roundtrip';
-        } catch (e: any) {
-            redisPing = `Error: ${e.message}`;
+
+    try {
+        if (adapterName === 'VercelKvAdapter') {
+            await kv.set('debug_ping', 'pong');
+            const res = await kv.get('debug_ping');
+            redisPing = res === 'pong' ? 'Success' : 'Failed Value Match';
         }
+        else if (adapterName === 'RedisUrlAdapter' && process.env.REDIS_URL) {
+            const client = createClient({ url: process.env.REDIS_URL });
+            client.on('error', (e) => console.log('Debug Redis Error', e));
+            await client.connect();
+            await client.set('debug_ping', 'pong');
+            const res = await client.get('debug_ping');
+            await client.disconnect();
+            redisPing = res === 'pong' ? 'Success' : 'Failed Value Match';
+        }
+    } catch (e: any) {
+        redisPing = `Error: ${e.message}`;
     }
 
     return NextResponse.json({
