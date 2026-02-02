@@ -7,34 +7,55 @@ import path from "path";
 
 export interface StorageAdapter {
     type: string;
-    load(): Promise<Election[]>;
-    save(elections: Election[]): Promise<void>;
+    getElection(id: string): Promise<Election | undefined>;
+    saveElection(election: Election): Promise<void>;
+    getAllElections(): Promise<Election[]>;
 }
 
-// 1. Vercel KV via HTTP (Preferred for Serverless - No connection management needed)
+// 1. Vercel KV via HTTP
 export class VercelKvAdapter implements StorageAdapter {
     type = "vercel-kv";
 
-    async load(): Promise<Election[]> {
+    async getElection(id: string): Promise<Election | undefined> {
         try {
-            const data = await kv.get<Election[]>("elections");
-            return data || [];
+            const data = await kv.get<Election>(`election:${id}`);
+            return data || undefined;
         } catch (e) {
             console.error("Vercel KV Load Error:", e);
-            return [];
+            return undefined;
         }
     }
 
-    async save(elections: Election[]): Promise<void> {
+    async saveElection(election: Election): Promise<void> {
         try {
-            await kv.set("elections", elections);
+            // Store specific key
+            await kv.set(`election:${election.id}`, election);
+            // Also add to a set of IDs for easier listing? Or just use SCAN?
+            // Using SCAN/KEYS for simplicity in this scale. 
+            // Better: Maintain a "elections:ids" set.
+            await kv.sadd("elections:ids", election.id);
         } catch (e) {
             console.error("Vercel KV Save Error:", e);
         }
     }
+
+    async getAllElections(): Promise<Election[]> {
+        try {
+            const ids = await kv.smembers("elections:ids");
+            if (!ids || ids.length === 0) return [];
+
+            // Parallel fetch
+            const pipelines = ids.map(id => kv.get<Election>(`election:${id}`));
+            const results = await Promise.all(pipelines);
+            return results.filter(e => e !== null) as Election[];
+        } catch (e) {
+            console.error("Vercel KV List Error:", e);
+            return [];
+        }
+    }
 }
 
-// 2. Standard Redis via TCP (node-redis) - For REDIS_URL
+// 2. Standard Redis via TCP
 export class RedisUrlAdapter implements StorageAdapter {
     type = "redis-url";
     private client: any;
@@ -52,28 +73,48 @@ export class RedisUrlAdapter implements StorageAdapter {
         }
     }
 
-    async load(): Promise<Election[]> {
+    async getElection(id: string): Promise<Election | undefined> {
         try {
             await this.ensureConnection();
-            const data = await this.client.get("elections");
-            return data ? JSON.parse(data) : [];
+            const data = await this.client.get(`election:${id}`);
+            return data ? JSON.parse(data) : undefined;
         } catch (e) {
             console.error("Redis URL Load Error:", e);
-            return [];
+            return undefined;
         }
     }
 
-    async save(elections: Election[]): Promise<void> {
+    async saveElection(election: Election): Promise<void> {
         try {
             await this.ensureConnection();
-            await this.client.set("elections", JSON.stringify(elections));
+            await this.client.set(`election:${election.id}`, JSON.stringify(election));
+            await this.client.sAdd("elections:ids", election.id);
         } catch (e) {
             console.error("Redis URL Save Error:", e);
         }
     }
+
+    async getAllElections(): Promise<Election[]> {
+        try {
+            await this.ensureConnection();
+            const ids = await this.client.sMembers("elections:ids");
+            if (!ids || ids.length === 0) return [];
+
+            const elections = [];
+            for (const id of ids) {
+                const data = await this.client.get(`election:${id}`);
+                if (data) elections.push(JSON.parse(data));
+            }
+            return elections;
+        } catch (e) {
+            console.error("Redis URL List Error:", e);
+            return [];
+        }
+    }
 }
 
-// 3. Local File System Fallback
+// 3. Local File System Fallback (Still uses single file for simplicity locally, or could split?)
+// Keeping single file locally is fine because dev environment usually assumes single process.
 export class FileAdapter implements StorageAdapter {
     type = "file";
     private filePath: string;
@@ -82,7 +123,7 @@ export class FileAdapter implements StorageAdapter {
         this.filePath = path.join(process.cwd(), "data", "elections.json");
     }
 
-    async load(): Promise<Election[]> {
+    private loadAll(): Election[] {
         try {
             if (fs.existsSync(this.filePath)) {
                 const data = fs.readFileSync(this.filePath, "utf-8");
@@ -94,7 +135,7 @@ export class FileAdapter implements StorageAdapter {
         return [];
     }
 
-    async save(elections: Election[]): Promise<void> {
+    private saveAll(elections: Election[]) {
         try {
             const dir = path.dirname(this.filePath);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -103,24 +144,35 @@ export class FileAdapter implements StorageAdapter {
             console.error("File Save Error:", e);
         }
     }
+
+    async getElection(id: string): Promise<Election | undefined> {
+        const all = this.loadAll();
+        return all.find(e => e.id === id);
+    }
+
+    async saveElection(election: Election): Promise<void> {
+        const all = this.loadAll();
+        const idx = all.findIndex(e => e.id === election.id);
+        if (idx >= 0) {
+            all[idx] = election;
+        } else {
+            all.push(election);
+        }
+        this.saveAll(all);
+    }
+
+    async getAllElections(): Promise<Election[]> {
+        return this.loadAll();
+    }
 }
 
 // Factory to choose the right adapter
 export function getAdapter(): StorageAdapter {
-    // 1. Try Vercel KV Specific (HTTP)
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        console.log("[Storage] Using Vercel KV (HTTP).");
         return new VercelKvAdapter();
     }
-
-    // 2. Try Generic REDIS_URL (TCP)
     if (process.env.REDIS_URL) {
-        console.log("[Storage] Using Standard Redis (TCP).");
-        // Ensure we pass the URL string found in env
         return new RedisUrlAdapter(process.env.REDIS_URL);
     }
-
-    // 3. Fallback to File
-    console.log("[Storage] Using Local File persistence.");
     return new FileAdapter();
 }

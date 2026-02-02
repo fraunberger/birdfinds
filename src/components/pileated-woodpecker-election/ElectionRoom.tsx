@@ -395,16 +395,22 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                                     </div>
                                 )}
                             </div>
-
-                            <button
-                                onClick={submitVote}
-                                disabled={rankings.length === 0}
-                                className="w-full mt-6 py-4 bg-red-600 text-white font-bold uppercase tracking-widest hover:bg-red-500 transition-all disabled:opacity-50 disabled:bg-gray-300"
-                            >
-                                Submit Vote
-                            </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Submit Vote */}
+            {!hasVoted && election.status === 'voting' && (
+                <div className="fixed bottom-0 left-0 right-0 p-4 border-t border-black bg-white/95 backdrop-blur-sm shadow-md">
+                    <button
+                        onClick={submitVote}
+                        disabled={rankings.length === 0}
+                        className="w-full max-w-sm mx-auto block py-4 bg-black text-white font-black uppercase text-xl tracking-widest hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                    >
+                        Submit Vote ({rankings.length})
+                    </button>
+                    <p className="text-center text-xs mt-2 text-gray-500">Tap candidates above to rank them</p>
                 </div>
             )}
 
@@ -453,7 +459,9 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                                     {election.nominations.find(n => n.id === election.winner)?.restaurantName || "Unknown"}
                                 </h3>
                                 <div className="h-1 w-20 bg-red-600 mx-auto my-6"></div>
-                                <p className="text-gray-500 font-mono text-sm uppercase">Consensus Winner</p>
+                                <p className="text-gray-500 font-mono text-sm uppercase">
+                                    Winner by {(election as any).winnerMethod || "Consensus"}
+                                </p>
                             </div>
                         </div>
                     ) : (
