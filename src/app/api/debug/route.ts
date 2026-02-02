@@ -12,7 +12,9 @@ export async function GET() {
     const envStatus = {
         hasUrl: !!process.env.KV_REST_API_URL,
         hasToken: !!process.env.KV_REST_API_TOKEN,
-        urlPrefix: process.env.KV_REST_API_URL ? process.env.KV_REST_API_URL.substring(0, 8) + '...' : null
+        urlPrefix: process.env.KV_REST_API_URL ? process.env.KV_REST_API_URL.substring(0, 8) + '...' : null,
+        // List all keys that might be relevant (starts with KV, REDIS, VERCEL, or just all non-secret keys)
+        allKeys: Object.keys(process.env).sort()
     };
 
     let redisPing = 'Skipped';
