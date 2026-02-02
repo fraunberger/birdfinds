@@ -8,11 +8,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     const adapter = getAdapter();
-    const adapterName = adapter.constructor.name;
+    const adapterType = adapter.type;
 
-    let storageMode = 'File (Local)';
-    if (adapterName === 'VercelKvAdapter') storageMode = 'Redis (Vercel KV HTTP)';
-    if (adapterName === 'RedisUrlAdapter') storageMode = 'Redis (TCP Standard)';
+    let storageMode = 'File (Local) - Default';
+    if (adapterType === 'vercel-kv') storageMode = 'Redis (Vercel KV HTTP)';
+    if (adapterType === 'redis-url') storageMode = 'Redis (TCP Standard)';
+    if (adapterType === 'file') storageMode = 'File (Local)';
 
     const envStatus = {
         hasUrl: !!process.env.KV_REST_API_URL,
@@ -24,12 +25,14 @@ export async function GET() {
     let redisPing = 'Skipped';
 
     try {
-        if (adapterName === 'VercelKvAdapter') {
+        if (adapterType === 'vercel-kv') {
             await kv.set('debug_ping', 'pong');
             const res = await kv.get('debug_ping');
             redisPing = res === 'pong' ? 'Success' : 'Failed Value Match';
         }
-        else if (adapterName === 'RedisUrlAdapter' && process.env.REDIS_URL) {
+        else if (adapterType === 'redis-url' && process.env.REDIS_URL) {
+            // Need to create a new client here just for debug, independent of adapter internals if possible,
+            // or we could expose the client. But simpler to just connect fresh for debug purity.
             const client = createClient({ url: process.env.REDIS_URL });
             client.on('error', (e) => console.log('Debug Redis Error', e));
             await client.connect();

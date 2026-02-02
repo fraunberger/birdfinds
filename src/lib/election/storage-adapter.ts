@@ -6,12 +6,15 @@ import fs from "fs";
 import path from "path";
 
 export interface StorageAdapter {
+    type: string;
     load(): Promise<Election[]>;
     save(elections: Election[]): Promise<void>;
 }
 
 // 1. Vercel KV via HTTP (Preferred for Serverless - No connection management needed)
 export class VercelKvAdapter implements StorageAdapter {
+    type = "vercel-kv";
+
     async load(): Promise<Election[]> {
         try {
             const data = await kv.get<Election[]>("elections");
@@ -33,6 +36,7 @@ export class VercelKvAdapter implements StorageAdapter {
 
 // 2. Standard Redis via TCP (node-redis) - For REDIS_URL
 export class RedisUrlAdapter implements StorageAdapter {
+    type = "redis-url";
     private client: any;
     private isConnected = false;
 
@@ -71,6 +75,7 @@ export class RedisUrlAdapter implements StorageAdapter {
 
 // 3. Local File System Fallback
 export class FileAdapter implements StorageAdapter {
+    type = "file";
     private filePath: string;
 
     constructor() {
@@ -111,6 +116,7 @@ export function getAdapter(): StorageAdapter {
     // 2. Try Generic REDIS_URL (TCP)
     if (process.env.REDIS_URL) {
         console.log("[Storage] Using Standard Redis (TCP).");
+        // Ensure we pass the URL string found in env
         return new RedisUrlAdapter(process.env.REDIS_URL);
     }
 
