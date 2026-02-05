@@ -1,9 +1,15 @@
 
 import { Nomination, Vote } from "./types";
 
-export function calculateIRV(nominations: Nomination[], votes: Vote[]): string | null {
-    if (nominations.length === 0) return null;
-    if (votes.length === 0) return null;
+export interface IRVResult {
+    winnerId: string | null;
+    tieBroken: boolean;
+    winnerVoteTime?: number;
+}
+
+export function calculateIRV(nominations: Nomination[], votes: Vote[]): IRVResult {
+    if (nominations.length === 0) return { winnerId: null, tieBroken: false };
+    if (votes.length === 0) return { winnerId: null, tieBroken: false };
 
     let candidates = nominations.map(n => n.id);
 
@@ -34,7 +40,7 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): string |
         // Check for majority
         for (const id of candidates) {
             if (counts[id] > totalVotes / 2) {
-                return id;
+                return { winnerId: id, tieBroken: false };
             }
         }
 
@@ -47,7 +53,7 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): string |
             // "The first person who submitted one of the tied options at number 1 that one wins"
             const tieBreaker = candidates.map(id => ({ id, time: getEarliestFirstVote(id) }))
                 .sort((a, b) => a.time - b.time);
-            return tieBreaker[0].id;
+            return { winnerId: tieBreaker[0].id, tieBroken: true, winnerVoteTime: tieBreaker[0].time };
         }
 
         // If multiple losers, eliminate the one whose EARLIEST #1 vote was latest 
@@ -63,5 +69,5 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): string |
         }
     }
 
-    return candidates[0] || null;
+    return { winnerId: candidates[0] || null, tieBroken: false };
 }

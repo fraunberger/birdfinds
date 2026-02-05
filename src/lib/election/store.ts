@@ -120,15 +120,22 @@ class ElectionStore {
 
             let winner = determineCondorcetWinner(election.nominations, election.votes);
             let method = "Condorcet";
+            let tieBroken = false;
+            let winnerVoteTime = undefined;
 
             if (!winner) {
                 console.log("[Winner] No Condorcet winner, attempting IRV...");
-                winner = calculateIRV(election.nominations, election.votes);
+                const irvResult = calculateIRV(election.nominations, election.votes);
+                winner = irvResult.winnerId;
                 method = "Instant Runoff";
+                tieBroken = irvResult.tieBroken;
+                winnerVoteTime = irvResult.winnerVoteTime;
             }
 
             (election as any).winner = winner;
             (election as any).winnerMethod = method; // Store method for UI
+            (election as any).tieBroken = tieBroken;
+            (election as any).winnerVoteTime = winnerVoteTime;
         } catch (e) {
             console.error("Failed to calculate winner logic", e);
         }
