@@ -11,6 +11,7 @@ export interface Nomination {
 export interface Vote {
     voterName: string;
     rankings: string[]; // array of nomination IDs in order of preference
+    createdAt: number;
 }
 
 export interface Election {

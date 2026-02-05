@@ -11,6 +11,7 @@ export interface StorageAdapter {
     getElection(id: string): Promise<Election | undefined>;
     saveElection(election: Election): Promise<void>;
     getAllElections(): Promise<Election[]>;
+    deleteElection(id: string): Promise<void>;
 }
 
 // 0. Supabase Migration (New Priority)
@@ -67,6 +68,14 @@ export class SupabaseAdapter implements StorageAdapter {
             return [];
         }
     }
+
+    async deleteElection(id: string): Promise<void> {
+        try {
+            await supabase.from("elections").delete().eq("id", id);
+        } catch (e) {
+            console.error("Supabase Delete Error:", e);
+        }
+    }
 }
 
 // 1. Vercel KV via HTTP
@@ -103,6 +112,15 @@ export class VercelKvAdapter implements StorageAdapter {
         } catch (e) {
             console.error("Vercel KV List Error:", e);
             return [];
+        }
+    }
+
+    async deleteElection(id: string): Promise<void> {
+        try {
+            await kv.del(`election:${id}`);
+            await kv.srem("elections:ids", id);
+        } catch (e) {
+            console.error("Vercel KV Delete Error:", e);
         }
     }
 }
@@ -163,6 +181,16 @@ export class RedisUrlAdapter implements StorageAdapter {
             return [];
         }
     }
+
+    async deleteElection(id: string): Promise<void> {
+        try {
+            await this.ensureConnection();
+            await this.client.del(`election:${id}`);
+            await this.client.sRem("elections:ids", id);
+        } catch (e) {
+            console.error("Redis URL Delete Error:", e);
+        }
+    }
 }
 
 // 3. Local File System Fallback
@@ -215,7 +243,14 @@ export class FileAdapter implements StorageAdapter {
     async getAllElections(): Promise<Election[]> {
         return this.loadAll();
     }
+
+    async deleteElection(id: string): Promise<void> {
+        const all = this.loadAll();
+        const filtered = all.filter(e => e.id !== id);
+        this.saveAll(filtered);
+    }
 }
+
 
 // Factory to choose the right adapter
 export function getAdapter(): StorageAdapter {

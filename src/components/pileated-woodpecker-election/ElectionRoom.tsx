@@ -293,12 +293,31 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                                 <input
                                     value={restaurant}
                                     onChange={e => setRestaurant(e.target.value)}
-                                    placeholder="e.g. Taco Bell"
+                                    placeholder="e.g. Dad's"
                                     className="w-full bg-white border-2 border-gray-200 p-4 text-lg font-bold outline-none focus:border-black transition-colors placeholder:font-normal placeholder:text-gray-300"
                                 />
                                 <button type="submit" className="w-full py-4 bg-black text-white font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors">
                                     {election.nominations.some(n => n.nominatorName === username && !n.isWriteIn) ? "Update Choice" : "Submit Choice"}
                                 </button>
+
+                                {username === election.adminName && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (confirm("Start voting now?")) {
+                                                const safeCodeword = codeword.trim().toLowerCase();
+                                                await fetch(`/api/elections/${electionId}/start`, {
+                                                    method: 'POST',
+                                                    body: JSON.stringify({ groupCodeword: safeCodeword })
+                                                });
+                                                fetchElection();
+                                            }
+                                        }}
+                                        className="w-full mt-4 py-2 border-2 border-black text-black font-bold uppercase text-xs tracking-widest hover:bg-black hover:text-white transition-all"
+                                    >
+                                        ⚡ Start Voting Now (Admin)
+                                    </button>
+                                )}
                             </form>
                         </div>
                     </div>

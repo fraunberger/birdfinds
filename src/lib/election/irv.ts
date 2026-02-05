@@ -6,65 +6,61 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): string |
     if (votes.length === 0) return null;
 
     let candidates = nominations.map(n => n.id);
-    let activeVotes = votes.map(v => ({
-        voter: v.voterName,
-        rankings: v.rankings.filter(id => candidates.includes(id))
-    }));
+
+    // Sort candidates by earliest #1 vote initially to handle "perfect" tie from start
+    const getEarliestFirstVote = (candidateId: string): number => {
+        const firstVotes = votes.filter(v => v.rankings[0] === candidateId);
+        if (firstVotes.length === 0) return Infinity;
+        return Math.min(...firstVotes.map(v => v.createdAt));
+    };
 
     while (candidates.length > 1) {
-        // Count first preferences
+        let activeVotes = votes.map(v => ({
+            rankings: v.rankings.filter(id => candidates.includes(id))
+        })).filter(v => v.rankings.length > 0);
+
+        if (activeVotes.length === 0) break;
+
         const counts: Record<string, number> = {};
         candidates.forEach(id => counts[id] = 0);
 
-        let totalValidBallots = 0;
-        for (const ballot of activeVotes) {
-            if (ballot.rankings.length > 0) {
-                const firstChoice = ballot.rankings[0];
-                counts[firstChoice] = (counts[firstChoice] || 0) + 1;
-                totalValidBallots++;
-            }
-        }
+        activeVotes.forEach(ballot => {
+            const firstChoice = ballot.rankings[0];
+            counts[firstChoice]++;
+        });
 
-        if (totalValidBallots === 0) return null; // No one voted for remaining candidates
+        const totalVotes = activeVotes.length;
 
         // Check for majority
         for (const id of candidates) {
-            if (counts[id] > totalValidBallots / 2) {
-                return id; // Winner found
+            if (counts[id] > totalVotes / 2) {
+                return id;
             }
         }
 
-        // Find candidate(s) to eliminate (lowest score)
-        let minVotes = totalValidBallots + 1;
-        let toEliminate: string[] = [];
+        // Elimination
+        let minVotes = Math.min(...candidates.map(id => counts[id]));
+        let losers = candidates.filter(id => counts[id] === minVotes);
 
-        for (const id of candidates) {
-            if (counts[id] < minVotes) {
-                minVotes = counts[id];
-                toEliminate = [id];
-            } else if (counts[id] === minVotes) {
-                toEliminate.push(id);
-            }
+        if (losers.length === candidates.length) {
+            // Perfect tie among all remaining - use the requested tie-breaker
+            // "The first person who submitted one of the tied options at number 1 that one wins"
+            const tieBreaker = candidates.map(id => ({ id, time: getEarliestFirstVote(id) }))
+                .sort((a, b) => a.time - b.time);
+            return tieBreaker[0].id;
         }
 
-        // Tie-breaker: If all remaining are tied, pick one arbitrarily or return null?
-        // User wants "try hard to crown a winner".
-        if (toEliminate.length === candidates.length) {
-            // Everyone is tied. Return the first one (arbitrary tie break)
-            return candidates[0];
+        // If multiple losers, eliminate the one whose EARLIEST #1 vote was latest 
+        // (to encourage early voting even for second-tier choices)
+        // Standard IRV usually eliminates all bottom-tied or picks one. 
+        // We will pick the "most late" one to eliminate.
+        if (losers.length > 1) {
+            const loserTimes = losers.map(id => ({ id, time: getEarliestFirstVote(id) }))
+                .sort((a, b) => b.time - a.time); // Latest time first (to eliminate)
+            candidates = candidates.filter(id => id !== loserTimes[0].id);
+        } else {
+            candidates = candidates.filter(id => id !== losers[0]);
         }
-
-        // Eliminate
-        // If multiple tied for last, we can eliminate all of them (bulk elimination) 
-        // OR standard IRV rules say eliminate one by one (often by looking at previous rounds).
-        // For simplicity, eliminate all tied absolute losers.
-
-        candidates = candidates.filter(id => !toEliminate.includes(id));
-
-        // Update ballots: remove eliminated candidates
-        activeVotes.forEach(ballot => {
-            ballot.rankings = ballot.rankings.filter(id => !toEliminate.includes(id));
-        });
     }
 
     return candidates[0] || null;

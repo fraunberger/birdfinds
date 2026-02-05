@@ -21,12 +21,41 @@ class ElectionStore {
         return election;
     }
 
+    private async checkRetention(election: Election): Promise<Election | undefined> {
+        if (election.name.toLowerCase() === 'shots') return election;
+
+        const twoHours = 2 * 60 * 60 * 1000;
+        if (Date.now() - election.createdAt > twoHours) {
+            await this.getAdapter().deleteElection(election.id);
+            return undefined;
+        }
+        return election;
+    }
+
     async getElection(id: string): Promise<Election | undefined> {
-        return this.getAdapter().getElection(id);
+        const election = await this.getAdapter().getElection(id);
+        if (!election) return undefined;
+        return this.checkRetention(election);
     }
 
     async getAllElections(): Promise<Election[]> {
-        return this.getAdapter().getAllElections();
+        const elections = await this.getAdapter().getAllElections();
+        const results: Election[] = [];
+        for (const e of elections) {
+            const valid = await this.checkRetention(e);
+            if (valid) results.push(valid);
+        }
+        return results;
+    }
+
+    async startVoting(electionId: string) {
+        const adapter = this.getAdapter();
+        const election = await adapter.getElection(electionId);
+        if (!election) return null;
+
+        election.voteStartTime = Date.now();
+        await adapter.saveElection(election);
+        return election;
     }
 
     async addParticipant(electionId: string, name: string) {
@@ -67,6 +96,7 @@ class ElectionStore {
         const election = await adapter.getElection(electionId);
         if (!election) return null;
 
+        vote.createdAt = Date.now();
         const existingIndex = election.votes.findIndex(v => v.voterName === vote.voterName);
         if (existingIndex >= 0) {
             election.votes[existingIndex] = vote;
