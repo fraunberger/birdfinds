@@ -2,6 +2,7 @@
 import { Election } from "./types";
 import { kv } from "@vercel/kv";
 import { createClient } from "redis";
+import { supabase } from "@/lib/supabase";
 import fs from "fs";
 import path from "path";
 
@@ -10,6 +11,62 @@ export interface StorageAdapter {
     getElection(id: string): Promise<Election | undefined>;
     saveElection(election: Election): Promise<void>;
     getAllElections(): Promise<Election[]>;
+}
+
+// 0. Supabase Migration (New Priority)
+export class SupabaseAdapter implements StorageAdapter {
+    type = "supabase";
+
+    async getElection(id: string): Promise<Election | undefined> {
+        try {
+            const { data, error } = await supabase
+                .from("elections")
+                .select("data")
+                .eq("id", id)
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') return undefined; // Not found
+                console.error("Supabase Load Error:", error);
+                return undefined;
+            }
+            return data?.data as Election || undefined;
+        } catch (e) {
+            console.error("Supabase Adapter Error:", e);
+            return undefined;
+        }
+    }
+
+    async saveElection(election: Election): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from("elections")
+                .upsert({ id: election.id, data: election, updated_at: new Date().toISOString() });
+
+            if (error) {
+                console.error("Supabase Save Error:", error);
+            }
+        } catch (e) {
+            console.error("Supabase Adapter Save Error:", e);
+        }
+    }
+
+    async getAllElections(): Promise<Election[]> {
+        try {
+            const { data, error } = await supabase
+                .from("elections")
+                .select("data");
+
+            if (error) {
+                console.error("Supabase List Error:", error);
+                return [];
+            }
+            return (data || []).map(row => row.data as Election);
+        } catch (e) {
+            console.error("Supabase Adapter List Error:", e);
+            return [];
+        }
+    }
 }
 
 // 1. Vercel KV via HTTP
@@ -28,11 +85,7 @@ export class VercelKvAdapter implements StorageAdapter {
 
     async saveElection(election: Election): Promise<void> {
         try {
-            // Store specific key
             await kv.set(`election:${election.id}`, election);
-            // Also add to a set of IDs for easier listing? Or just use SCAN?
-            // Using SCAN/KEYS for simplicity in this scale. 
-            // Better: Maintain a "elections:ids" set.
             await kv.sadd("elections:ids", election.id);
         } catch (e) {
             console.error("Vercel KV Save Error:", e);
@@ -44,7 +97,6 @@ export class VercelKvAdapter implements StorageAdapter {
             const ids = await kv.smembers("elections:ids");
             if (!ids || ids.length === 0) return [];
 
-            // Parallel fetch
             const pipelines = ids.map(id => kv.get<Election>(`election:${id}`));
             const results = await Promise.all(pipelines);
             return results.filter(e => e !== null) as Election[];
@@ -113,8 +165,7 @@ export class RedisUrlAdapter implements StorageAdapter {
     }
 }
 
-// 3. Local File System Fallback (Still uses single file for simplicity locally, or could split?)
-// Keeping single file locally is fine because dev environment usually assumes single process.
+// 3. Local File System Fallback
 export class FileAdapter implements StorageAdapter {
     type = "file";
     private filePath: string;
@@ -168,11 +219,21 @@ export class FileAdapter implements StorageAdapter {
 
 // Factory to choose the right adapter
 export function getAdapter(): StorageAdapter {
+    // 0. Supabase (Top Priority)
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        return new SupabaseAdapter();
+    }
+
+    // 1. Vercel KV Specific (HTTP)
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
         return new VercelKvAdapter();
     }
+
+    // 2. Generic REDIS_URL (TCP)
     if (process.env.REDIS_URL) {
         return new RedisUrlAdapter(process.env.REDIS_URL);
     }
+
+    // 3. Fallback to File
     return new FileAdapter();
 }
