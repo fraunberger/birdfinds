@@ -77,7 +77,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             onClick={onClose}
         >
             <div
-                className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono max-h-[90vh] overflow-y-auto"
+                className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono flex flex-col" style={{ maxHeight: '90vh' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header — category colored */}
@@ -105,25 +105,28 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 ))}
                             </select>
                         )}
-                        {/* Rating — compact pill */}
+                        {/* Rating — prominent /10 */}
                         {readOnly ? (
                             rating ? (
-                                <span className="text-[10px] font-bold text-neutral-700 bg-white/60 border border-neutral-300 px-1.5 py-0.5">
-                                    {rating}
+                                <span className="text-sm font-bold text-neutral-800 bg-white/70 border border-neutral-300 px-2 py-0.5">
+                                    {rating}<span className="text-[10px] text-neutral-400 font-normal">/10</span>
                                 </span>
                             ) : null
                         ) : (
-                            <input
-                                type="number"
-                                min="0"
-                                max="10"
-                                step="0.1"
-                                inputMode="decimal"
-                                value={rating || ''}
-                                onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                placeholder="—"
-                                className="w-12 text-center text-[10px] font-mono border border-neutral-300 outline-none py-0.5 bg-white/60"
-                            />
+                            <div className="flex items-center gap-0.5 bg-white/70 border border-neutral-300 px-1.5 py-0.5">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    step="0.1"
+                                    inputMode="decimal"
+                                    value={rating || ''}
+                                    onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
+                                    placeholder="--"
+                                    className="w-8 text-center text-sm font-bold font-mono border-none outline-none bg-transparent"
+                                />
+                                <span className="text-[10px] text-neutral-400">/10</span>
+                            </div>
                         )}
                     </div>
                     <button
@@ -134,8 +137,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     </button>
                 </div>
 
-                {/* Form */}
-                <div className="p-4 space-y-4">
+                {/* Form — scrollable */}
+                <div className="p-4 space-y-4 overflow-y-auto flex-1">
                     {/* Title */}
                     <div>
                         <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">

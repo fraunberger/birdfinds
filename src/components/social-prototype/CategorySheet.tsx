@@ -42,8 +42,8 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                         <button
                             onClick={() => setSortMode('latest')}
                             className={`px-2 py-0.5 uppercase tracking-wider transition-colors ${sortMode === 'latest'
-                                    ? 'bg-neutral-800 text-white'
-                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                ? 'bg-neutral-800 text-white'
+                                : 'text-neutral-500 hover:bg-neutral-100'
                                 }`}
                         >
                             Latest
@@ -51,8 +51,8 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                         <button
                             onClick={() => setSortMode('top')}
                             className={`px-2 py-0.5 uppercase tracking-wider transition-colors border-l border-neutral-300 ${sortMode === 'top'
-                                    ? 'bg-neutral-800 text-white'
-                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                ? 'bg-neutral-800 text-white'
+                                : 'text-neutral-500 hover:bg-neutral-100'
                                 }`}
                         >
                             Top
@@ -90,14 +90,12 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
 
                                 {/* Main info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-xs font-bold truncate">{item.title}</span>
-                                        {item.subtitle && (
-                                            <span className="text-[10px] text-neutral-400 truncate flex-shrink-0">
-                                                {item.subtitle.split('\n')[0]}
-                                            </span>
-                                        )}
-                                    </div>
+                                    <div className="text-xs font-bold truncate">{item.title}</div>
+                                    {item.subtitle && (
+                                        <div className="text-[11px] text-neutral-600 truncate mt-0.5">
+                                            {item.subtitle.split('\n')[0]}
+                                        </div>
+                                    )}
                                     {item.notes && (
                                         <div className="text-[10px] text-neutral-400 mt-0.5 line-clamp-1">
                                             {item.notes.split('\n')[0]}
