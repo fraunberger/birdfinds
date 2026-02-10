@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Election, Nomination } from '@/lib/election/types';
 import { Reorder } from "framer-motion";
 
@@ -32,6 +32,7 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
 
     // Fetch Loop
     const [errorCount, setErrorCount] = useState(0);
+    const [now, setNow] = useState(Date.now());
 
     const fetchElection = async () => {
         try {
@@ -60,6 +61,12 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
         pollRef.current = setInterval(fetchElection, 3000); // 3s polling
         return () => clearInterval(pollRef.current!);
     }, [electionId]);
+
+    // Live countdown tick every second
+    useEffect(() => {
+        const tick = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(tick);
+    }, []);
 
     // Restore session
     useEffect(() => {
@@ -102,21 +109,39 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
         e.preventDefault();
         if (!username || !codeword) return;
 
-        // Call join endpoint to reserve name
+        // Normalize username to lowercase for case-insensitive matching
+        const safeName = username.trim().toLowerCase();
         const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: username, groupCodeword: safeCodeword })
+            body: JSON.stringify({ name: safeName, groupCodeword: safeCodeword })
         });
 
         if (res.ok) {
-            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username, codeword: safeCodeword }));
+            setUsername(safeName);
+            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username: safeName, codeword: safeCodeword }));
             setIsAuthenticated(true);
             fetchElection();
         } else {
             const err = await res.json();
             alert(err.error || "Failed to join");
+        }
+    };
+
+    const cancelNomination = async (nominationId: string) => {
+        if (!confirm("Remove this nomination?")) return;
+        const safeCodeword = codeword.trim().toLowerCase();
+        const res = await fetch(`/api/elections/${electionId}/nominate`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nominationId, requesterName: username, groupCodeword: safeCodeword })
+        });
+        if (res.ok) {
+            setRestaurant('');
+            fetchElection();
+        } else {
+            alert("Failed to cancel nomination");
         }
     };
 
@@ -224,15 +249,22 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
         setRankings(newRankings);
     };
 
-    // Calculate time remaining
-    const timeUntilStart = election ? election.voteStartTime - Date.now() : 0;
-    const timeUntilEnd = election ? (election.votingEndsAt || 0) - Date.now() : 0;
+    // Calculate time remaining using live tick
+    const timeUntilStart = election ? election.voteStartTime - now : 0;
+    const timeUntilEnd = election ? (election.votingEndsAt || 0) - now : 0;
 
-    const getTimer = (ms: number) => {
-        if (ms < 0) return "00:00";
-        const m = Math.floor(ms / 60000);
+    const formatCountdown = (ms: number) => {
+        if (ms <= 0) return "0s";
+        const d = Math.floor(ms / 86400000);
+        const h = Math.floor((ms % 86400000) / 3600000);
+        const m = Math.floor((ms % 3600000) / 60000);
         const s = Math.floor((ms % 60000) / 1000);
-        return `${m}:${s.toString().padStart(2, '0')}`;
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m}m`);
+        parts.push(`${s}s`);
+        return parts.join(' ');
     };
 
     // ... Design Updates
@@ -275,8 +307,8 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                 <div className="text-right">
                     <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Status</div>
                     <div className={`text-xl font-mono font-bold ${election.status === 'voting' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
-                        {election.status === 'nomination' && `STARTS IN ${getTimer(timeUntilStart)}`}
-                        {election.status === 'voting' && `ENDS IN ${getTimer(timeUntilEnd)}`}
+                        {election.status === 'nomination' && `STARTS IN ${formatCountdown(timeUntilStart)}`}
+                        {election.status === 'voting' && `ENDS IN ${formatCountdown(timeUntilEnd)}`}
                         {election.status === 'completed' && 'CLOSED'}
                     </div>
                 </div>
@@ -328,12 +360,26 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                             {election.nominations.length === 0 ? (
                                 <li className="text-gray-400 italic py-4">Waiting for nominations...</li>
                             ) : (
-                                election.nominations.map(nom => (
-                                    <li key={nom.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                                        <span className="font-bold text-lg">{nom.restaurantName}</span>
-                                        <span className="text-xs text-gray-400 uppercase tracking-wide">{nom.nominatorName}</span>
-                                    </li>
-                                ))
+                                election.nominations.map(nom => {
+                                    const canCancel = nom.nominatorName.toLowerCase() === username.toLowerCase() || username.toLowerCase() === election.adminName.toLowerCase();
+                                    return (
+                                        <li key={nom.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                                            <span className="font-bold text-lg">{nom.restaurantName}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-400 uppercase tracking-wide">{nom.nominatorName}</span>
+                                                {canCancel && (
+                                                    <button
+                                                        onClick={() => cancelNomination(nom.id)}
+                                                        className="text-gray-300 hover:text-red-600 text-sm font-bold transition-colors px-1"
+                                                        title="Cancel nomination"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </li>
+                                    );
+                                })
                             )}
                         </ul>
                     </div>

@@ -39,8 +39,11 @@ export async function GET(
         matrix = calculatePairwiseMatrix(election.nominations, election.votes);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { groupCodeword: _pw, ...safeElection } = election;
+
     return NextResponse.json({
-        ...election,
+        ...safeElection,
         status,
         winner,
         matrix,

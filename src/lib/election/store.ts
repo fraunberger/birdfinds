@@ -64,7 +64,8 @@ class ElectionStore {
         if (!election) return null;
         if (!election.participants) election.participants = [];
 
-        if (election.participants.includes(name)) return true; // Idempotent: already joined is fine
+        // Case-insensitive check
+        if (election.participants.some(p => p.toLowerCase() === name.toLowerCase())) return true;
         election.participants.push(name);
 
         await adapter.saveElection(election); // Atomic save
@@ -79,7 +80,7 @@ class ElectionStore {
         if (nomination.isWriteIn) {
             election.nominations.push(nomination);
         } else {
-            const existingIdx = election.nominations.findIndex(n => n.nominatorName === nomination.nominatorName && !n.isWriteIn);
+            const existingIdx = election.nominations.findIndex(n => n.nominatorName.toLowerCase() === nomination.nominatorName.toLowerCase() && !n.isWriteIn);
             if (existingIdx >= 0) {
                 election.nominations[existingIdx] = nomination;
             } else {
@@ -87,6 +88,16 @@ class ElectionStore {
             }
         }
 
+        await adapter.saveElection(election);
+        return election;
+    }
+
+    async removeNomination(electionId: string, nominationId: string) {
+        const adapter = this.getAdapter();
+        const election = await adapter.getElection(electionId);
+        if (!election) return null;
+
+        election.nominations = election.nominations.filter(n => n.id !== nominationId);
         await adapter.saveElection(election);
         return election;
     }
