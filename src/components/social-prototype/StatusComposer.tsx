@@ -20,8 +20,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [showMentionPicker, setShowMentionPicker] = useState(false);
     const [mentionCategory, setMentionCategory] = useState<Category | null>(null);
     const [mentionTitle, setMentionTitle] = useState('');
-    const [atPosition, setAtPosition] = useState<number>(-1); // where the @ was typed
+    const [atPosition, setAtPosition] = useState<number>(-1);
     const mentionInputRef = useRef<HTMLInputElement>(null);
+
+    // Quick Add State
+    const [quickAddTitle, setQuickAddTitle] = useState('');
+    const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -31,6 +35,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
     const activeCategoryConfigs = activeCategories.map(c => CATEGORY_CONFIGS[c]).filter(Boolean);
+
+    // Set default quick add category to first active category
+    useEffect(() => {
+        if (activeCategories.length > 0 && !activeCategories.includes(quickAddCategory)) {
+            setQuickAddCategory(activeCategories[0]);
+        }
+    }, [activeCategories]);
 
     // Sync content with store
     useEffect(() => {
@@ -55,7 +66,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setContent(val);
         adjustTextareaHeight();
 
-        // Detect @ trigger: look for a fresh @ at cursor
+        // Detect @ trigger
         const cursorPos = e.target.selectionStart;
         if (cursorPos > 0 && val[cursorPos - 1] === '@') {
             const charBefore = cursorPos > 1 ? val[cursorPos - 2] : ' ';
@@ -63,7 +74,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 setShowMentionPicker(true);
                 setMentionCategory(null);
                 setMentionTitle('');
-                setAtPosition(cursorPos - 1); // remember where @ is
+                setAtPosition(cursorPos - 1);
                 return;
             }
         }
@@ -84,7 +95,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         const title = mentionTitle.trim();
 
-        // Add the item to today's status
+        // Add the item
         await addItemToActive({
             category: mentionCategory,
             title,
@@ -95,12 +106,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         // Replace the @ in content with the title
         const before = content.substring(0, atPosition);
-        const after = content.substring(atPosition + 1); // skip the @
+        const after = content.substring(atPosition + 1);
         const newContent = before + title + after;
         setContent(newContent);
         updateActiveStatus(newContent);
 
-        // Reset mention state
+        // Reset
         setShowMentionPicker(false);
         setMentionCategory(null);
         setMentionTitle('');
@@ -115,6 +126,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setMentionTitle('');
         setAtPosition(-1);
         setTimeout(() => textareaRef.current?.focus(), 50);
+    };
+
+    const handleQuickAddRow = async () => {
+        if (!quickAddTitle.trim()) return;
+        await addItemToActive({
+            category: quickAddCategory,
+            title: quickAddTitle,
+            rating: undefined,
+            subtitle: '',
+            notes: ''
+        });
+        setQuickAddTitle('');
     };
 
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
@@ -140,7 +163,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
-    // Highlight rendering
+    // Highlight rendering — font size must match the textarea exactly
     const renderHighlights = () => {
         if (!content) return null;
 
@@ -167,7 +190,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         return (
             <div
-                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-[16px] sm:text-xs text-transparent leading-relaxed z-0 align-top overflow-hidden"
+                className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
                 dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
@@ -178,6 +201,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     return (
         <div className="mb-6 font-mono">
+            {/* Inline style to sync highlight + textarea font sizes */}
+            <style>{`
+                .composer-text, .highlight-layer {
+                    font-size: 16px;
+                }
+                @media (min-width: 640px) {
+                    .composer-text, .highlight-layer {
+                        font-size: 12px;
+                    }
+                }
+            `}</style>
+
             {/* Header */}
             <header className="flex items-center justify-between mb-2 border-b border-neutral-300 pb-2">
                 <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
@@ -200,7 +235,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     onChange={handleContentChange}
                     onBlur={handleBlur}
                     placeholder="What did you do today? Type @ to add an item..."
-                    className="relative z-10 w-full text-[16px] sm:text-xs bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
+                    className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
                     spellCheck={false}
                 />
             </div>
@@ -273,59 +308,90 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Habit Checklist */}
             <HabitChecklist date={activeDate} />
 
-            {/* Items Table */}
-            {items.length > 0 && (
-                <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto">
-                    <table className="w-full text-xs font-mono border-collapse min-w-[320px]">
-                        <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
-                            <tr>
-                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
-                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
-                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-24 hidden sm:table-cell">Details</th>
-                                <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">★</th>
-                                <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-6"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item) => {
-                                const config = CATEGORY_CONFIGS[item.category];
-                                if (!config) return null;
-                                return (
-                                    <tr
-                                        key={item.id}
-                                        className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100"
-                                        onClick={() => openModal(item)}
+            {/* Data Table — always visible with quick-add row */}
+            <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto -mx-3 sm:mx-0">
+                <table className="w-full text-xs font-mono border-collapse">
+                    <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
+                        <tr>
+                            <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
+                            <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
+                            <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">★</th>
+                            <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-6"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items.map((item) => {
+                            const config = CATEGORY_CONFIGS[item.category];
+                            if (!config) return null;
+                            return (
+                                <tr
+                                    key={item.id}
+                                    className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100"
+                                    onClick={() => openModal(item)}
+                                >
+                                    <td
+                                        className="px-2 py-1.5 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                        style={{ backgroundColor: config.color || undefined }}
                                     >
-                                        <td
-                                            className="px-2 py-1.5 border-b border-r border-neutral-200 text-[10px] font-bold"
-                                            style={{ backgroundColor: config.color || undefined }}
+                                        {config.shortLabel}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium">
+                                        {item.title}
+                                        {item.subtitle && (
+                                            <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
+                                        )}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
+                                        {item.rating || '—'}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
+                                            className="text-neutral-400 hover:text-neutral-600"
                                         >
-                                            {config.shortLabel}
-                                        </td>
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium truncate max-w-[120px]">
-                                            {item.title}
-                                        </td>
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-neutral-500 truncate hidden sm:table-cell">
-                                            {item.subtitle || '—'}
-                                        </td>
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
-                                            {item.rating || '—'}
-                                        </td>
-                                        <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
-                                                className="text-neutral-400 hover:text-neutral-600"
-                                            >
-                                                ×
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                            ×
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+
+                        {/* Quick Add Row — always visible */}
+                        <tr className="bg-neutral-50">
+                            <td className="px-1 py-1.5 border-r border-neutral-200">
+                                <select
+                                    value={quickAddCategory}
+                                    onChange={(e) => setQuickAddCategory(e.target.value as Category)}
+                                    className="w-full bg-transparent text-[10px] outline-none cursor-pointer px-1 text-neutral-500"
+                                >
+                                    {activeCategoryConfigs.map(c => (
+                                        <option key={c.id} value={c.id}>{c.shortLabel}</option>
+                                    ))}
+                                </select>
+                            </td>
+                            <td className="px-1 py-1.5 border-r border-neutral-200">
+                                <input
+                                    type="text"
+                                    value={quickAddTitle}
+                                    onChange={(e) => setQuickAddTitle(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
+                                    placeholder="Add new entry..."
+                                    className="w-full bg-transparent outline-none text-[16px] sm:text-xs placeholder:text-neutral-300 px-1"
+                                />
+                            </td>
+                            <td className="px-2 py-1.5 text-center" colSpan={2}>
+                                <button
+                                    onClick={handleQuickAddRow}
+                                    disabled={!quickAddTitle.trim()}
+                                    className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30"
+                                >
+                                    +
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <ConsumableModal
                 isOpen={isModalOpen}
