@@ -69,6 +69,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     // Quick Add State
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
+    const [isPosted, setIsPosted] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -287,11 +288,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => {
-                            if (content) updateActiveStatus(content);
+                            if (content) {
+                                updateActiveStatus(content);
+                                setIsPosted(true);
+                                setTimeout(() => setIsPosted(false), 2000);
+                            }
                         }}
-                        className="text-[10px] font-bold uppercase tracking-widest text-green-700 hover:text-green-900 active:text-green-600 transition-colors border border-green-700 px-2 py-0.5 rounded-sm"
+                        className={`text-[10px] font-bold uppercase tracking-widest transition-all border px-2 py-0.5 rounded-sm ${isPosted
+                            ? 'bg-green-700 text-white border-green-700'
+                            : 'text-green-700 hover:text-green-900 active:text-green-600 border-green-700 bg-transparent'
+                            }`}
                     >
-                        POST
+                        {isPosted ? 'POSTED' : 'POST'}
                     </button>
                     <input
                         type="date"

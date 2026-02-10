@@ -33,9 +33,12 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         if (!file) return;
 
         setAvatarUploading(true);
+
         try {
-            await uploadAvatar(file);
-            // Profile updates automatically via hook
+            const url = await uploadAvatar(file);
+            if (url) {
+                setAvatarUrl(url); // Set local preview immediately
+            }
         } catch (err: any) {
             setError('Failed to upload avatar: ' + err.message);
         } finally {

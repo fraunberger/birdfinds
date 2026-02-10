@@ -424,6 +424,24 @@ export function useUserProfile() {
         }
     };
 
+    const uploadAvatar = async (file: File) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        return data.publicUrl;
+    };
+
     const updateProfile = async (updates: Partial<UserProfile>) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -442,23 +460,7 @@ export function useUserProfile() {
         await fetchProfile();
     };
 
-    const uploadAvatar = async (file: File) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-            .from('avatars')
-            .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        await updateProfile({ avatarUrl: data.publicUrl });
-    };
 
     // Initial fetch
     useState(() => { fetchProfile(); });
