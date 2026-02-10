@@ -286,6 +286,7 @@ class SocialStore {
             await this.fetchStatuses();
         } catch (error) {
             console.error("Error adding item:", error);
+            throw error; // Propagate to UI
         }
         await this.fetchStatuses();
     }

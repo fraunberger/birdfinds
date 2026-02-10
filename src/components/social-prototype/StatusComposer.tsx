@@ -95,21 +95,25 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         const title = mentionTitle.trim();
 
-        // Add the item
-        await addItemToActive({
-            category: mentionCategory,
-            title,
-            rating: undefined,
-            subtitle: '',
-            notes: ''
-        });
+        try {
+            // Add the item
+            await addItemToActive({
+                category: mentionCategory,
+                title,
+                rating: undefined,
+                subtitle: '',
+                notes: ''
+            });
 
-        // Replace the @ in content with the title
-        const before = content.substring(0, atPosition);
-        const after = content.substring(atPosition + 1);
-        const newContent = before + title + after;
-        setContent(newContent);
-        updateActiveStatus(newContent);
+            // Replace the @ in content with the title
+            const before = content.substring(0, atPosition);
+            const after = content.substring(atPosition + 1);
+            const newContent = before + title + after;
+            setContent(newContent);
+            updateActiveStatus(newContent);
+        } catch (error: any) {
+            alert(`Failed to add item: ${error.message}`);
+        }
 
         // Reset
         setShowMentionPicker(false);
@@ -130,22 +134,30 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const handleQuickAddRow = async () => {
         if (!quickAddTitle.trim()) return;
-        await addItemToActive({
-            category: quickAddCategory,
-            title: quickAddTitle,
-            rating: undefined,
-            subtitle: '',
-            notes: ''
-        });
-        setQuickAddTitle('');
+        try {
+            await addItemToActive({
+                category: quickAddCategory,
+                title: quickAddTitle,
+                rating: undefined,
+                subtitle: '',
+                notes: ''
+            });
+            setQuickAddTitle('');
+        } catch (error: any) {
+            alert(`Failed to quick add: ${error.message}`);
+        }
     };
 
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
-        if (existingItem && existingItem.id !== 'temp') {
-            await removeItemFromActive(existingItem.id);
+        try {
+            if (existingItem && existingItem.id !== 'temp') {
+                await removeItemFromActive(existingItem.id);
+            }
+            await addItemToActive(item);
+            setExistingItem(undefined);
+        } catch (error: any) {
+            alert(`Failed to save item: ${error.message}`);
         }
-        await addItemToActive(item);
-        setExistingItem(undefined);
     };
 
     const handleDeleteItem = async () => {
