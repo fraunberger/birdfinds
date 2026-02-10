@@ -8,16 +8,16 @@ const BIRDS = [
     slug: "australian_magpie",
   },
   {
-    filename: "european_greenfinch.png",
-    slug: "european_greenfinch",
+    filename: "chaffinch.png",
+    slug: "chaffinch",
   },
   {
     filename: "cardinal.png",
     slug: "cardinal",
   },
   {
-    filename: "australian_pied_cormorant.png",
-    slug: "australian_pied_cormorant",
+    filename: "pileated_woodpecker.png",
+    slug: "pileated_woodpecker",
   },
   {
     filename: "yellowhammer.png",
@@ -28,8 +28,8 @@ const BIRDS = [
     slug: "great_blue_heron",
   },
   {
-    filename: "takahe.png",
-    slug: "takahe",
+    filename: "norther_mockingbird.png",
+    slug: "norther_mockingbird",
   },
   {
     filename: "california_quail.png",
@@ -40,8 +40,8 @@ const BIRDS = [
     slug: "eastern_blue_bird",
   },
   {
-    filename: "pileated_woodpecker.png",
-    slug: "pileated_woodpecker",
+    filename: "australian_pied_cormorant.png",
+    slug: "australian_pied_cormorant",
   },
   {
     filename: "new_zealand_pigeon.png",
@@ -60,8 +60,8 @@ const BIRDS = [
     slug: "black_billed_gull",
   },
   {
-    filename: "chaffinch.png",
-    slug: "chaffinch",
+    filename: "european_greenfinch.png",
+    slug: "european_greenfinch",
   },
   {
     filename: "spotted_shag.png",
@@ -72,8 +72,8 @@ const BIRDS = [
     slug: "new_zealand_bellbird",
   },
   {
-    filename: "norther_mockingbird.png",
-    slug: "norther_mockingbird",
+    filename: "takahe.png",
+    slug: "takahe",
   },
   {
     filename: "coot.png",
