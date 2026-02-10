@@ -131,8 +131,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         }
     };
 
+    // Remove the on-blur auto-save to enable draft behavior.
     const handleBlur = () => {
-        updateActiveStatus(content);
+        // No-op for saving. Content stays local until user explicitly posts.
     };
 
     const handleSelectCategory = (cat: Category) => {
@@ -287,40 +288,17 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     <button
                         onClick={() => {
                             if (content) updateActiveStatus(content);
-                            // No alert, just silent save
                         }}
-                        className="text-[10px] font-bold uppercase tracking-widest text-black hover:text-neutral-600 active:text-neutral-800 transition-colors"
+                        className="text-[10px] font-bold uppercase tracking-widest text-green-700 hover:text-green-900 active:text-green-600 transition-colors border border-green-700 px-2 py-0.5 rounded-sm"
                     >
-                        SAVE
+                        POST
                     </button>
-                    <div className="relative">
-                        <span
-                            onClick={() => {
-                                // Programmatically open the date picker
-                                const input = document.getElementById('date-picker-input') as HTMLInputElement;
-                                if (input && 'showPicker' in input) {
-                                    (input as any).showPicker();
-                                } else {
-                                    (input as HTMLElement)?.click();
-                                }
-                            }}
-                            className="text-[16px] sm:text-[10px] font-mono text-neutral-500 cursor-pointer border-b border-transparent hover:border-neutral-300 transition-colors"
-                        >
-                            {new Date(activeDate).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                            }).toUpperCase()}
-                        </span>
-                        <input
-                            id="date-picker-input"
-                            type="date"
-                            value={activeDate}
-                            onChange={(e) => setActiveDate(e.target.value)}
-                            className="scale-0 absolute w-0 h-0 overflow-hidden"
-                            tabIndex={-1}
-                        />
-                    </div>
+                    <input
+                        type="date"
+                        value={activeDate}
+                        onChange={(e) => setActiveDate(e.target.value)}
+                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none border-b border-transparent hover:border-neutral-300 transition-colors w-[130px] sm:w-[100px]"
+                    />
                 </div>
             </header>
 
@@ -507,7 +485,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             <HabitChecklist date={activeDate} />
 
             {/* Data Table — always visible with quick-add row */}
-            <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto -mx-3 sm:mx-0">
+            <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto">
                 <table className="w-full text-xs font-mono border-collapse">
                     <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                         <tr>

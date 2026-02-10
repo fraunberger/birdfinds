@@ -73,7 +73,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     return (
         <div
-            className="fixed inset-0 bg-white/95 z-50 flex items-end sm:items-center justify-center"
+            className="fixed inset-0 bg-white/95 z-50 flex items-start sm:items-center justify-center pt-4 sm:pt-0"
             onClick={onClose}
         >
             <div
