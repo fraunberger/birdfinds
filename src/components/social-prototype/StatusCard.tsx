@@ -110,9 +110,11 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                                         }}
                                     >
                                         <span className="font-medium text-neutral-800">{item.title}</span>
-                                        {item.rating && (
-                                            <span className="text-neutral-500 font-mono">[{item.rating}]</span>
-                                        )}
+                                        {item.rating ? (
+                                            <span className="text-neutral-500 font-mono ml-1">
+                                                {item.rating}<span className="text-[9px]">/10</span>
+                                            </span>
+                                        ) : null}
                                     </button>
                                 );
                             })}

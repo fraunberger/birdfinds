@@ -13,8 +13,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, isLoaded } = useSocialStore();
     const [content, setContent] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
+    const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
 
     // @ mention state
     const [showMentionPicker, setShowMentionPicker] = useState(false);
@@ -261,7 +263,35 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         {activeCategoryConfigs.map(cat => (
                             <button
                                 key={cat.id}
-                                onClick={() => handleSelectCategory(cat.id)}
+                                onClick={() => {
+                                    if (triggerLength > 1 && mentionTitle.trim()) {
+                                        // Instant Add
+                                        addItemToActive({
+                                            category: cat.id,
+                                            title: mentionTitle.trim(),
+                                            rating: undefined,
+                                            subtitle: '',
+                                            notes: ''
+                                        }).then(() => {
+                                            // Replace text logic
+                                            if (selectionRange) {
+                                                const before = content.substring(0, selectionRange.start);
+                                                const after = content.substring(selectionRange.end);
+                                                const newContent = before + mentionTitle.trim() + after;
+                                                setContent(newContent);
+                                                updateActiveStatus(newContent);
+                                            }
+                                            // Reset
+                                            setShowMentionPicker(false);
+                                            setMentionCategory(null);
+                                            setMentionTitle('');
+                                            setTriggerLength(1);
+                                        }).catch(err => alert(err.message));
+                                    } else {
+                                        // Just open the picker for typing
+                                        handleSelectCategory(cat.id);
+                                    }
+                                }}
                                 className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
                             >
                                 {cat.shortLabel}
@@ -308,9 +338,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     // Open modal for editing
                                     openModal(existing);
                                 } else {
-                                    // New item (Add Mode)
+                                    // New item (Add Mode) - Capture ranges
                                     setMentionTitle(selectedText);
                                     setAtPosition(start);
+                                    setSelectionRange({ start, end });
                                     setTriggerLength(selectedText.length);
                                     setShowMentionPicker(true);
                                     setMentionCategory(null);
@@ -324,7 +355,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 />
             </div>
 
-            {/* Sub-form for details (only when category selected) */}
+            {/* Sub-form for details (only when category selected AND not instant-added) */}
             {showMentionPicker && mentionCategory && (
                 <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
                     <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
@@ -393,7 +424,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         )}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
-                                        {item.rating || '—'}
+                                        {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
                                         <button
