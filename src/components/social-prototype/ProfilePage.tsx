@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { StatusCard } from './StatusCard';
 import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
+import { ConsumableModal } from './ConsumableModal';
 
 interface ProfilePageProps {
     userId: string;
@@ -28,6 +29,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
+    const [selectedTagItem, setSelectedTagItem] = useState<ConsumableItem | null>(null);
 
     const isOwnProfile = user?.id === userId;
     const userStatuses = getUserStatuses(userId);
@@ -111,14 +113,6 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     >
                         Habits
                     </button>
-                    {isOwnProfile && onSettings && (
-                        <button
-                            onClick={onSettings}
-                            className="text-[10px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
-                        >
-                            Settings
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -143,14 +137,15 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             return sorted.map(item => {
                                 const config = CATEGORY_CONFIGS[item.category];
                                 return (
-                                    <div
+                                    <button
                                         key={item.id}
-                                        className="text-[10px] font-mono truncate py-0.5 px-1.5"
+                                        onClick={() => setSelectedTagItem(item)}
+                                        className="block w-full text-left text-[10px] font-mono truncate py-0.5 px-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
                                         title={`${config?.label}: ${item.title}`}
                                         style={{ borderLeft: `2px solid ${config?.color || '#d4d4d4'}` }}
                                     >
                                         {item.title}
-                                    </div>
+                                    </button>
                                 );
                             });
                         })()}
@@ -235,6 +230,18 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 <HabitCalendar
                     userId={userId}
                     onClose={() => setShowHabitCalendar(false)}
+                />
+            )}
+
+            {/* Tag Item Modal */}
+            {selectedTagItem && (
+                <ConsumableModal
+                    isOpen={true}
+                    initialCategory={selectedTagItem.category}
+                    existingItem={selectedTagItem}
+                    readOnly
+                    onClose={() => setSelectedTagItem(null)}
+                    onSave={() => { }}
                 />
             )}
         </div>

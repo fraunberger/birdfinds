@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Category, CATEGORY_CONFIGS, ConsumableItem } from '@/lib/social-prototype/store';
+import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
     category: Category;
@@ -9,18 +10,20 @@ interface CategorySheetProps {
     onClose: () => void;
 }
 
+type SortMode = 'latest' | 'top';
+
 export function CategorySheet({ category, items, onClose }: CategorySheetProps) {
     const config = CATEGORY_CONFIGS[category];
+    const [sortMode, setSortMode] = useState<SortMode>('latest');
+    const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
+
     if (!config) return null;
 
-    // Latest items (by createdAt descending)
-    const latest = [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, 20);
-
-    // Top ranked items (by rating descending, only those with ratings)
-    const topRanked = [...items]
-        .filter(i => i.rating && i.rating > 0)
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, 20);
+    const sortedItems = sortMode === 'top'
+        ? [...items]
+            .filter(i => i.rating && i.rating > 0)
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        : [...items].sort((a, b) => b.createdAt - a.createdAt);
 
     return (
         <div className="font-mono animate-in slide-in-from-right duration-200">
@@ -33,77 +36,97 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                         {items.length} {items.length === 1 ? 'entry' : 'entries'}
                     </span>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
-                >
-                    ✕
-                </button>
-            </div>
-
-            {/* Latest */}
-            <div className="mb-6">
-                <h4 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
-                    Latest
-                </h4>
-                {latest.length === 0 ? (
-                    <div className="text-xs text-neutral-400 py-3">No entries yet.</div>
-                ) : (
-                    <div className="border border-neutral-200">
-                        <table className="w-full text-xs border-collapse">
-                            <thead className="bg-neutral-50 text-neutral-500 uppercase text-[10px]">
-                                <tr>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-200">Title</th>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-200 w-28">{config.subtitleLabel || 'Details'}</th>
-                                    <th className="px-2 py-1.5 text-center border-b border-neutral-200 w-10">★</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {latest.map((item) => (
-                                    <tr key={item.id} className="hover:bg-neutral-50">
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200">
-                                            <div className="font-medium">{item.title}</div>
-                                            {item.notes && (
-                                                <div className="text-[10px] text-neutral-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{item.notes}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-neutral-500 truncate">{item.subtitle || '—'}</td>
-                                        <td className="px-2 py-1.5 border-b border-neutral-200 text-center">{item.rating || ''}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                <div className="flex items-center gap-2">
+                    {/* Sort Toggle */}
+                    <div className="flex text-[10px] border border-neutral-300">
+                        <button
+                            onClick={() => setSortMode('latest')}
+                            className={`px-2 py-0.5 uppercase tracking-wider transition-colors ${sortMode === 'latest'
+                                    ? 'bg-neutral-800 text-white'
+                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                }`}
+                        >
+                            Latest
+                        </button>
+                        <button
+                            onClick={() => setSortMode('top')}
+                            className={`px-2 py-0.5 uppercase tracking-wider transition-colors border-l border-neutral-300 ${sortMode === 'top'
+                                    ? 'bg-neutral-800 text-white'
+                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                }`}
+                        >
+                            Top
+                        </button>
                     </div>
-                )}
-            </div>
-
-            {/* Top Ranked */}
-            {topRanked.length > 0 && (
-                <div className="mb-6">
-                    <h4 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
-                        Top Ranked
-                    </h4>
-                    <div className="border border-neutral-200">
-                        <table className="w-full text-xs border-collapse">
-                            <thead className="bg-neutral-50 text-neutral-500 uppercase text-[10px]">
-                                <tr>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-200 w-6">#</th>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-200">Title</th>
-                                    <th className="px-2 py-1.5 text-center border-b border-neutral-200 w-10">★</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {topRanked.map((item, idx) => (
-                                    <tr key={item.id} className="hover:bg-neutral-50">
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-neutral-400">{idx + 1}</td>
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium">{item.title}</td>
-                                        <td className="px-2 py-1.5 border-b border-neutral-200 text-center font-bold">{item.rating}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <button
+                        onClick={onClose}
+                        className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 ml-1"
+                    >
+                        ✕
+                    </button>
                 </div>
+            </div>
+
+            {/* Items */}
+            {sortedItems.length === 0 ? (
+                <div className="text-xs text-neutral-400 py-6 text-center uppercase tracking-widest">
+                    {sortMode === 'top' ? 'No rated entries yet.' : 'No entries yet.'}
+                </div>
+            ) : (
+                <div className="space-y-1.5">
+                    {sortedItems.map((item, idx) => (
+                        <button
+                            key={item.id}
+                            onClick={() => setSelectedItem(item)}
+                            className="w-full text-left group"
+                        >
+                            <div className="flex items-start gap-2.5 px-3 py-2 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
+                                {/* Rank number for top mode */}
+                                {sortMode === 'top' && (
+                                    <span className="text-[10px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
+                                        {idx + 1}
+                                    </span>
+                                )}
+
+                                {/* Main info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-xs font-bold truncate">{item.title}</span>
+                                        {item.subtitle && (
+                                            <span className="text-[10px] text-neutral-400 truncate flex-shrink-0">
+                                                {item.subtitle.split('\n')[0]}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {item.notes && (
+                                        <div className="text-[10px] text-neutral-400 mt-0.5 line-clamp-1">
+                                            {item.notes.split('\n')[0]}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Rating */}
+                                {item.rating && item.rating > 0 && (
+                                    <div className="flex-shrink-0 text-[10px] font-bold text-neutral-700 bg-neutral-100 px-1.5 py-0.5 rounded-sm">
+                                        {item.rating}
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Item detail modal */}
+            {selectedItem && (
+                <ConsumableModal
+                    isOpen={true}
+                    initialCategory={selectedItem.category}
+                    existingItem={selectedItem}
+                    readOnly
+                    onClose={() => setSelectedItem(null)}
+                    onSave={() => { }}
+                />
             )}
         </div>
     );
