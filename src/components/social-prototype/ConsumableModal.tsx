@@ -109,7 +109,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         {readOnly ? (
                             rating ? (
                                 <span className="text-[10px] font-bold text-neutral-700 bg-white/60 border border-neutral-300 px-1.5 py-0.5">
-                                    ★ {rating}
+                                    {rating}
                                 </span>
                             ) : null
                         ) : (
@@ -121,7 +121,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 inputMode="decimal"
                                 value={rating || ''}
                                 onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                placeholder="★"
+                                placeholder="—"
                                 className="w-12 text-center text-[10px] font-mono border border-neutral-300 outline-none py-0.5 bg-white/60"
                             />
                         )}

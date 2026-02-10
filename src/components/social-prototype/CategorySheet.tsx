@@ -62,7 +62,7 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                         onClick={onClose}
                         className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 ml-1"
                     >
-                        ✕
+                        x
                     </button>
                 </div>
             </div>

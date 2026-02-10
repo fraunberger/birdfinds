@@ -46,12 +46,12 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                             >
                                 {vertical ? (
                                     <span className={`text-[8px] ${completed ? 'text-neutral-800' : 'text-neutral-300'}`}>
-                                        {completed ? '●' : '○'}
+                                        {completed ? '*' : '-'}
                                     </span>
                                 ) : (
                                     <span className={`inline-block w-2.5 h-2.5 border ${completed ? 'border-white bg-white/20' : 'border-neutral-300'
                                         } flex items-center justify-center text-[7px] leading-none`}>
-                                        {completed && '✓'}
+                                        {completed && '+'}
                                     </span>
                                 )}
                                 {habit.name}
@@ -63,7 +63,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                     className="text-[9px] text-neutral-400 hover:text-neutral-600 px-0.5 leading-none"
                                     title="Add note"
                                 >
-                                    {note ? '✎' : '+'}
+                                    {note ? 'edit' : '+'}
                                 </button>
                             )}
                             {/* Show existing note inline */}
@@ -93,13 +93,13 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                         onClick={() => saveNote(editingNote)}
                         className="text-[10px] font-mono px-2 py-1 bg-neutral-800 text-white uppercase tracking-wider"
                     >
-                        ✓
+                        ok
                     </button>
                     <button
                         onClick={() => { setEditingNote(null); setNoteText(''); }}
                         className="text-[10px] font-mono px-1.5 py-1 text-neutral-400 hover:text-neutral-600"
                     >
-                        ✕
+                        x
                     </button>
                 </div>
             )}

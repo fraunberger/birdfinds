@@ -217,7 +217,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                             : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
                         }`}
                 >
-                    <span className="text-sm">{isPrivate ? '🔒' : '🌐'}</span>
+                    <span className="text-sm">{isPrivate ? 'Private' : 'Public'}</span>
                     <span className="uppercase tracking-wider font-bold">
                         {isPrivate ? 'Private Mode' : 'Public Mode'}
                     </span>

@@ -71,14 +71,14 @@ export interface FollowData {
 export const HIGHLIGHT_COLOR = '#fffb91';
 
 export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
-    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '🎬' },
-    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '📺' },
-    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '🎵' },
-    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '🍽️' },
-    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '🍺' },
-    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#ffae91', icon: '👨‍🍳' },
-    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '🎙️' },
-    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '📚' },
+    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '' },
+    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '' },
+    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '' },
+    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '' },
+    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '' },
+    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#ffae91', icon: '' },
+    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '' },
+    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '' },
 };
 
 // ============================================================
@@ -551,7 +551,7 @@ export function useHabits(userId?: string) {
         setLoading(false);
     };
 
-    const addHabit = async (name: string, icon: string = '✓') => {
+    const addHabit = async (name: string, icon: string = '') => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 

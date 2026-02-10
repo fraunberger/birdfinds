@@ -139,7 +139,7 @@ export function SocialLayout() {
                             className="text-neutral-400 hover:text-neutral-600 text-sm"
                             title="Settings"
                         >
-                            ⚙
+                            settings
                         </button>
                         <button
                             onClick={handleSignOut}

@@ -376,7 +376,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             onClick={handleMentionCancel}
                             className="px-2 py-1 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
                         >
-                            ✕
+                            x
                         </button>
                     </div>
                 )}
@@ -469,7 +469,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
                     <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
                         <span>{CATEGORY_CONFIGS[mentionCategory]?.icon} New {CATEGORY_CONFIGS[mentionCategory]?.label}</span>
-                        <button onClick={handleMentionCancel} className="text-neutral-400 hover:text-black">✕</button>
+                        <button onClick={handleMentionCancel} className="text-neutral-400 hover:text-black">x</button>
                     </div>
                     <div className="flex gap-2">
                         <input
@@ -506,7 +506,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         <tr>
                             <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
                             <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
-                            <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">★</th>
+                            <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">R</th>
                             <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-6"></th>
                         </tr>
                     </thead>

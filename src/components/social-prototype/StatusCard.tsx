@@ -83,7 +83,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             onClick={onEdit}
                             className="text-[10px] text-neutral-400 hover:text-neutral-600 uppercase tracking-widest"
                         >
-                            ✎
+                            edit
                         </button>
                     )}
                     {isOwn && (
@@ -95,7 +95,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             }}
                             className="text-[10px] text-neutral-400 hover:text-red-500 uppercase tracking-widest"
                         >
-                            🗑
+                            DEL
                         </button>
                     )}
                     <span className="text-[10px] text-neutral-400">
