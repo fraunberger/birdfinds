@@ -22,11 +22,11 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                 return (
                     <button
                         key={habit.id}
-                        onClick={() => !readOnly && toggleHabitLog(habit.id, date)}
+                        onClick={() => !readOnly && toggleHabitLog(habit.id, date, !completed)}
                         disabled={readOnly}
                         className={`inline-flex items-center font-mono transition-all ${vertical
-                                ? `gap-1 px-1 py-0.5 text-[9px] border-none ${completed ? 'text-neutral-700' : 'text-neutral-300'}`
-                                : `gap-1.5 px-2.5 py-1 text-xs border ${completed ? 'bg-neutral-800 text-white border-neutral-800' : 'bg-white text-neutral-400 border-neutral-300 hover:border-neutral-500'}`
+                            ? `gap-1 px-1 py-0.5 text-[9px] border-none ${completed ? 'text-neutral-700' : 'text-neutral-300'}`
+                            : `gap-1.5 px-2.5 py-1 text-xs border ${completed ? 'bg-neutral-800 text-white border-neutral-800' : 'bg-white text-neutral-400 border-neutral-300 hover:border-neutral-500'}`
                             } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                     >
                         {vertical ? (

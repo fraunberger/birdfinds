@@ -34,8 +34,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
 
         setAvatarUploading(true);
         try {
-            const url = await uploadAvatar(file);
-            setAvatarUrl(url);
+            await uploadAvatar(file);
+            // Profile updates automatically via hook
         } catch (err: any) {
             setError('Failed to upload avatar: ' + err.message);
         } finally {
@@ -147,8 +147,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                 key={cat}
                                 onClick={() => toggleCategory(cat)}
                                 className={`text-left px-3 py-2 border text-xs uppercase tracking-wider transition-all ${isActive
-                                        ? 'border-neutral-800 bg-neutral-800 text-white'
-                                        : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                                    ? 'border-neutral-800 bg-neutral-800 text-white'
+                                    : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
                                     }`}
                             >
                                 <span className="mr-2">{config.icon}</span>

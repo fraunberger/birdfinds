@@ -12,7 +12,7 @@ interface SocialFeedProps {
 
 export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { user } = useAuth();
-    const { allStatuses, statuses, activeDate, isLoaded } = useSocialStore();
+    const { allStatuses, statuses, activeDate, setActiveDate, isLoaded } = useSocialStore();
     const { following } = useFollows();
     const [mode, setMode] = useState<'feed' | 'journal'>('feed');
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
@@ -102,15 +102,22 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                     </div>
                 )}
 
-                {feedStatuses.map(status => (
-                    <StatusCard
-                        key={status.id}
-                        status={status}
-                        profile={status.userId ? profileCache[status.userId] : null}
-                        onClickProfile={onClickProfile}
-                        isOwn={status.userId === user?.id}
-                    />
-                ))}
+                {feedStatuses.map(status => {
+                    const isOwn = status.userId === user?.id;
+                    return (
+                        <StatusCard
+                            key={status.id}
+                            status={status}
+                            profile={status.userId ? profileCache[status.userId] : null}
+                            onClickProfile={onClickProfile}
+                            isOwn={isOwn}
+                            onEdit={isOwn ? () => {
+                                setActiveDate(status.date);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            } : undefined}
+                        />
+                    );
+                })}
             </div>
         </div>
     );

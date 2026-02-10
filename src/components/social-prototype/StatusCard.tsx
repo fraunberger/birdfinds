@@ -10,9 +10,10 @@ interface StatusCardProps {
     profile?: UserProfile | null;
     onClickProfile?: (userId: string) => void;
     isOwn?: boolean;
+    onEdit?: () => void;
 }
 
-export function StatusCard({ status, profile, onClickProfile, isOwn = false }: StatusCardProps) {
+export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
 
     // Render content with highlighted items
@@ -67,13 +68,23 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false }: S
                         </span>
                     </button>
                 )}
-                <span className="text-[10px] text-neutral-400 ml-auto flex-shrink-0">
-                    {new Date(status.date).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        timeZone: 'UTC'
-                    })}
-                </span>
+                <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                    {onEdit && (
+                        <button
+                            onClick={onEdit}
+                            className="text-[10px] text-neutral-400 hover:text-neutral-600 uppercase tracking-widest"
+                        >
+                            ✎
+                        </button>
+                    )}
+                    <span className="text-[10px] text-neutral-400">
+                        {new Date(status.date).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: 'UTC'
+                        })}
+                    </span>
+                </div>
             </div>
 
             {/* Body: two-column — content left, habits right */}

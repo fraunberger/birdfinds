@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 // ============================================================
 
 export type Category = 'movie' | 'tv' | 'music' | 'restaurant' | 'beer' | 'cooking' | 'podcast';
+
+export const ALL_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast'];
 
 export interface ConsumableItem {
     id: string;
@@ -59,303 +61,96 @@ export interface Habit {
     sortOrder: number;
 }
 
-export interface HabitLog {
-    id: string;
-    habitId: string;
-    userId: string;
-    date: string;
-    completed: boolean;
+export interface FollowData {
+    following: string[]; // array of userIds you follow
+    followers: string[]; // array of userIds following you
 }
-
-// ============================================================
-// Constants
-// ============================================================
 
 export const HIGHLIGHT_COLOR = '#fffb91';
 
 export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
-    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: '', ratingLabel: 'Score', color: '#fffb91', icon: '🎬' },
-    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season', subtitlePlaceholder: '', ratingLabel: 'Score', color: '#91dfff', icon: '📺' },
-    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song or Album', subtitleLabel: 'Artist', subtitlePlaceholder: '', ratingLabel: 'Score', color: '#ff91f4', icon: '🎵' },
-    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Name', subtitleLabel: 'Podcast', subtitlePlaceholder: '', ratingLabel: 'Score', color: '#ffb391', icon: '🎙️' },
-    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'REST', titleLabel: 'Restaurant Name', subtitleLabel: 'Cuisine', subtitlePlaceholder: '', ratingLabel: 'Score', color: '#91ffb3', icon: '🍽️' },
-    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Beer Name', subtitleLabel: 'Style', subtitlePlaceholder: '', ratingLabel: 'Score', notesLabel: 'Brewery & Notes', notesPlaceholder: '', color: '#e6ff91', icon: '🍺' },
-    cooking: { id: 'cooking', label: 'Cooking', shortLabel: 'COOK', titleLabel: 'Dish Name', subtitleLabel: 'Recipe Link', subtitlePlaceholder: 'https://', ratingLabel: 'Score', notesLabel: 'Recipe', notesPlaceholder: '', color: '#d191ff', icon: '👨‍🍳' },
+    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '🎬' },
+    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '📺' },
+    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '🎵' },
+    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'FOOD', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '🍽️' },
+    beer: { id: 'beer', label: 'Beer/Drink', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '🍺' },
+    cooking: { id: 'cooking', label: 'Cooking', shortLabel: 'COOK', titleLabel: 'Dish Name', subtitleLabel: 'Source/Type', subtitlePlaceholder: 'Source', ratingLabel: 'Rating', color: '#ffae91', icon: '👨‍🍳' },
+    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '🎙️' },
 };
 
-export const ALL_CATEGORIES = Object.keys(CATEGORY_CONFIGS) as Category[];
-
 // ============================================================
-// Helper
+// Store Implementation (Singleton with useSyncExternalStore)
 // ============================================================
 
-function getTodayDateString() {
-    const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const local = new Date(now.getTime() - (offset * 60 * 1000));
-    return local.toISOString().split('T')[0];
+interface SocialState {
+    statuses: Status[];
+    allStatuses: Status[];
+    activeDate: string;
+    activeStatus: Status | null;
+    isLoaded: boolean;
 }
 
-// ============================================================
-// useUserProfile — manages the current user's profile
-// ============================================================
+class SocialStore {
+    private state: SocialState = {
+        statuses: [],
+        allStatuses: [],
+        activeDate: getTodayDateString(),
+        activeStatus: null,
+        isLoaded: false
+    };
+    private listeners = new Set<() => void>();
+    private initialized = false;
 
-export function useUserProfile() {
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    const fetchProfile = useCallback(async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) { setLoading(false); return; }
-
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching profile:', error);
-            }
-
-            if (data) {
-                setProfile({
-                    id: data.id,
-                    username: data.username,
-                    avatarUrl: data.avatar_url,
-                    categories: (data.categories as Category[]) || [],
-                });
-            } else {
-                setProfile(null);
-            }
-        } catch (err) {
-            console.error('Error fetching profile:', err);
-        } finally {
-            setLoading(false);
+    constructor() {
+        if (typeof window !== 'undefined') {
+            // Auto-fetch on client side init
+            this.fetchStatuses();
+            this.setupSubscription();
         }
-    }, []);
+    }
 
-    useEffect(() => { fetchProfile(); }, [fetchProfile]);
+    getState() {
+        return this.state;
+    }
 
-    const saveProfile = async (updates: { username: string; avatarUrl?: string; categories: Category[] }) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+    private emit() {
+        this.listeners.forEach(l => l());
+    }
 
-        const payload = {
-            id: user.id,
-            username: updates.username,
-            avatar_url: updates.avatarUrl || null,
-            categories: updates.categories,
-            updated_at: new Date().toISOString(),
+    subscribe(listener: () => void) {
+        this.listeners.add(listener);
+        return () => {
+            this.listeners.delete(listener);
         };
+    }
 
-        const { error } = await supabase
-            .from('user_profiles')
-            .upsert(payload);
+    setActiveDate(date: string) {
+        this.state = { ...this.state, activeDate: date };
+        this.syncActiveStatus();
+        this.emit();
+    }
 
-        if (error) throw error;
-
-        setProfile({
-            id: user.id,
-            username: updates.username,
-            avatarUrl: updates.avatarUrl,
-            categories: updates.categories,
-        });
-    };
-
-    const uploadAvatar = async (file: File): Promise<string> => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        const ext = file.name.split('.').pop();
-        const path = `${user.id}/avatar.${ext}`;
-
-        const { error } = await supabase.storage
-            .from('avatars')
-            .upload(path, file, { upsert: true });
-
-        if (error) throw error;
-
-        const { data } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(path);
-
-        return data.publicUrl;
-    };
-
-    return { profile, loading, saveProfile, uploadAvatar, refetch: fetchProfile };
-}
-
-// ============================================================
-// useHabits — manage habit definitions and daily logs
-// ============================================================
-
-export function useHabits(targetUserId?: string) {
-    const [habits, setHabits] = useState<Habit[]>([]);
-    const [logs, setLogs] = useState<HabitLog[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchHabits = useCallback(async () => {
-        try {
-            const userId = targetUserId || (await supabase.auth.getUser()).data.user?.id;
-            if (!userId) { setLoading(false); return; }
-
-            const { data: habitData } = await supabase
-                .from('user_habits')
-                .select('*')
-                .eq('user_id', userId)
-                .order('sort_order', { ascending: true });
-
-            const { data: logData } = await supabase
-                .from('habit_logs')
-                .select('*')
-                .eq('user_id', userId);
-
-            setHabits((habitData || []).map(h => ({
-                id: h.id,
-                userId: h.user_id,
-                name: h.name,
-                icon: h.icon || '✓',
-                sortOrder: h.sort_order || 0,
-            })));
-
-            setLogs((logData || []).map(l => ({
-                id: l.id,
-                habitId: l.habit_id,
-                userId: l.user_id,
-                date: l.date,
-                completed: l.completed,
-            })));
-        } catch (err) {
-            console.error('Error fetching habits:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [targetUserId]);
-
-    useEffect(() => { fetchHabits(); }, [fetchHabits]);
-
-    const addHabit = async (name: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { error } = await supabase
-            .from('user_habits')
-            .insert({ user_id: user.id, name, sort_order: habits.length });
-
-        if (error) console.error('Error adding habit:', error);
-        else await fetchHabits();
-    };
-
-    const removeHabit = async (habitId: string) => {
-        const { error } = await supabase
-            .from('user_habits')
-            .delete()
-            .eq('id', habitId);
-
-        if (error) console.error('Error removing habit:', error);
-        else await fetchHabits();
-    };
-
-    const toggleHabitLog = async (habitId: string, date: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const existing = logs.find(l => l.habitId === habitId && l.date === date);
-
+    private syncActiveStatus() {
+        const { statuses, activeDate } = this.state;
+        const existing = statuses.find(s => s.date === activeDate);
         if (existing) {
-            if (existing.completed) {
-                await supabase.from('habit_logs').delete().eq('id', existing.id);
-            } else {
-                await supabase.from('habit_logs').update({ completed: true }).eq('id', existing.id);
-            }
+            this.state.activeStatus = existing;
         } else {
-            await supabase.from('habit_logs').insert({
-                habit_id: habitId,
-                user_id: user.id,
-                date,
-                completed: true,
-            });
+            this.state.activeStatus = {
+                id: 'temp-optimistic',
+                content: '',
+                date: activeDate,
+                items: [],
+                createdAt: Date.now()
+            };
         }
-        await fetchHabits();
-    };
+    }
 
-    const isHabitCompleted = (habitId: string, date: string) => {
-        return logs.some(l => l.habitId === habitId && l.date === date && l.completed);
-    };
-
-    return { habits, logs, loading, addHabit, removeHabit, toggleHabitLog, isHabitCompleted, refetch: fetchHabits };
-}
-
-// ============================================================
-// useFollows — follow/unfollow
-// ============================================================
-
-export function useFollows() {
-    const [following, setFollowing] = useState<string[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchFollowing = useCallback(async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) { setLoading(false); return; }
-
-            const { data } = await supabase
-                .from('follows')
-                .select('following_id')
-                .eq('follower_id', user.id);
-
-            setFollowing((data || []).map(f => f.following_id));
-        } catch (err) {
-            console.error('Error fetching follows:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => { fetchFollowing(); }, [fetchFollowing]);
-
-    const follow = async (userId: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        await supabase.from('follows').insert({ follower_id: user.id, following_id: userId });
-        await fetchFollowing();
-    };
-
-    const unfollow = async (userId: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        await supabase.from('follows').delete()
-            .eq('follower_id', user.id)
-            .eq('following_id', userId);
-        await fetchFollowing();
-    };
-
-    const isFollowing = (userId: string) => following.includes(userId);
-
-    return { following, loading, follow, unfollow, isFollowing, refetch: fetchFollowing };
-}
-
-// ============================================================
-// useSocialStore — main store (modified to support social feed)
-// ============================================================
-
-export function useSocialStore() {
-    const [statuses, setStatuses] = useState<Status[]>([]);
-    const [allStatuses, setAllStatuses] = useState<Status[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    const [activeDate, setActiveDate] = useState<string>(getTodayDateString());
-    const [activeStatus, setActiveStatus] = useState<Status | null>(null);
-
-    const fetchStatuses = useCallback(async () => {
+    async fetchStatuses() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
-            // Fetch ALL statuses (public) with items
+            // Fetch ALL statuses (public)
             const { data: statusData, error: statusError } = await supabase
                 .from('social_statuses')
                 .select('*')
@@ -363,6 +158,7 @@ export function useSocialStore() {
 
             if (statusError) throw statusError;
 
+            // Fetch ALL items (public)
             const { data: itemData, error: itemError } = await supabase
                 .from('social_items')
                 .select('*');
@@ -389,56 +185,56 @@ export function useSocialStore() {
                     }))
             }));
 
-            setAllStatuses(combined);
+            // Filter for current user
+            const userStatuses = user ? combined.filter(s => s.userId === user.id) : combined;
 
-            // User's own statuses
-            if (user) {
-                setStatuses(combined.filter(s => s.userId === user.id));
-            } else {
-                setStatuses(combined);
-            }
+            this.state = {
+                ...this.state,
+                allStatuses: combined,
+                statuses: userStatuses,
+                isLoaded: true
+            };
+            this.syncActiveStatus();
+            this.emit();
         } catch (error) {
             console.error("Error fetching social data:", error);
-        } finally {
-            setIsLoaded(true);
+            this.state.isLoaded = true;
+            this.emit();
         }
-    }, []);
+    }
 
-    // Sync activeStatus
-    useEffect(() => {
-        if (!isLoaded) return;
-        const existing = statuses.find(s => s.date === activeDate);
-        if (existing) {
-            setActiveStatus(existing);
-        } else {
-            setActiveStatus({
-                id: 'temp-optimistic',
-                content: '',
-                date: activeDate,
-                items: [],
-                createdAt: Date.now()
-            });
-        }
-    }, [statuses, activeDate, isLoaded]);
-
-    useEffect(() => {
-        fetchStatuses();
+    setupSubscription() {
         const channel = supabase
             .channel('social_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, fetchStatuses)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, fetchStatuses)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, () => this.fetchStatuses())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, () => this.fetchStatuses())
             .subscribe();
+    }
 
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchStatuses]);
-
-    const ensureActiveStatus = async (): Promise<string> => {
+    async ensureActiveStatus(): Promise<string> {
+        const { activeDate, statuses } = this.state;
         const existing = statuses.find(s => s.date === activeDate);
+
+        // If we have a real status, return its ID
         if (existing && existing.id !== 'temp-optimistic') return existing.id;
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
 
+        // Check DB for existing status first (race condition safety)
+        const { data: dbExisting } = await supabase
+            .from('social_statuses')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('date', activeDate)
+            .single();
+
+        if (dbExisting) {
+            await this.fetchStatuses(); // Refresh safely
+            return dbExisting.id;
+        }
+
+        // Create new
         const { data, error } = await supabase
             .from('social_statuses')
             .insert({ content: '', date: activeDate, user_id: user.id })
@@ -446,28 +242,34 @@ export function useSocialStore() {
             .single();
 
         if (error) throw error;
-        await fetchStatuses();
+        await this.fetchStatuses();
         return data.id;
-    };
+    }
 
-    const updateActiveStatus = async (content: string) => {
+    async updateActiveStatus(content: string) {
         try {
-            const id = await ensureActiveStatus();
+            // Optimistic update
+            const currentStatus = this.state.activeStatus;
+            if (currentStatus) {
+                this.state.activeStatus = { ...currentStatus, content };
+                this.emit();
+            }
+
+            const id = await this.ensureActiveStatus();
             const { error } = await supabase
                 .from('social_statuses')
                 .update({ content })
                 .eq('id', id);
 
             if (error) throw error;
-            setActiveStatus(prev => prev ? { ...prev, content, id } : null);
         } catch (error) {
             console.error("Error updating status:", error);
         }
-    };
+    }
 
-    const addItemToActive = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
+    async addItemToActive(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
         try {
-            const statusId = await ensureActiveStatus();
+            const statusId = await this.ensureActiveStatus();
             const { error } = await supabase
                 .from('social_items')
                 .insert({
@@ -481,108 +283,339 @@ export function useSocialStore() {
                 });
 
             if (error) throw error;
-            await fetchStatuses();
+            await this.fetchStatuses();
         } catch (error) {
             console.error("Error adding item:", error);
         }
-    };
+        await this.fetchStatuses();
+    }
 
-    const removeItemFromActive = async (itemId: string) => {
+    async removeItemFromActive(itemId: string) {
         try {
+            // Optimistic removal
+            if (this.state.activeStatus && this.state.activeStatus.items) {
+                this.state.activeStatus = {
+                    ...this.state.activeStatus,
+                    items: this.state.activeStatus.items.filter(i => i.id !== itemId)
+                };
+                this.emit();
+            }
+
             const { error } = await supabase
                 .from('social_items')
                 .delete()
                 .eq('id', itemId);
 
             if (error) throw error;
-            setActiveStatus(prev => {
-                if (!prev) return null;
-                return { ...prev, items: prev.items.filter(i => i.id !== itemId) };
-            });
+            await this.fetchStatuses();
         } catch (error) {
-            console.error("Error deleting item:", error);
+            console.error("Error removing item:", error);
         }
-    };
+    }
 
-    const getAllItemsByCategory = (category: Category) => {
-        return statuses.flatMap(s => s.items).filter(i => i.category === category);
-    };
+    getAllItemsByCategory(category: Category): ConsumableItem[] {
+        return this.state.statuses.flatMap(s => s.items).filter(i => i.category === category);
+    }
 
-    // Social feed: get statuses from followed users + self
-    const getFeedStatuses = (followingIds: string[], currentUserId?: string) => {
-        const ids = currentUserId ? [...followingIds, currentUserId] : followingIds;
-        return allStatuses.filter(s => s.userId && ids.includes(s.userId));
-    };
-
-    // Get statuses for a specific user
-    const getUserStatuses = (userId: string) => {
-        return allStatuses.filter(s => s.userId === userId);
-    };
-
-    // Get all items for a user by category
-    const getUserItemsByCategory = (userId: string, category: Category) => {
-        return allStatuses
+    getUserItemsByCategory(category: Category, userId: string): ConsumableItem[] {
+        return this.state.allStatuses
             .filter(s => s.userId === userId)
             .flatMap(s => s.items)
             .filter(i => i.category === category);
-    };
+    }
+
+    getUserStatuses(userId: string): Status[] {
+        return this.state.allStatuses.filter(s => s.userId === userId);
+    }
+}
+
+export const socialStore = new SocialStore();
+
+// Hook for React components
+export function useSocialStore() {
+    const state = useSyncExternalStore(
+        (cb) => socialStore.subscribe(cb),
+        () => socialStore.getState()
+    );
 
     return {
-        statuses,
-        allStatuses,
-        activeStatus,
-        activeDate,
-        setActiveDate,
-        updateActiveStatus,
-        addItemToActive,
-        removeItemFromActive,
-        getAllItemsByCategory,
-        getFeedStatuses,
-        getUserStatuses,
-        getUserItemsByCategory,
-        isLoaded
+        ...state,
+        setActiveDate: (d: string) => socialStore.setActiveDate(d),
+        updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
+        addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
+        removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
+        getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
+        getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
+        getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
     };
 }
 
+// Helper
+function getTodayDateString() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+
 // ============================================================
-// usePublicProfile — fetch any user's profile
+// Other Hooks (UserProfile, Habits, Follows) 
 // ============================================================
 
-export function usePublicProfile(userId: string | null) {
+export function useUserProfile() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (!userId) { setLoading(false); return; }
-
-        const fetch = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('id', userId)
-                    .single();
-
-                if (error) {
-                    console.error('Error fetching public profile:', error);
-                    setProfile(null);
-                } else if (data) {
-                    setProfile({
-                        id: data.id,
-                        username: data.username,
-                        avatarUrl: data.avatar_url,
-                        categories: (data.categories as Category[]) || [],
-                    });
-                }
-            } catch (err) {
-                console.error('Error:', err);
-            } finally {
-                setLoading(false);
+    const fetchProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setProfile(null);
+                return;
             }
-        };
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
 
-        fetch();
-    }, [userId]);
+            if (error && error.code !== 'PGRST116') throw error;
 
+            if (data) {
+                setProfile({
+                    id: data.id,
+                    username: data.username,
+                    avatarUrl: data.avatar_url,
+                    categories: data.categories || [],
+                    createdAt: data.created_at
+                });
+            } else {
+                setProfile(null);
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateProfile = async (updates: Partial<UserProfile>) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const dbUpdates: any = {};
+        if (updates.username) dbUpdates.username = updates.username;
+        if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
+        if (updates.categories) dbUpdates.categories = updates.categories;
+
+        // Upsert
+        const { error } = await supabase
+            .from('user_profiles')
+            .upsert({ id: user.id, ...dbUpdates });
+
+        if (error) throw error;
+        await fetchProfile();
+    };
+
+    const uploadAvatar = async (file: File) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        await updateProfile({ avatarUrl: data.publicUrl });
+    };
+
+    // Initial fetch
+    useState(() => { fetchProfile(); });
+
+    return {
+        profile,
+        loading,
+        updateProfile,
+        saveProfile: updateProfile, // Alias for backward compat
+        uploadAvatar,
+        refetch: fetchProfile
+    };
+}
+
+export function useHabits(userId?: string) {
+    const [habits, setHabits] = useState<Habit[]>([]);
+    const [habitLogs, setHabitLogs] = useState<any[]>([]); // simplified type
+    const [loading, setLoading] = useState(true);
+
+    const fetchHabits = async () => {
+        // If userId provided, fetch for that user, otherwise current user
+        let targetId = userId;
+        if (!targetId) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            targetId = user.id;
+        }
+
+        const { data } = await supabase
+            .from('user_habits')
+            .select('*')
+            .eq('user_id', targetId)
+            .order('sort_order');
+
+        setHabits((data || []).map((h: any) => ({
+            id: h.id,
+            userId: h.user_id,
+            name: h.name,
+            icon: h.icon,
+            sortOrder: h.sort_order
+        })));
+
+        // Fetch Logs (last 30 days roughly)
+        const { data: logsData } = await supabase
+            .from('habit_logs')
+            .select('*')
+            .eq('user_id', targetId);
+
+        setHabitLogs(logsData || []);
+
+        setLoading(false);
+    };
+
+    const addHabit = async (name: string, icon: string = '✓') => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        await supabase.from('user_habits').insert({
+            user_id: user.id,
+            name,
+            icon,
+            sort_order: habits.length
+        });
+        await fetchHabits();
+    };
+
+    const removeHabit = async (id: string) => {
+        await supabase.from('user_habits').delete().eq('id', id);
+        await fetchHabits();
+    };
+
+    const toggleHabitLog = async (habitId: string, date: string, completed: boolean) => {
+        // Optimistic
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        if (completed) {
+            setHabitLogs(prev => [...prev, { habit_id: habitId, date, completed: true }]);
+            await supabase.from('habit_logs').upsert({
+                habit_id: habitId,
+                user_id: user.id,
+                date,
+                completed: true
+            }, { onConflict: 'habit_id, date' });
+        } else {
+            setHabitLogs(prev => prev.filter(l => !(l.habit_id === habitId && l.date === date)));
+            await supabase.from('habit_logs').delete()
+                .match({ habit_id: habitId, date });
+        }
+    };
+
+    const isHabitCompleted = (habitId: string, date: string) => {
+        return habitLogs.some(l => l.habit_id === habitId && l.date === date && l.completed);
+    };
+
+    // Initial fetch, dep on userId
+    useState(() => { fetchHabits(); });
+
+    return {
+        habits,
+        logs: habitLogs.map(l => ({ habitId: l.habit_id, date: l.date, completed: l.completed })),
+        loading,
+        addHabit,
+        removeHabit,
+        toggleHabitLog,
+        isHabitCompleted,
+        refetch: fetchHabits
+    };
+}
+
+export function useFollows() {
+    const [following, setFollowing] = useState<string[]>([]);
+
+    const fetchFollows = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', user.id);
+
+        setFollowing((data || []).map((f: any) => f.following_id));
+    };
+
+    const toggleFollow = async (targetUserId: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const isFollowing = following.includes(targetUserId);
+
+        if (isFollowing) {
+            await supabase.from('follows').delete()
+                .match({ follower_id: user.id, following_id: targetUserId });
+        } else {
+            await supabase.from('follows').insert({
+                follower_id: user.id,
+                following_id: targetUserId
+            });
+        }
+        await fetchFollows();
+    };
+
+    useState(() => { fetchFollows(); });
+
+    return {
+        following,
+        toggleFollow,
+        follow: toggleFollow,
+        unfollow: toggleFollow,
+        isFollowing: (uid: string) => following.includes(uid),
+        refetch: fetchFollows
+    };
+}
+
+export function usePublicProfile(userId: string) {
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetch = async () => {
+        if (!userId) return;
+        setLoading(true);
+        const { data } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (data) {
+            setProfile({
+                id: data.id,
+                username: data.username,
+                avatarUrl: data.avatar_url,
+                categories: data.categories || [],
+                createdAt: data.created_at
+            });
+        }
+        setLoading(false);
+    };
+
+    useState(() => { fetch(); });
     return { profile, loading };
 }

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { useUserProfile } from '@/lib/social-prototype/store';
+import { useUserProfile, useSocialStore } from '@/lib/social-prototype/store';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { UserSetup } from './UserSetup';
 import { StatusComposer } from './StatusComposer';

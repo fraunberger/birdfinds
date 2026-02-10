@@ -49,9 +49,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     }
 
     const categoryItems: Record<string, ConsumableItem[]> = {};
-    (profile.categories || []).forEach(cat => {
-        categoryItems[cat] = getUserItemsByCategory(userId, cat);
-    });
+    if (profile?.categories) {
+        profile.categories.forEach(cat => {
+            categoryItems[cat] = getUserItemsByCategory(cat, userId);
+        });
+    }
 
     const toggleCategory = (cat: Category) => {
         setOpenCategory(prev => prev === cat ? null : cat);
@@ -96,8 +98,8 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         <button
                             onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
                             className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${isFollowing(userId)
-                                    ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
-                                    : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
+                                ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
+                                : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
                                 }`}
                         >
                             {isFollowing(userId) ? 'Following' : 'Follow'}
@@ -134,8 +136,8 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     key={cat}
                                     onClick={() => toggleCategory(cat)}
                                     className={`text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${isOpen
-                                            ? 'bg-neutral-800 text-white border-neutral-800'
-                                            : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
+                                        ? 'bg-neutral-800 text-white border-neutral-800'
+                                        : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
                                         }`}
                                     style={!isOpen ? {
                                         borderLeftColor: config.color || '#d4d4d4',
