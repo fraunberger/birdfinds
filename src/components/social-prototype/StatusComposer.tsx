@@ -199,7 +199,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
             highlightedHtml = highlightedHtml.replace(
                 regex,
-                `<mark style="background-color: ${color}; padding: 0 1px; color: transparent;">$1</mark>`
+                `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
             );
         });
 
@@ -350,6 +350,35 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     setMentionCategory(null);
                                 }
                             }
+                        }
+                    }}
+                    onClick={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        const cursor = target.selectionStart;
+
+                        // Check if cursor is inside an existing item
+                        // We reconstruct where items are located
+                        let foundItem: ConsumableItem | undefined;
+
+                        // Simple scan - find all occurrences and check range
+                        for (const item of items) {
+                            if (!item.title) continue;
+                            const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`(${escaped})`, 'gi');
+                            let match;
+                            while ((match = regex.exec(content)) !== null) {
+                                const start = match.index;
+                                const end = start + match[0].length;
+                                if (cursor >= start && cursor <= end) {
+                                    foundItem = item;
+                                    break;
+                                }
+                            }
+                            if (foundItem) break;
+                        }
+
+                        if (foundItem) {
+                            openModal(foundItem);
                         }
                     }}
                     placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
