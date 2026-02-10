@@ -253,8 +253,32 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 </div>
             </header>
 
-            {/* Editor */}
+            {/* Editor Container */}
             <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
+                {/* Floating "Black Bar" Toolbar */}
+                {showMentionPicker && !mentionCategory && (
+                    <div className="absolute z-50 -top-12 left-0 right-0 bg-neutral-900 text-white p-1 shadow-xl rounded-md flex items-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        <div className="text-[10px] font-bold uppercase tracking-widest px-2 text-neutral-400 shrink-0">
+                            {triggerLength > 1 ? 'ADD AS:' : 'TYPE:'}
+                        </div>
+                        {activeCategoryConfigs.map(cat => (
+                            <button
+                                key={cat.id}
+                                onClick={() => handleSelectCategory(cat.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 rounded transition-colors whitespace-nowrap shrink-0"
+                            >
+                                <span>{cat.icon}</span>
+                                <span className="uppercase tracking-wider font-medium">{cat.label}</span>
+                            </button>
+                        ))}
+                        <button
+                            onClick={handleMentionCancel}
+                            className="px-2 py-1.5 text-xs text-neutral-500 hover:text-white ml-auto"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
                 {renderHighlights()}
                 <textarea
                     ref={textareaRef}
@@ -304,68 +328,35 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 />
             </div>
 
-            {/* @ Mention Picker */}
-            {showMentionPicker && (
-                <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2">
-                    {!mentionCategory ? (
-                        <>
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
-                                What type?
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                                {activeCategoryConfigs.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => handleSelectCategory(cat.id)}
-                                        className="flex items-center gap-1 px-2 py-1.5 text-xs border border-neutral-300 hover:bg-white active:bg-neutral-200 transition-colors"
-                                        style={{ borderLeftColor: cat.color || '#ccc', borderLeftWidth: 3 }}
-                                    >
-                                        <span>{cat.icon}</span>
-                                        <span className="uppercase tracking-wider text-[10px]">{cat.label}</span>
-                                    </button>
-                                ))}
-                                <button
-                                    onClick={handleMentionCancel}
-                                    className="px-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-600"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
-                                {CATEGORY_CONFIGS[mentionCategory]?.icon} {CATEGORY_CONFIGS[mentionCategory]?.titleLabel}
-                            </div>
-                            <div className="flex gap-2">
-                                <input
-                                    ref={mentionInputRef}
-                                    type="text"
-                                    value={mentionTitle}
-                                    onChange={(e) => setMentionTitle(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleMentionSubmit();
-                                        if (e.key === 'Escape') handleMentionCancel();
-                                    }}
-                                    className="flex-1 text-[16px] sm:text-xs font-mono border border-neutral-300 px-2 py-1.5 outline-none focus:border-neutral-500 bg-white"
-                                    autoFocus
-                                />
-                                <button
-                                    onClick={handleMentionSubmit}
-                                    disabled={!mentionTitle.trim()}
-                                    className="px-3 py-1.5 text-xs bg-neutral-800 text-white uppercase tracking-wider disabled:opacity-30"
-                                >
-                                    Add
-                                </button>
-                                <button
-                                    onClick={() => { setMentionCategory(null); setMentionTitle(''); }}
-                                    className="px-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-600"
-                                >
-                                    ←
-                                </button>
-                            </div>
-                        </>
-                    )}
+            {/* Sub-form for details (only when category selected) */}
+            {showMentionPicker && mentionCategory && (
+                <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
+                        <span>{CATEGORY_CONFIGS[mentionCategory]?.icon} New {CATEGORY_CONFIGS[mentionCategory]?.label}</span>
+                        <button onClick={handleMentionCancel} className="text-neutral-400 hover:text-black">✕</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            ref={mentionInputRef}
+                            type="text"
+                            value={mentionTitle}
+                            onChange={(e) => setMentionTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleMentionSubmit();
+                                if (e.key === 'Escape') handleMentionCancel();
+                            }}
+                            placeholder={CATEGORY_CONFIGS[mentionCategory]?.titleLabel}
+                            className="flex-1 text-[16px] sm:text-xs font-mono border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500 bg-white shadow-sm"
+                            autoFocus
+                        />
+                        <button
+                            onClick={handleMentionSubmit}
+                            disabled={!mentionTitle.trim()}
+                            className="px-4 py-2 text-xs bg-black text-white font-bold uppercase tracking-wider disabled:opacity-30 shadow-sm"
+                        >
+                            Add
+                        </button>
+                    </div>
                 </div>
             )}
 

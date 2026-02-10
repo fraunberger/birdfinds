@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase';
 // Types
 // ============================================================
 
-export type Category = 'movie' | 'tv' | 'music' | 'restaurant' | 'beer' | 'cooking' | 'podcast';
+export type Category = 'movie' | 'tv' | 'music' | 'restaurant' | 'beer' | 'cooking' | 'podcast' | 'book';
 
-export const ALL_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast'];
+export const ALL_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
 
 export interface ConsumableItem {
     id: string;
@@ -76,6 +76,7 @@ export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
     beer: { id: 'beer', label: 'Beer/Drink', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '🍺' },
     cooking: { id: 'cooking', label: 'Cooking', shortLabel: 'COOK', titleLabel: 'Dish Name', subtitleLabel: 'Source/Type', subtitlePlaceholder: 'Source', ratingLabel: 'Rating', color: '#ffae91', icon: '👨‍🍳' },
     podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '🎙️' },
+    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '📚' },
 };
 
 // ============================================================
