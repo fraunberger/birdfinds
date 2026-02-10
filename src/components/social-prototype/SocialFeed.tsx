@@ -59,7 +59,11 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         feedStatuses = statuses.filter(s => s.date !== activeDate);
     } else {
         // Feed: show all posts from everyone
-        feedStatuses = allStatuses.filter(s => s.date !== activeDate);
+        // Show today's posts from OTHERS, but hide own (since it's in composer)
+        feedStatuses = allStatuses.filter(s => {
+            if (s.userId !== user?.id) return true;
+            return s.date !== activeDate;
+        });
     }
 
     // Sort by date descending

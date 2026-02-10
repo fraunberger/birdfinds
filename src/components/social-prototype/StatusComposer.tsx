@@ -21,6 +21,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [mentionCategory, setMentionCategory] = useState<Category | null>(null);
     const [mentionTitle, setMentionTitle] = useState('');
     const [atPosition, setAtPosition] = useState<number>(-1);
+    const [triggerLength, setTriggerLength] = useState<number>(1); // 1 for @, N for selection
     const mentionInputRef = useRef<HTMLInputElement>(null);
 
     // Quick Add State
@@ -73,8 +74,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             if (charBefore === ' ' || charBefore === '\n' || cursorPos === 1) {
                 setShowMentionPicker(true);
                 setMentionCategory(null);
+                setMentionCategory(null);
                 setMentionTitle('');
                 setAtPosition(cursorPos - 1);
+                setTriggerLength(1);
                 return;
             }
         }
@@ -105,9 +108,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 notes: ''
             });
 
-            // Replace the @ in content with the title
+            // Replace text
             const before = content.substring(0, atPosition);
-            const after = content.substring(atPosition + 1);
+            // Dynamic length replacement
+            const after = content.substring(atPosition + triggerLength);
             const newContent = before + title + after;
             setContent(newContent);
             updateActiveStatus(newContent);
@@ -230,12 +234,23 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
                     LOG ENTRY
                 </h2>
-                <input
-                    type="date"
-                    value={activeDate}
-                    onChange={(e) => setActiveDate(e.target.value)}
-                    className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none"
-                />
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => {
+                            if (content) updateActiveStatus(content);
+                            alert("Status saved!");
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-widest text-black hover:text-neutral-600 active:text-neutral-800 transition-colors"
+                    >
+                        SAVE
+                    </button>
+                    <input
+                        type="date"
+                        value={activeDate}
+                        onChange={(e) => setActiveDate(e.target.value)}
+                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none"
+                    />
+                </div>
             </header>
 
             {/* Editor */}
@@ -245,9 +260,46 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     ref={textareaRef}
                     value={content}
                     onChange={handleContentChange}
-                    onBlur={handleBlur}
-                    placeholder="What did you do today? Type @ to add an item..."
-                    className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
+                    onFocus={() => {
+                        adjustTextareaHeight();
+                        // Auto-expand slightly on focus if small
+                        if (textareaRef.current) {
+                            textareaRef.current.style.minHeight = '150px';
+                        }
+                    }}
+                    onBlur={(e) => {
+                        handleBlur();
+                        if (textareaRef.current && !content) {
+                            textareaRef.current.style.minHeight = '100px';
+                        }
+                    }}
+                    onSelect={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        const start = target.selectionStart;
+                        const end = target.selectionEnd;
+                        if (start !== end) {
+                            const selectedText = target.value.substring(start, end);
+                            if (selectedText.trim()) {
+                                // Check if this matches an existing item (Edit Mode)
+                                // We look for an exact match in the active items list
+                                const existing = items.find(i => i.title.toLowerCase() === selectedText.toLowerCase());
+
+                                if (existing) {
+                                    // Open modal for editing
+                                    openModal(existing);
+                                } else {
+                                    // New item (Add Mode)
+                                    setMentionTitle(selectedText);
+                                    setAtPosition(start);
+                                    setTriggerLength(selectedText.length);
+                                    setShowMentionPicker(true);
+                                    setMentionCategory(null);
+                                }
+                            }
+                        }
+                    }}
+                    placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
+                    className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                     spellCheck={false}
                 />
             </div>
