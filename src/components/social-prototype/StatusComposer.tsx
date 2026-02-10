@@ -257,23 +257,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
                 {/* Floating "Black Bar" Toolbar */}
                 {showMentionPicker && !mentionCategory && (
-                    <div className="absolute z-50 -top-12 left-0 right-0 bg-neutral-900 text-white p-1 shadow-xl rounded-md flex items-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150">
-                        <div className="text-[10px] font-bold uppercase tracking-widest px-2 text-neutral-400 shrink-0">
-                            {triggerLength > 1 ? 'ADD AS:' : 'TYPE:'}
-                        </div>
+                    <div className="absolute z-50 -top-10 left-0 right-0 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150">
                         {activeCategoryConfigs.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => handleSelectCategory(cat.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 rounded transition-colors whitespace-nowrap shrink-0"
+                                className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
                             >
-                                <span>{cat.icon}</span>
-                                <span className="uppercase tracking-wider font-medium">{cat.label}</span>
+                                {cat.shortLabel}
                             </button>
                         ))}
                         <button
                             onClick={handleMentionCancel}
-                            className="px-2 py-1.5 text-xs text-neutral-500 hover:text-white ml-auto"
+                            className="px-2 py-1 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
                         >
                             ✕
                         </button>
