@@ -58,10 +58,8 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     if (mode === 'journal') {
         feedStatuses = statuses.filter(s => s.date !== activeDate);
     } else {
-        // Feed: self + following
-        const feedUserIds = user ? [user.id, ...following] : [];
-        feedStatuses = allStatuses
-            .filter(s => s.userId && feedUserIds.includes(s.userId) && s.date !== activeDate);
+        // Feed: show all posts from everyone
+        feedStatuses = allStatuses.filter(s => s.date !== activeDate);
     }
 
     // Sort by date descending
@@ -78,8 +76,8 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                     <button
                         onClick={() => setMode('feed')}
                         className={`px-3 py-1 uppercase tracking-wider transition-colors ${mode === 'feed'
-                                ? 'bg-neutral-800 text-white'
-                                : 'text-neutral-500 hover:bg-neutral-100'
+                            ? 'bg-neutral-800 text-white'
+                            : 'text-neutral-500 hover:bg-neutral-100'
                             }`}
                     >
                         Feed
@@ -87,8 +85,8 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                     <button
                         onClick={() => setMode('journal')}
                         className={`px-3 py-1 uppercase tracking-wider transition-colors border-l border-neutral-300 ${mode === 'journal'
-                                ? 'bg-neutral-800 text-white'
-                                : 'text-neutral-500 hover:bg-neutral-100'
+                            ? 'bg-neutral-800 text-white'
+                            : 'text-neutral-500 hover:bg-neutral-100'
                             }`}
                     >
                         Journal

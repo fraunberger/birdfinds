@@ -72,11 +72,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     return (
         <div
-            className="fixed inset-0 bg-white/90 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-white/95 z-50 flex items-end sm:items-center justify-center"
             onClick={onClose}
         >
             <div
-                className="bg-white border border-neutral-300 w-full max-w-md font-mono"
+                className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -122,34 +122,33 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         />
                     </div>
 
-                    {/* Rating */}
-                    <div className="flex items-end gap-6">
-                        <div>
+                    {/* Rating & Type */}
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex-1 min-w-[80px]">
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                 {config.ratingLabel}
                             </label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="10"
-                                    step="0.1"
-                                    value={rating || ''}
-                                    onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                    placeholder="—"
-                                    className="w-16 text-center text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 bg-transparent"
-                                />
-                            </div>
+                            <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.1"
+                                inputMode="decimal"
+                                value={rating || ''}
+                                onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
+                                placeholder="—"
+                                className="w-16 text-center text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 bg-transparent"
+                            />
                         </div>
 
-                        <div>
+                        <div className="flex-1 min-w-[80px]">
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                 Type
                             </label>
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value as Category)}
-                                className="text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 px-2 bg-transparent cursor-pointer"
+                                className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 px-2 bg-transparent cursor-pointer"
                             >
                                 {Object.values(CATEGORY_CONFIGS).map(c => (
                                     <option key={c.id} value={c.id}>{c.shortLabel}</option>

@@ -16,27 +16,20 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
 
-    // Quick Add State
-    const [quickAddTitle, setQuickAddTitle] = useState('');
-    const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
+    // @ mention state
+    const [showMentionPicker, setShowMentionPicker] = useState(false);
+    const [mentionCategory, setMentionCategory] = useState<Category | null>(null);
+    const [mentionTitle, setMentionTitle] = useState('');
+    const mentionInputRef = useRef<HTMLInputElement>(null);
 
-    // Selection State
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [selection, setSelection] = useState<{ start: number; end: number; text: string } | null>(null);
 
-    // Active categories: use user's selected categories, or all if not provided
+    // Active categories
     const activeCategories = userCategories && userCategories.length > 0
         ? userCategories
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
     const activeCategoryConfigs = activeCategories.map(c => CATEGORY_CONFIGS[c]).filter(Boolean);
-
-    // Set default quick add category to first active category
-    useEffect(() => {
-        if (activeCategories.length > 0 && !activeCategories.includes(quickAddCategory)) {
-            setQuickAddCategory(activeCategories[0]);
-        }
-    }, [activeCategories]);
 
     // Sync content with store
     useEffect(() => {
@@ -52,96 +45,78 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         const el = textareaRef.current;
         if (el) {
             el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
+            el.style.height = Math.max(100, el.scrollHeight) + 'px';
         }
     };
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setContent(e.target.value);
+        const val = e.target.value;
+        setContent(val);
         adjustTextareaHeight();
+
+        // Detect @ trigger
+        const cursorPos = e.target.selectionStart;
+        const textBeforeCursor = val.substring(0, cursorPos);
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+        if (lastAtIndex !== -1 && (lastAtIndex === 0 || textBeforeCursor[lastAtIndex - 1] === ' ' || textBeforeCursor[lastAtIndex - 1] === '\n')) {
+            const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+            if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n') && textAfterAt.length === 0) {
+                setShowMentionPicker(true);
+                setMentionCategory(null);
+                setMentionTitle('');
+                return;
+            }
+        }
     };
 
     const handleBlur = () => {
         updateActiveStatus(content);
     };
 
-    const handleSelect = () => {
-        const el = textareaRef.current;
-        if (!el) return;
-        if (el.selectionStart !== el.selectionEnd) {
-            let text = el.value.substring(el.selectionStart, el.selectionEnd);
-
-            if (text.length > 50) {
-                setSelection(null);
-                return;
-            }
-
-            const hasOverlap = items.some(item =>
-                text.toLowerCase().includes(item.title.toLowerCase())
-            );
-
-            if (hasOverlap) {
-                setSelection(null);
-                return;
-            }
-
-            if (text.trim().length > 0) {
-                text = text.replace(/[.,;!?]+$/, '').replace(/^[.,;!?]+/, '');
-                setSelection({ start: el.selectionStart, end: el.selectionEnd, text: text.trim() });
-                return;
-            }
-        }
-        setSelection(null);
+    const handleSelectCategory = (cat: Category) => {
+        setMentionCategory(cat);
+        setMentionTitle('');
+        setTimeout(() => mentionInputRef.current?.focus(), 50);
     };
 
-    const handleTextareaClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-        const el = textareaRef.current;
-        if (!el || !content) return;
-        if (el.selectionStart !== el.selectionEnd) return;
+    const handleMentionSubmit = async () => {
+        if (!mentionTitle.trim() || !mentionCategory) return;
 
-        const cursorIndex = el.selectionStart;
-        let foundItem: ConsumableItem | null = null;
-
-        for (const item of items) {
-            const title = item.title;
-            const regex = new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                if (cursorIndex > match.index && cursorIndex < match.index + title.length) {
-                    foundItem = item;
-                    break;
-                }
-            }
-            if (foundItem) break;
-        }
-
-        if (foundItem) {
-            openModal(foundItem);
-        }
-    };
-
-    const handleQuickTag = async (category: Category) => {
-        if (!selection) return;
+        // Add the item
         await addItemToActive({
-            category,
-            title: selection.text,
+            category: mentionCategory,
+            title: mentionTitle.trim(),
             rating: undefined,
             subtitle: '',
             notes: ''
         });
-        setSelection(null);
+
+        // Replace the trailing @ in content with the title
+        const newContent = content.replace(/@$/, mentionTitle.trim());
+        setContent(newContent);
+        updateActiveStatus(newContent);
+
+        // Reset
+        setShowMentionPicker(false);
+        setMentionCategory(null);
+        setMentionTitle('');
+
+        // Refocus textarea
+        setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
-    const handleQuickAddRow = async () => {
-        if (!quickAddTitle.trim()) return;
-        await addItemToActive({
-            category: quickAddCategory,
-            title: quickAddTitle,
-            rating: undefined,
-            subtitle: '',
-            notes: ''
-        });
-        setQuickAddTitle('');
+    const handleMentionCancel = () => {
+        setShowMentionPicker(false);
+        setMentionCategory(null);
+        setMentionTitle('');
+        // Remove trailing @ if present
+        if (content.endsWith('@')) {
+            const newContent = content.slice(0, -1);
+            setContent(newContent);
+            updateActiveStatus(newContent);
+        }
+        setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
@@ -152,9 +127,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setExistingItem(undefined);
     };
 
-    const handleRemoveItem = (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        removeItemFromActive(id);
+    const handleDeleteItem = async () => {
+        if (existingItem) {
+            await removeItemFromActive(existingItem.id);
+            setExistingItem(undefined);
+        }
     };
 
     const openModal = (item: ConsumableItem) => {
@@ -165,7 +142,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
-    // Simple highlight rendering behind text
+    // Highlight rendering
     const renderHighlights = () => {
         if (!content) return null;
 
@@ -192,156 +169,163 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         return (
             <div
-                className="absolute inset-0 p-4 pointer-events-none whitespace-pre-wrap break-words font-mono text-xs text-transparent leading-relaxed z-0 align-top overflow-hidden"
+                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-xs text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
                 dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
         );
     };
 
-    if (!isLoaded) return <div className="h-40 bg-neutral-100 mb-4 border border-neutral-300" />;
+    if (!isLoaded) return <div className="h-32 bg-neutral-100 mb-4 border border-neutral-300" />;
 
     return (
-        <div className="mb-8 font-mono">
+        <div className="mb-6 font-mono">
             {/* Header */}
             <header className="flex items-center justify-between mb-2 border-b border-neutral-300 pb-2">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600">
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
                     LOG ENTRY
                 </h2>
                 <input
                     type="date"
                     value={activeDate}
                     onChange={(e) => setActiveDate(e.target.value)}
-                    className="bg-transparent text-right font-mono text-xs text-neutral-500 cursor-pointer outline-none"
+                    className="bg-transparent text-right font-mono text-[10px] text-neutral-500 cursor-pointer outline-none"
                 />
             </header>
 
             {/* Editor */}
-            <div className="bg-white border border-neutral-300 mb-2 relative min-h-[120px]">
+            <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
                 {renderHighlights()}
                 <textarea
                     ref={textareaRef}
                     value={content}
                     onChange={handleContentChange}
-                    onSelect={handleSelect}
-                    onClick={handleTextareaClick}
                     onBlur={handleBlur}
-                    placeholder="Enter observations..."
-                    className="relative z-10 w-full text-xs bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[120px] p-4 font-mono resize-none leading-relaxed align-top overflow-hidden"
+                    placeholder="What did you do today? Type @ to add an item..."
+                    className="relative z-10 w-full text-xs bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
                     spellCheck={false}
                 />
-
-                {/* Selection Toolbar */}
-                {selection && (
-                    <div className="absolute bottom-2 right-2 z-30 flex gap-0 bg-neutral-800 text-white text-xs font-mono border border-neutral-600 shadow-md">
-                        <span className="px-2 py-1 border-r border-neutral-600 text-neutral-400 uppercase tracking-wider">TAG:</span>
-                        {activeCategoryConfigs.map(cat => (
-                            <button
-                                key={cat.id}
-                                onMouseDown={(e) => { e.preventDefault(); handleQuickTag(cat.id); }}
-                                className="px-2 py-1 hover:bg-neutral-700 border-r border-neutral-600 last:border-r-0 uppercase tracking-wider"
-                                style={{ borderBottom: `2px solid ${cat.color || 'transparent'}` }}
-                            >
-                                {cat.shortLabel}
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
+
+            {/* @ Mention Picker */}
+            {showMentionPicker && (
+                <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2">
+                    {!mentionCategory ? (
+                        <>
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
+                                What type?
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {activeCategoryConfigs.map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => handleSelectCategory(cat.id)}
+                                        className="flex items-center gap-1 px-2 py-1.5 text-xs border border-neutral-300 hover:bg-white active:bg-neutral-200 transition-colors"
+                                        style={{ borderLeftColor: cat.color || '#ccc', borderLeftWidth: 3 }}
+                                    >
+                                        <span>{cat.icon}</span>
+                                        <span className="uppercase tracking-wider text-[10px]">{cat.label}</span>
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={handleMentionCancel}
+                                    className="px-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-600"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
+                                {CATEGORY_CONFIGS[mentionCategory]?.icon} {CATEGORY_CONFIGS[mentionCategory]?.titleLabel}
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    ref={mentionInputRef}
+                                    type="text"
+                                    value={mentionTitle}
+                                    onChange={(e) => setMentionTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleMentionSubmit();
+                                        if (e.key === 'Escape') handleMentionCancel();
+                                    }}
+                                    className="flex-1 text-xs font-mono border border-neutral-300 px-2 py-1.5 outline-none focus:border-neutral-500 bg-white"
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={handleMentionSubmit}
+                                    disabled={!mentionTitle.trim()}
+                                    className="px-3 py-1.5 text-xs bg-neutral-800 text-white uppercase tracking-wider disabled:opacity-30"
+                                >
+                                    Add
+                                </button>
+                                <button
+                                    onClick={() => { setMentionCategory(null); setMentionTitle(''); }}
+                                    className="px-2 py-1.5 text-xs text-neutral-400 hover:text-neutral-600"
+                                >
+                                    ←
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {/* Habit Checklist */}
             <HabitChecklist date={activeDate} />
 
-            {/* Data Table */}
-            <div className="border border-neutral-300 bg-white mt-2">
-                <table className="w-full text-xs font-mono border-collapse">
-                    <thead className="bg-neutral-100 text-neutral-600 uppercase">
-                        <tr>
-                            <th className="px-3 py-2 text-left border-b border-r border-neutral-300 w-16">Type</th>
-                            <th className="px-3 py-2 text-left border-b border-r border-neutral-300">Title</th>
-                            <th className="px-3 py-2 text-left border-b border-r border-neutral-300 w-32">Details</th>
-                            <th className="px-3 py-2 text-center border-b border-r border-neutral-300 w-16">Rating</th>
-                            <th className="px-3 py-2 text-center border-b border-neutral-300 w-8"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.map((item) => {
-                            const config = CATEGORY_CONFIGS[item.category];
-                            if (!config) return null;
-                            return (
-                                <tr
-                                    key={item.id}
-                                    className="hover:bg-neutral-50 cursor-pointer"
-                                    onClick={() => openModal(item)}
+            {/* Items — stacked cards instead of table */}
+            {items.length > 0 && (
+                <div className="mt-2 space-y-1">
+                    <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-1">
+                        Items ({items.length})
+                    </div>
+                    {items.map((item) => {
+                        const config = CATEGORY_CONFIGS[item.category];
+                        if (!config) return null;
+                        return (
+                            <div
+                                key={item.id}
+                                onClick={() => openModal(item)}
+                                className="flex items-center gap-2 px-2 py-1.5 border border-neutral-200 bg-white cursor-pointer hover:bg-neutral-50 active:bg-neutral-100"
+                            >
+                                <span
+                                    className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 flex-shrink-0"
+                                    style={{ backgroundColor: config.color || '#f5f5f5' }}
                                 >
-                                    <td
-                                        className="px-3 py-2 border-b border-r border-neutral-200 text-neutral-500 font-bold"
-                                        style={{ color: config.color ? '#000' : undefined, backgroundColor: config.color || undefined }}
-                                    >
-                                        {config.shortLabel}
-                                    </td>
-                                    <td className="px-3 py-2 border-b border-r border-neutral-200 font-medium">
-                                        {item.title}
-                                    </td>
-                                    <td className="px-3 py-2 border-b border-r border-neutral-200 text-neutral-500 truncate">
-                                        {item.subtitle || '—'}
-                                    </td>
-                                    <td className="px-3 py-2 border-b border-r border-neutral-200 text-center">
-                                        {item.rating || '—'}
-                                    </td>
-                                    <td className="px-3 py-2 border-b border-neutral-200 text-center">
-                                        <button
-                                            onClick={(e) => handleRemoveItem(item.id, e)}
-                                            className="text-neutral-400 hover:text-neutral-600"
-                                        >
-                                            ×
-                                        </button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-
-                        {/* Quick Add Row */}
-                        <tr className="bg-neutral-50">
-                            <td className="px-1 py-2 border-r border-neutral-200">
-                                <select
-                                    value={quickAddCategory}
-                                    onChange={(e) => setQuickAddCategory(e.target.value as Category)}
-                                    className="w-full bg-transparent text-xs outline-none cursor-pointer px-2 text-neutral-500"
-                                >
-                                    {activeCategoryConfigs.map(c => (
-                                        <option key={c.id} value={c.id}>{c.shortLabel}</option>
-                                    ))}
-                                </select>
-                            </td>
-                            <td className="px-1 py-2 border-r border-neutral-200" colSpan={3}>
-                                <input
-                                    type="text"
-                                    value={quickAddTitle}
-                                    onChange={(e) => setQuickAddTitle(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
-                                    placeholder="Add new entry..."
-                                    className="w-full bg-transparent outline-none text-xs placeholder:text-neutral-300 px-2"
-                                />
-                            </td>
-                            <td className="px-3 py-2 text-center">
+                                    {config.shortLabel}
+                                </span>
+                                <span className="text-xs font-medium truncate flex-1">
+                                    {item.title}
+                                </span>
+                                {item.subtitle && (
+                                    <span className="text-[10px] text-neutral-400 truncate max-w-[80px]">
+                                        {item.subtitle}
+                                    </span>
+                                )}
+                                {item.rating && (
+                                    <span className="text-[10px] text-neutral-500">
+                                        ★{item.rating}
+                                    </span>
+                                )}
                                 <button
-                                    onClick={handleQuickAddRow}
-                                    disabled={!quickAddTitle.trim()}
-                                    className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30"
+                                    onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
+                                    className="text-neutral-300 hover:text-neutral-600 text-sm flex-shrink-0 ml-auto"
                                 >
-                                    +
+                                    ×
                                 </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             <ConsumableModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveItem}
+                onDelete={handleDeleteItem}
                 initialCategory={activeCategory}
                 existingItem={existingItem}
             />

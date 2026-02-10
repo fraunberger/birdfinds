@@ -79,9 +79,9 @@ export function SocialLayout() {
 
     return (
         <div className="min-h-screen bg-white font-mono text-neutral-900">
-            <div className="max-w-2xl mx-auto p-6 min-h-screen flex flex-col">
+            <div className="max-w-2xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
                 {/* Header */}
-                <header className="flex items-center justify-between mb-8 border-b border-neutral-300 pb-4">
+                <header className="flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
                     <div className="flex items-center gap-4">
                         <Link href="/" className="text-xs font-bold uppercase tracking-widest text-neutral-600 hover:text-neutral-900">
                             BirdFinds
