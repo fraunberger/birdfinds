@@ -369,7 +369,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             while ((match = regex.exec(content)) !== null) {
                                 const start = match.index;
                                 const end = start + match[0].length;
-                                if (cursor >= start && cursor <= end) {
+                                // Strict inequality for end to allow clicking *after* the word to type
+                                if (cursor >= start && cursor < end) {
                                     foundItem = item;
                                     break;
                                 }
