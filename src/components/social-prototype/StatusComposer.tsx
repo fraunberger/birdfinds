@@ -114,6 +114,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
         setContent(val);
+        setIsPosted(false); // Reset posted state on any change
         adjustTextareaHeight();
 
         // Detect @ trigger
@@ -291,7 +292,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             if (content) {
                                 updateActiveStatus(content);
                                 setIsPosted(true);
-                                setTimeout(() => setIsPosted(false), 2000);
                             }
                         }}
                         className={`text-[10px] font-bold uppercase tracking-widest transition-all border px-2 py-0.5 rounded-sm ${isPosted
