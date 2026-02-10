@@ -22,22 +22,6 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
         return log?.notes || '';
     };
 
-    const handleToggle = async (habitId: string, completed: boolean) => {
-        if (readOnly) return;
-        if (completed) {
-            // Toggling on — show note input
-            setEditingNote(habitId);
-            setNoteText('');
-        } else {
-            // Toggling off
-            await toggleHabitLog(habitId, date, false);
-            if (editingNote === habitId) {
-                setEditingNote(null);
-                setNoteText('');
-            }
-        }
-    };
-
     const saveNote = async (habitId: string) => {
         await toggleHabitLog(habitId, date, true, noteText);
         setEditingNote(null);
@@ -51,9 +35,9 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                     const completed = isHabitCompleted(habit.id, date);
                     const note = getHabitNote(habit.id);
                     return (
-                        <div key={habit.id}>
+                        <div key={habit.id} className="flex items-center gap-0.5">
                             <button
-                                onClick={() => handleToggle(habit.id, !completed)}
+                                onClick={() => !readOnly && toggleHabitLog(habit.id, date, !completed)}
                                 disabled={readOnly}
                                 className={`inline-flex items-center font-mono transition-all ${vertical
                                     ? `gap-1 px-1 py-0.5 text-[9px] border-none ${completed ? 'text-neutral-700' : 'text-neutral-300'}`
@@ -72,26 +56,36 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                 )}
                                 {habit.name}
                             </button>
-                            {/* Show note inline when completed */}
-                            {completed && note && !vertical && (
-                                <div className="text-[9px] text-neutral-400 font-mono ml-4 mt-0.5 truncate">
+                            {/* + button to add a note (only when completed & not read-only & not vertical) */}
+                            {completed && !readOnly && !vertical && (
+                                <button
+                                    onClick={() => { setEditingNote(habit.id); setNoteText(note); }}
+                                    className="text-[9px] text-neutral-400 hover:text-neutral-600 px-0.5 leading-none"
+                                    title="Add note"
+                                >
+                                    {note ? '✎' : '+'}
+                                </button>
+                            )}
+                            {/* Show existing note inline */}
+                            {completed && note && !vertical && editingNote !== habit.id && (
+                                <span className="text-[9px] text-neutral-400 font-mono truncate max-w-[120px]">
                                     {note}
-                                </div>
+                                </span>
                             )}
                         </div>
                     );
                 })}
             </div>
 
-            {/* Note input when toggling on */}
+            {/* Note input — only when + is clicked */}
             {editingNote && !readOnly && (
                 <div className="flex gap-1 items-center mt-1">
                     <input
                         type="text"
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') saveNote(editingNote); }}
-                        placeholder="Quick note (optional)..."
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveNote(editingNote); if (e.key === 'Escape') { setEditingNote(null); setNoteText(''); } }}
+                        placeholder="Quick note..."
                         autoFocus
                         className="flex-1 text-[10px] font-mono px-2 py-1 border border-neutral-300 outline-none focus:border-neutral-500 bg-transparent"
                     />
