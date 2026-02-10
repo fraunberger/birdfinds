@@ -16,7 +16,47 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
-    const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
+    const [selectionRange, setSelectionRange] = useState<{ start: number, end: number, top?: number, left?: number, height?: number } | null>(null);
+
+    // Helper to get coordinates
+    const getSelectionCoords = (textarea: HTMLTextAreaElement, selectionStart: number, selectionEnd: number) => {
+        const div = document.createElement('div');
+        const style = window.getComputedStyle(textarea);
+
+        // Copy relevant styles
+        ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'text-transform', 'white-space', 'word-break', 'width', 'padding'].forEach(prop => {
+            div.style.setProperty(prop, style.getPropertyValue(prop));
+        });
+
+        div.style.position = 'absolute';
+        div.style.visibility = 'hidden';
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.wordWrap = 'break-word'; // Important!
+
+        // Replace newlines with <br> for accurate measurement
+        const textBefore = textarea.value.substring(0, selectionStart);
+        const selectedText = textarea.value.substring(selectionStart, selectionEnd);
+
+        const span = document.createElement('span');
+        span.textContent = selectedText;
+
+        div.textContent = textBefore;
+        div.appendChild(span);
+
+        document.body.appendChild(div);
+
+        const spanRect = span.getBoundingClientRect();
+        const divRect = div.getBoundingClientRect();
+
+        // Offset relative to the div top
+        const relativeTop = span.offsetTop;
+        const relativeLeft = span.offsetLeft;
+        const height = span.offsetHeight;
+
+        document.body.removeChild(div);
+
+        return { top: relativeTop, left: relativeLeft + (span.offsetWidth / 2), height };
+    };
 
     // @ mention state
     const [showMentionPicker, setShowMentionPicker] = useState(false);
@@ -63,6 +103,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             el.style.height = Math.max(100, el.scrollHeight) + 'px';
         }
     };
+
+    // Auto-resize on content change
+    // Using layout effect to reduce flicker
+    useEffect(() => {
+        adjustTextareaHeight();
+    }, [content]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -248,7 +294,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         SAVE
                     </button>
                     <div className="relative">
-                        <span className="text-[16px] sm:text-[10px] font-mono text-neutral-500 cursor-pointer border-b border-transparent hover:border-neutral-300 transition-colors">
+                        <span
+                            onClick={() => {
+                                // Programmatically open the date picker
+                                const input = document.getElementById('date-picker-input') as HTMLInputElement;
+                                if (input && 'showPicker' in input) {
+                                    (input as any).showPicker();
+                                } else {
+                                    (input as HTMLElement)?.click();
+                                }
+                            }}
+                            className="text-[16px] sm:text-[10px] font-mono text-neutral-500 cursor-pointer border-b border-transparent hover:border-neutral-300 transition-colors"
+                        >
                             {new Date(activeDate).toLocaleDateString(undefined, {
                                 month: 'short',
                                 day: 'numeric',
@@ -256,10 +313,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             }).toUpperCase()}
                         </span>
                         <input
+                            id="date-picker-input"
                             type="date"
                             value={activeDate}
                             onChange={(e) => setActiveDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                            className="scale-0 absolute w-0 h-0 overflow-hidden"
+                            tabIndex={-1}
                         />
                     </div>
                 </div>
@@ -269,7 +328,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
                 {/* Floating "Black Bar" Toolbar */}
                 {showMentionPicker && !mentionCategory && (
-                    <div className="absolute z-50 -top-10 left-0 right-0 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <div
+                        className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        style={{
+                            top: selectionRange?.top !== undefined ? (selectionRange.top - 40) : -40,
+                            // Align horizontally with selection or center if undefined
+                            left: selectionRange?.left !== undefined ? selectionRange.left : '50%',
+                            transform: 'translateX(-50%)',
+                            maxWidth: '90%',
+                            // Ensure minimum width to not squash buttons
+                            minWidth: 'max-content',
+                        }}
+                    >
                         {activeCategoryConfigs.map(cat => (
                             <button
                                 key={cat.id}
@@ -353,7 +423,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     // New item (Add Mode) - Capture ranges
                                     setMentionTitle(selectedText);
                                     setAtPosition(start);
-                                    setSelectionRange({ start, end });
+
+                                    // Calculate coordinates
+                                    const coords = getSelectionCoords(target, start, end);
+                                    setSelectionRange({ start, end, ...coords });
+
                                     setTriggerLength(selectedText.length);
                                     setShowMentionPicker(true);
                                     setMentionCategory(null);
