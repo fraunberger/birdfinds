@@ -135,6 +135,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setMentionCategory(null);
         setMentionTitle('');
         setAtPosition(-1);
+        setSelectionRange(null);
         setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
@@ -264,7 +265,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             <button
                                 key={cat.id}
                                 onClick={() => {
-                                    if (triggerLength > 1 && mentionTitle.trim()) {
+                                    // Use selectionRange as the truth source for "is this a selection?"
+                                    if (selectionRange && mentionTitle.trim()) {
                                         // Instant Add
                                         addItemToActive({
                                             category: cat.id,
@@ -285,6 +287,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                             setShowMentionPicker(false);
                                             setMentionCategory(null);
                                             setMentionTitle('');
+                                            setSelectionRange(null);
                                             setTriggerLength(1);
                                         }).catch(err => alert(err.message));
                                     } else {
