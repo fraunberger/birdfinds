@@ -1,0 +1,139 @@
+
+> birdfinds@0.1.0 lint
+> eslint
+
+
+/Users/michaelfraunberger/Documents/birdfinds/src/app/api/elections/[id]/join/route.ts
+  26:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/michaelfraunberger/Documents/birdfinds/src/app/api/elections/[id]/route.ts
+  20:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:45  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+
+/Users/michaelfraunberger/Documents/birdfinds/src/app/api/elections/route.ts
+  30:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  50:34  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:54  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/ben-rice-shrine/BenRiceShrine.tsx
+  140:186  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/ben-rice-shrine/BenRiceShrine.tsx:140:186
+  138 |
+  139 |     return (
+> 140 |         <div className="absolute -left-64 text-4xl font-black italic text-[#FFFF00] shadow-black drop-shadow-md animate-whiz whitespace-nowrap z-20 font-sans" style={{ ...style, color: Math.random() > 0.5 ? '#FFFF00' : '#FF0000' }}>
+      |                                                                                                                                                                                          ^^^^^^^^^^^^^ Cannot call impure function
+  141 |             {text}
+  142 |         </div>
+  143 |     );  react-hooks/purity
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/bill-splitter/BillSplitter.tsx
+  142:9  error  'finalDistributions' is never reassigned. Use 'const' instead  prefer-const
+  143:9  error  'roundedAmounts' is never reassigned. Use 'const' instead      prefer-const
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/blackjack-trainer/BlackjackTrainer.tsx
+   18:6   warning  'Mode' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  141:11  warning  'rowKey' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  191:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/blackjack-trainer/BlackjackTrainer.tsx:191:9
+  189 |     // Init Deck
+  190 |     useEffect(() => {
+> 191 |         setDeck(createDeck());
+      |         ^^^^^^^ Avoid calling setState() directly within an effect
+  192 |     }, []);
+  193 |
+  194 |     const dealHand = useCallback(() => {  react-hooks/set-state-in-effect
+  299:13  error    'nextDeck' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 prefer-const
+  300:13  error    'nextHands' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                prefer-const
+  340:13  error    'dHand' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    prefer-const
+  644:21  error    'lookupKey' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                prefer-const
+  644:21  warning  'lookupKey' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/pileated-woodpecker-election/CreateElection.tsx
+  18:24  warning  'setRefreshKey' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/pileated-woodpecker-election/ElectionRoom.tsx
+    4:20  warning  'Nomination' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   62:8   warning  React Hook useEffect has a missing dependency: 'fetchElection'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   75:22  warning  'e' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+   87:8   warning  React Hook useEffect has a missing dependency: 'restaurant'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  217:11  warning  'moveRank' is assigned a value but never used                                                                     @typescript-eslint/no-unused-vars
+  243:64  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                   react/no-unescaped-entities
+  492:61  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  495:47  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  502:92  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  512:79  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                   react/no-unescaped-entities
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/social-prototype/ConsumableModal.tsx
+  44:17  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/social-prototype/ConsumableModal.tsx:44:17
+  42 |         if (isOpen) {
+  43 |             if (existingItem) {
+> 44 |                 setCategory(existingItem.category);
+     |                 ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  45 |                 setTitle(existingItem.title);
+  46 |                 setRating(existingItem.rating || 0);
+  47 |                 setNotes(existingItem.notes || '');  react-hooks/set-state-in-effect
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/social-prototype/SocialLayout.tsx
+  4:8  warning  'Image' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/michaelfraunberger/Documents/birdfinds/src/components/social-prototype/StatusComposer.tsx
+  5:10  warning  'Plus' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/michaelfraunberger/Documents/birdfinds/src/lib/election/irv.ts
+  24:13  error  'activeVotes' is never reassigned. Use 'const' instead  prefer-const
+  48:13  error  'minVotes' is never reassigned. Use 'const' instead     prefer-const
+  49:13  error  'losers' is never reassigned. Use 'const' instead       prefer-const
+
+/Users/michaelfraunberger/Documents/birdfinds/src/lib/election/storage-adapter.ts
+  131:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/michaelfraunberger/Documents/birdfinds/src/lib/election/store.ts
+   74:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   94:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:50  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  119:38  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  135:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/michaelfraunberger/Documents/birdfinds/src/lib/social-prototype/store.ts
+  40:17  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/michaelfraunberger/Documents/birdfinds/src/lib/social-prototype/store.ts:40:17
+  38 |         if (loaded) {
+  39 |             try {
+> 40 |                 setStatuses(JSON.parse(loaded));
+     |                 ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  41 |             } catch (e) {
+  42 |                 console.error("Failed to parse social data", e);
+  43 |             }  react-hooks/set-state-in-effect
+
+✖ 45 problems (33 errors, 12 warnings)
+  9 errors and 0 warnings potentially fixable with the `--fix` option.
+

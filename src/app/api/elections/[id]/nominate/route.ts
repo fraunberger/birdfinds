@@ -26,6 +26,7 @@ export async function POST(
         nominatorName,
         restaurantName,
         isWriteIn: body.isWriteIn,
+        metadata: body.metadata,
         createdAt: Date.now()
     };
 

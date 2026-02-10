@@ -1,9 +1,12 @@
 import { BlackjackTrainer } from "@/components/blackjack-trainer/BlackjackTrainer";
 import { BillSplitter } from "@/components/bill-splitter/BillSplitter";
 import { BenRiceShrine } from "@/components/ben-rice-shrine/BenRiceShrine";
-import { VotingApp } from "@/components/pileated-woodpecker-election/VotingApp";
+import { RestaurantVotingApp } from "@/components/pileated-woodpecker-election/RestaurantVotingApp";
 import Link from "next/link";
 import Image from "next/image";
+import { SocialLayout } from "@/components/social-prototype/SocialLayout";
+import { BirdLog } from "@/components/bird-log/BirdLog";
+import { Category } from "@/lib/social-prototype/store";
 
 // Re-using the same list to check validity or just passing through. 
 // Ideally this is shared or fetched.
@@ -30,6 +33,16 @@ const BIRDS = {
     "house_sparrow": "house_sparrow.png",
 };
 
+// Bird → Category mapping (Michael's public logs)
+const BIRD_CATEGORY_MAP: Record<string, Category> = {
+    kaka: 'movie',
+    chaffinch: 'tv',
+    new_zealand_bellbird: 'music',
+    silver_gull: 'restaurant',
+    yellowhammer: 'beer',
+    new_zealand_pigeon: 'cooking',
+};
+
 export default async function BirdPage({
     params,
 }: {
@@ -41,7 +54,10 @@ export default async function BirdPage({
     const isBillSplitter = slug === "australian_magpie";
     const isBenRice = false; // slug === "australian_pied_cormorant"; // Disabled for now
     const isBlackjack = slug === "eastern_blue_bird";
-    const isElection = slug === "pileated_woodpecker";
+    const isElection = slug === "pileated_woodpecker" || slug === "pileated-woodpecker";
+
+    // BirdPile Social Media App
+    const isBirdPile = slug === "cardinal";
 
     if (isBillSplitter) {
         return (
@@ -76,7 +92,19 @@ export default async function BirdPage({
     }
 
     if (isElection) {
-        return <VotingApp />;
+        return <RestaurantVotingApp />;
+    }
+
+    // BirdPile — The Social Media App
+    if (isBirdPile) {
+        return <SocialLayout />;
+    }
+
+    // Bird Category Log — Michael's public data
+    const birdCategory = BIRD_CATEGORY_MAP[slug];
+    const birdImage = BIRDS[slug as keyof typeof BIRDS];
+    if (birdCategory && birdImage) {
+        return <BirdLog category={birdCategory} birdSlug={slug} birdImage={birdImage} />;
     }
 
     // Generic View for other birds
@@ -119,3 +147,4 @@ export default async function BirdPage({
         </div>
     );
 }
+

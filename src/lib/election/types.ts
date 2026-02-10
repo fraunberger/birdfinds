@@ -6,6 +6,14 @@ export interface Nomination {
     restaurantName: string;
     isWriteIn?: boolean;
     createdAt: number;
+    // Rich Data (Simulated for Coot)
+    metadata?: {
+        address?: string;
+        rating?: number;
+        reviewCount?: number;
+        photo?: string;
+        priceLevel?: string; // $, $$, $$$
+    };
 }
 
 export interface Vote {
