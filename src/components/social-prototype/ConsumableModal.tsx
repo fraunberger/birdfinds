@@ -10,9 +10,10 @@ interface ConsumableModalProps {
     onDelete?: () => void;
     initialCategory?: Category;
     existingItem?: ConsumableItem;
+    readOnly?: boolean;
 }
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
     const [category, setCategory] = useState<Category>(initialCategory);
     const [title, setTitle] = useState('');
     const [subtitle, setSubtitle] = useState('');
@@ -82,7 +83,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-300 bg-neutral-100">
                     <span className="text-xs font-bold uppercase tracking-widest text-neutral-600">
-                        {existingItem ? 'EDIT' : 'NEW'} ENTRY — {config.label.toUpperCase()}
+                        {readOnly ? 'VIEW ENTRY' : (existingItem ? 'EDIT ENTRY' : 'NEW ENTRY')} — {config.label.toUpperCase()}
                     </span>
                     <button
                         onClick={onClose}
@@ -100,11 +101,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             {config.titleLabel}
                         </label>
                         <input
-                            autoFocus
+                            autoFocus={!readOnly}
+                            disabled={readOnly}
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                            className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                         />
                     </div>
 
@@ -117,8 +119,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             type="text"
                             value={subtitle}
                             onChange={(e) => setSubtitle(e.target.value)}
+                            disabled={readOnly}
                             placeholder={config.subtitlePlaceholder}
-                            className="w-full text-sm font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent placeholder:text-neutral-300"
+                            className="w-full text-sm font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
                         />
                     </div>
 
@@ -137,7 +140,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 value={rating || ''}
                                 onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
                                 placeholder="—"
-                                className="w-16 text-center text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 bg-transparent"
+                                disabled={readOnly}
+                                className="w-16 text-center text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 bg-transparent disabled:text-neutral-700 disabled:border-transparent disabled:bg-neutral-100"
                             />
                         </div>
 
@@ -148,7 +152,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <select
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value as Category)}
-                                className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 px-2 bg-transparent cursor-pointer"
+                                disabled={readOnly}
+                                className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 px-2 bg-transparent cursor-pointer disabled:cursor-default disabled:border-transparent disabled:bg-neutral-100 disabled:appearance-none disabled:pl-0"
                             >
                                 {Object.values(CATEGORY_CONFIGS).map(c => (
                                     <option key={c.id} value={c.id}>{c.shortLabel}</option>
@@ -167,7 +172,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             onChange={(e) => setNotes(e.target.value)}
                             rows={config.notesPlaceholder ? 5 : 3}
                             placeholder={config.notesPlaceholder || ''}
-                            className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
+                            disabled={readOnly}
+                            className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
                         />
                     </div>
                 </div>
@@ -175,7 +181,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 {/* Footer */}
                 <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-neutral-50">
                     <div>
-                        {existingItem && onDelete && (
+                        {existingItem && onDelete && !readOnly && (
                             <button
                                 onClick={handleDelete}
                                 className="text-xs uppercase tracking-widest text-neutral-400 hover:text-red-600"
@@ -191,13 +197,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         >
                             Cancel
                         </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={!title.trim()}
-                            className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 py-1 hover:bg-neutral-700 disabled:opacity-30"
-                        >
-                            Save
-                        </button>
+                        {!readOnly && (
+                            <button
+                                onClick={handleSave}
+                                disabled={!title.trim()}
+                                className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 py-1 hover:bg-neutral-700 disabled:opacity-30"
+                            >
+                                Save
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

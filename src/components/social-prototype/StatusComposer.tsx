@@ -241,18 +241,27 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     <button
                         onClick={() => {
                             if (content) updateActiveStatus(content);
-                            alert("Status saved!");
+                            // No alert, just silent save
                         }}
                         className="text-[10px] font-bold uppercase tracking-widest text-black hover:text-neutral-600 active:text-neutral-800 transition-colors"
                     >
                         SAVE
                     </button>
-                    <input
-                        type="date"
-                        value={activeDate}
-                        onChange={(e) => setActiveDate(e.target.value)}
-                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none"
-                    />
+                    <div className="relative">
+                        <span className="text-[16px] sm:text-[10px] font-mono text-neutral-500 cursor-pointer border-b border-transparent hover:border-neutral-300 transition-colors">
+                            {new Date(activeDate).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                            }).toUpperCase()}
+                        </span>
+                        <input
+                            type="date"
+                            value={activeDate}
+                            onChange={(e) => setActiveDate(e.target.value)}
+                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                        />
+                    </div>
                 </div>
             </header>
 

@@ -141,6 +141,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                 onClose={() => setSelectedItem(null)}
                 existingItem={selectedItem || undefined}
                 initialCategory={selectedItem?.category || 'movie'}
+                readOnly={!isOwn}
             />
         </div>
     );
