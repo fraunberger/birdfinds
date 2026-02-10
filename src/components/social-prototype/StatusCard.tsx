@@ -33,13 +33,21 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
             const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
             html = html.replace(
                 regex,
-                `<mark style="background-color: ${color}; padding: 0 1px;">$1</mark>`
+                `<mark data-item-id="${item.id}" style="background-color: ${color}; padding: 0 1px; cursor: pointer;">$1</mark>`
             );
         });
 
         return (
             <p
-                className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono"
+                onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.tagName === 'MARK') {
+                        const id = target.getAttribute('data-item-id');
+                        const item = status.items.find(i => i.id === id);
+                        if (item) setSelectedItem(item);
+                    }
+                }}
+                className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default"
                 dangerouslySetInnerHTML={{ __html: html }}
             />
         );

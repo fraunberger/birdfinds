@@ -87,7 +87,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     </span>
                     <button
                         onClick={onClose}
-                        className="text-neutral-400 hover:text-neutral-600 text-lg leading-none"
+                        className="text-neutral-400 hover:text-neutral-600 text-2xl font-bold leading-none w-8 h-8 flex items-center justify-center -mr-2"
                     >
                         ×
                     </button>
