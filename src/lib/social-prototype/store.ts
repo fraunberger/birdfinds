@@ -241,7 +241,28 @@ class SocialStore {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            // Handle race condition: Duplicate key violation (unique_date)
+            // If another request created it while we were waiting, fetch it now.
+            if (error.code === '23505') {
+                console.log("Status race condition detected - fetching existing status");
+                const { data: retryData, error: retryError } = await supabase
+                    .from('social_statuses')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('date', activeDate)
+                    .single();
+
+                if (retryError || !retryData) {
+                    throw retryError || new Error("Failed to recover from status race condition");
+                }
+
+                await this.fetchStatuses();
+                return retryData.id;
+            }
+            throw error;
+        }
+
         await this.fetchStatuses();
         return data.id;
     }
