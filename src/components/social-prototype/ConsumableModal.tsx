@@ -110,21 +110,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         />
                     </div>
 
-                    {/* Subtitle */}
-                    <div>
-                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                            {config.subtitleLabel}
-                        </label>
-                        <input
-                            type="text"
-                            value={subtitle}
-                            onChange={(e) => setSubtitle(e.target.value)}
-                            disabled={readOnly}
-                            placeholder={config.subtitlePlaceholder}
-                            className="w-full text-sm font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
-                        />
-                    </div>
-
                     {/* Rating & Type */}
                     <div className="flex flex-wrap items-end gap-4">
                         <div className="flex-1 min-w-[80px]">
@@ -162,20 +147,83 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
                     </div>
 
-                    {/* Notes */}
-                    <div>
-                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                            {config.notesLabel || 'Notes'}
-                        </label>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            rows={config.notesPlaceholder ? 5 : 3}
-                            placeholder={config.notesPlaceholder || ''}
-                            disabled={readOnly}
-                            className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
-                        />
-                    </div>
+                    {/* Subtitle — for cooking, this is ingredients */}
+                    {category === 'cooking' ? (
+                        /* Recipe Split View: Ingredients left, Instructions right */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.subtitleLabel}
+                                </label>
+                                {readOnly ? (
+                                    <ul className="list-disc list-inside text-sm font-mono text-neutral-700 space-y-0.5 bg-neutral-50 p-3 border border-neutral-200 min-h-[120px]">
+                                        {(subtitle || '').split('\n').filter(Boolean).map((line, i) => (
+                                            <li key={i}>{line.trim()}</li>
+                                        ))}
+                                        {!(subtitle || '').trim() && <li className="text-neutral-300">No ingredients</li>}
+                                    </ul>
+                                ) : (
+                                    <textarea
+                                        value={subtitle}
+                                        onChange={(e) => setSubtitle(e.target.value)}
+                                        rows={6}
+                                        placeholder="One ingredient per line..."
+                                        className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
+                                    />
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.notesLabel || 'Instructions'}
+                                </label>
+                                {readOnly ? (
+                                    <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap bg-neutral-50 p-3 border border-neutral-200 min-h-[120px]">
+                                        {notes || <span className="text-neutral-300">No instructions</span>}
+                                    </div>
+                                ) : (
+                                    <textarea
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        rows={6}
+                                        placeholder="Step-by-step instructions..."
+                                        className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* Standard layout for non-cooking */
+                        <>
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.subtitleLabel}
+                                </label>
+                                <input
+                                    type="text"
+                                    value={subtitle}
+                                    onChange={(e) => setSubtitle(e.target.value)}
+                                    disabled={readOnly}
+                                    placeholder={config.subtitlePlaceholder}
+                                    className="w-full text-sm font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
+                                />
+                            </div>
+
+                            {/* Notes */}
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.notesLabel || 'Notes'}
+                                </label>
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    rows={config.notesPlaceholder ? 5 : 3}
+                                    placeholder={config.notesPlaceholder || ''}
+                                    disabled={readOnly}
+                                    className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Footer */}

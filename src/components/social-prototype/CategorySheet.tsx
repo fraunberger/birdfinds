@@ -61,7 +61,12 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                             <tbody>
                                 {latest.map((item) => (
                                     <tr key={item.id} className="hover:bg-neutral-50">
-                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium">{item.title}</td>
+                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200">
+                                            <div className="font-medium">{item.title}</div>
+                                            {item.notes && (
+                                                <div className="text-[10px] text-neutral-400 mt-0.5 line-clamp-2 whitespace-pre-wrap">{item.notes}</div>
+                                            )}
+                                        </td>
                                         <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-neutral-500 truncate">{item.subtitle || '—'}</td>
                                         <td className="px-2 py-1.5 border-b border-neutral-200 text-center">{item.rating || ''}</td>
                                     </tr>

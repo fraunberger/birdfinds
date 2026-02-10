@@ -14,6 +14,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [username, setUsername] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
     const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+    const [isPrivate, setIsPrivate] = useState(false);
     const [newHabitName, setNewHabitName] = useState('');
     const [saving, setSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
@@ -25,6 +26,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setUsername(profile.username || '');
             setAvatarUrl(profile.avatarUrl);
             setSelectedCategories(profile.categories || []);
+            setIsPrivate(profile.isPrivate || false);
         }
     }, [profile]);
 
@@ -70,6 +72,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 username: username.trim(),
                 avatarUrl,
                 categories: selectedCategories,
+                isPrivate,
             });
             onComplete();
         } catch (err: any) {
@@ -200,6 +203,28 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                         +
                     </button>
                 </div>
+            </div>
+
+            {/* Privacy */}
+            <div className="mb-8">
+                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-3">
+                    Privacy
+                </label>
+                <button
+                    onClick={() => setIsPrivate(!isPrivate)}
+                    className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${isPrivate
+                            ? 'border-neutral-800 bg-neutral-800 text-white'
+                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                        }`}
+                >
+                    <span className="text-sm">{isPrivate ? '🔒' : '🌐'}</span>
+                    <span className="uppercase tracking-wider font-bold">
+                        {isPrivate ? 'Private Mode' : 'Public Mode'}
+                    </span>
+                    <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                        {isPrivate ? 'Only you see your posts' : 'Posts visible in feed'}
+                    </span>
+                </button>
             </div>
 
             {/* Error */}

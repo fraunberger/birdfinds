@@ -28,6 +28,7 @@ export interface Status {
     date: string; // YYYY-MM-DD
     items: ConsumableItem[];
     userId?: string;
+    published: boolean;
     createdAt: number;
 }
 
@@ -50,6 +51,7 @@ export interface UserProfile {
     username: string;
     avatarUrl?: string;
     categories: Category[];
+    isPrivate?: boolean;
     createdAt?: string;
 }
 
@@ -72,9 +74,9 @@ export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
     movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '🎬' },
     tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '📺' },
     music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '🎵' },
-    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'FOOD', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '🍽️' },
+    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '🍽️' },
     beer: { id: 'beer', label: 'Beer/Drink', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '🍺' },
-    cooking: { id: 'cooking', label: 'Cooking', shortLabel: 'COOK', titleLabel: 'Dish Name', subtitleLabel: 'Source/Type', subtitlePlaceholder: 'Source', ratingLabel: 'Rating', color: '#ffae91', icon: '👨‍🍳' },
+    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#ffae91', icon: '👨‍🍳' },
     podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '🎙️' },
     book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '📚' },
 };
@@ -142,6 +144,7 @@ class SocialStore {
                 content: '',
                 date: activeDate,
                 items: [],
+                published: false,
                 createdAt: Date.now()
             };
         }
@@ -171,6 +174,7 @@ class SocialStore {
                 content: s.content,
                 date: s.date,
                 userId: s.user_id,
+                published: s.published ?? false,
                 createdAt: new Date(s.created_at).getTime(),
                 items: (itemData || [])
                     .filter(i => i.status_id === s.id)
@@ -269,7 +273,7 @@ class SocialStore {
         return data.id;
     }
 
-    async updateActiveStatus(content: string) {
+    async updateActiveStatus(content: string): Promise<string | undefined> {
         try {
             // Optimistic update
             const currentStatus = this.state.activeStatus;
@@ -285,8 +289,10 @@ class SocialStore {
                 .eq('id', id);
 
             if (error) throw error;
+            return id;
         } catch (error) {
             console.error("Error updating status:", error);
+            return undefined;
         }
     }
 
@@ -310,6 +316,33 @@ class SocialStore {
         } catch (error) {
             console.error("Error adding item:", error);
             throw error; // Propagate to UI
+        }
+    }
+
+    async togglePublished(statusId: string, published: boolean) {
+        try {
+            const { error } = await supabase
+                .from('social_statuses')
+                .update({ published })
+                .eq('id', statusId);
+
+            if (error) throw error;
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error('Error toggling published:', error);
+        }
+    }
+
+    async deleteStatus(statusId: string) {
+        try {
+            // Delete items first
+            await supabase.from('social_items').delete().eq('status_id', statusId);
+            // Then delete status
+            const { error } = await supabase.from('social_statuses').delete().eq('id', statusId);
+            if (error) throw error;
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error('Error deleting status:', error);
         }
     }
 
@@ -367,6 +400,8 @@ export function useSocialStore() {
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
+        togglePublished: (id: string, published: boolean) => socialStore.togglePublished(id, published),
+        deleteStatus: (id: string) => socialStore.deleteStatus(id),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
@@ -412,6 +447,7 @@ export function useUserProfile() {
                     username: data.username,
                     avatarUrl: data.avatar_url,
                     categories: data.categories || [],
+                    isPrivate: data.is_private || false,
                     createdAt: data.created_at
                 });
             } else {
@@ -450,6 +486,7 @@ export function useUserProfile() {
         if (updates.username) dbUpdates.username = updates.username;
         if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
         if (updates.categories) dbUpdates.categories = updates.categories;
+        if (updates.isPrivate !== undefined) dbUpdates.is_private = updates.isPrivate;
 
         // Upsert
         const { error } = await supabase

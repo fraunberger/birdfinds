@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Status, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, UserProfile, ConsumableItem } from '@/lib/social-prototype/store';
+import { Status, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
 
@@ -15,6 +15,7 @@ interface StatusCardProps {
 
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
+    const { deleteStatus } = useSocialStore();
 
     // Render content with highlighted items
     const renderContent = () => {
@@ -83,6 +84,18 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             className="text-[10px] text-neutral-400 hover:text-neutral-600 uppercase tracking-widest"
                         >
                             ✎
+                        </button>
+                    )}
+                    {isOwn && (
+                        <button
+                            onClick={() => {
+                                if (confirm('Delete this post and all its items?')) {
+                                    deleteStatus(status.id);
+                                }
+                            }}
+                            className="text-[10px] text-neutral-400 hover:text-red-500 uppercase tracking-widest"
+                        >
+                            🗑
                         </button>
                     )}
                     <span className="text-[10px] text-neutral-400">

@@ -10,7 +10,7 @@ interface StatusComposerProps {
 }
 
 export function StatusComposer({ userCategories }: StatusComposerProps) {
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [content, setContent] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -69,7 +69,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     // Quick Add State
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
-    const [isPosted, setIsPosted] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -114,7 +113,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
         setContent(val);
-        setIsPosted(false); // Reset posted state on any change
         adjustTextareaHeight();
 
         // Detect @ trigger
@@ -288,18 +286,27 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 </h2>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => {
-                            if (content) {
-                                updateActiveStatus(content);
-                                setIsPosted(true);
+                        onClick={async () => {
+                            if (activeStatus?.published) {
+                                // Unpost
+                                await togglePublished(activeStatus.id, false);
+                            } else {
+                                // Post: save content first, then publish
+                                let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
+                                if (content) {
+                                    statusId = await updateActiveStatus(content) || statusId;
+                                }
+                                if (statusId) {
+                                    await togglePublished(statusId, true);
+                                }
                             }
                         }}
-                        className={`text-[10px] font-bold uppercase tracking-widest transition-all border px-2 py-0.5 rounded-sm ${isPosted
+                        className={`text-[10px] font-bold uppercase tracking-widest transition-all border px-2 py-0.5 rounded-sm ${activeStatus?.published
                             ? 'bg-green-700 text-white border-green-700'
                             : 'text-green-700 hover:text-green-900 active:text-green-600 border-green-700 bg-transparent'
                             }`}
                     >
-                        {isPosted ? 'POSTED' : 'POST'}
+                        {activeStatus?.published ? 'POSTED' : 'POST'}
                     </button>
                     <input
                         type="date"
@@ -348,7 +355,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                                 setContent(newContent);
                                                 updateActiveStatus(newContent);
                                             }
-                                            // Reset
+                                            // Reset & auto-dismiss toolbar
                                             setShowMentionPicker(false);
                                             setMentionCategory(null);
                                             setMentionTitle('');

@@ -40,6 +40,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                         username: p.username,
                         avatarUrl: p.avatar_url,
                         categories: p.categories || [],
+                        isPrivate: p.is_private || false,
                     };
                 });
                 setProfileCache(newCache);
@@ -56,12 +57,19 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     // Build feed based on mode
     let feedStatuses: Status[];
     if (mode === 'journal') {
-        // Show all user statuses including today's
+        // Journal: show all own statuses (published + drafts)
         feedStatuses = statuses;
     } else {
-        // Feed: show all posts from everyone
-        // Show today's posts from everyone, including self
-        feedStatuses = allStatuses;
+        // Feed: show only published posts from everyone, excluding private users
+        feedStatuses = allStatuses.filter(s => {
+            if (!s.published) return false;
+            // Always show own posts
+            if (s.userId === user?.id) return true;
+            // Hide posts from private users
+            const profile = s.userId ? profileCache[s.userId] : null;
+            if (profile?.isPrivate) return false;
+            return true;
+        });
     }
 
     // Sort by date descending
