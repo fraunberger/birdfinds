@@ -56,14 +56,12 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     // Build feed based on mode
     let feedStatuses: Status[];
     if (mode === 'journal') {
-        feedStatuses = statuses.filter(s => s.date !== activeDate);
+        // Show all user statuses including today's
+        feedStatuses = statuses;
     } else {
         // Feed: show all posts from everyone
-        // Show today's posts from OTHERS, but hide own (since it's in composer)
-        feedStatuses = allStatuses.filter(s => {
-            if (s.userId !== user?.id) return true;
-            return s.date !== activeDate;
-        });
+        // Show today's posts from everyone, including self
+        feedStatuses = allStatuses;
     }
 
     // Sort by date descending
