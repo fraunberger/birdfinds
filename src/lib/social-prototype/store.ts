@@ -227,11 +227,11 @@ class SocialStore {
             .select('id')
             .eq('user_id', user.id)
             .eq('date', activeDate)
-            .single();
+            .limit(1);
 
-        if (dbExisting) {
+        if (dbExisting && dbExisting.length > 0) {
             await this.fetchStatuses(); // Refresh safely
-            return dbExisting.id;
+            return dbExisting[0].id;
         }
 
         // Create new
@@ -251,14 +251,15 @@ class SocialStore {
                     .select('id')
                     .eq('user_id', user.id)
                     .eq('date', activeDate)
-                    .single();
+                    .limit(1);
 
-                if (retryError || !retryData) {
-                    throw retryError || new Error("Failed to recover from status race condition");
+                const status = retryData?.[0];
+                if (retryError || !status) {
+                    throw retryError || new Error("Failed to recover from status race condition - status not found");
                 }
 
                 await this.fetchStatuses();
-                return retryData.id;
+                return status.id;
             }
             throw error;
         }
@@ -294,13 +295,13 @@ class SocialStore {
             const { error } = await supabase
                 .from('social_items')
                 .insert({
-                    status_id: statusId,
                     category: item.category,
                     title: item.title,
                     subtitle: item.subtitle,
                     rating: item.rating,
                     notes: item.notes,
-                    image: item.image
+                    image: item.image,
+                    status_id: statusId
                 });
 
             if (error) throw error;
@@ -309,7 +310,6 @@ class SocialStore {
             console.error("Error adding item:", error);
             throw error; // Propagate to UI
         }
-        await this.fetchStatuses();
     }
 
     async removeItemFromActive(itemId: string) {
