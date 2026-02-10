@@ -176,10 +176,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                 borderLeftWidth: '3px',
                                             } : undefined}
                                         >
-                                            <span className="flex items-center gap-1">
-                                                <span>{config.icon}</span>
-                                                <span>{config.label}</span>
-                                            </span>
+                                            <span>{config.label}</span>
                                             <span className={isOpen ? 'text-neutral-400' : 'text-neutral-400'}>{count}</span>
                                         </button>
                                     );

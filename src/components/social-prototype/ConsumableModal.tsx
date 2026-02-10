@@ -80,11 +80,52 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-300 bg-neutral-100">
-                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-600">
-                        {readOnly ? 'VIEW ENTRY' : (existingItem ? 'EDIT ENTRY' : 'NEW ENTRY')} — {config.label.toUpperCase()}
-                    </span>
+                {/* Header — category colored */}
+                <div
+                    className="flex items-center justify-between px-4 py-3 border-b border-neutral-300"
+                    style={{ backgroundColor: config.color + '33' }}
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-700">
+                            {readOnly ? 'VIEW' : (existingItem ? 'EDIT' : 'NEW')}
+                        </span>
+                        {/* Type selector — compact, inline */}
+                        {readOnly ? (
+                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 border border-neutral-300 px-1.5 py-0.5 bg-white/60">
+                                {config.shortLabel}
+                            </span>
+                        ) : (
+                            <select
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value as Category)}
+                                className="text-[10px] font-mono uppercase tracking-wider border border-neutral-300 px-1 py-0.5 bg-white/60 outline-none cursor-pointer"
+                            >
+                                {Object.values(CATEGORY_CONFIGS).map(c => (
+                                    <option key={c.id} value={c.id}>{c.shortLabel}</option>
+                                ))}
+                            </select>
+                        )}
+                        {/* Rating — compact pill */}
+                        {readOnly ? (
+                            rating ? (
+                                <span className="text-[10px] font-bold text-neutral-700 bg-white/60 border border-neutral-300 px-1.5 py-0.5">
+                                    ★ {rating}
+                                </span>
+                            ) : null
+                        ) : (
+                            <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.1"
+                                inputMode="decimal"
+                                value={rating || ''}
+                                onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
+                                placeholder="★"
+                                className="w-12 text-center text-[10px] font-mono border border-neutral-300 outline-none py-0.5 bg-white/60"
+                            />
+                        )}
+                    </div>
                     <button
                         onClick={onClose}
                         className="text-neutral-400 hover:text-neutral-600 text-2xl font-bold leading-none w-8 h-8 flex items-center justify-center -mr-2"
@@ -108,43 +149,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             onChange={(e) => setTitle(e.target.value)}
                             className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                         />
-                    </div>
-
-                    {/* Rating & Type */}
-                    <div className="flex flex-wrap items-end gap-4">
-                        <div className="flex-1 min-w-[80px]">
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                {config.ratingLabel}
-                            </label>
-                            <input
-                                type="number"
-                                min="0"
-                                max="10"
-                                step="0.1"
-                                inputMode="decimal"
-                                value={rating || ''}
-                                onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                placeholder="—"
-                                disabled={readOnly}
-                                className="w-16 text-center text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 bg-transparent disabled:text-neutral-700 disabled:border-transparent disabled:bg-neutral-100"
-                            />
-                        </div>
-
-                        <div className="flex-1 min-w-[80px]">
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                Type
-                            </label>
-                            <select
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value as Category)}
-                                disabled={readOnly}
-                                className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none py-1 px-2 bg-transparent cursor-pointer disabled:cursor-default disabled:border-transparent disabled:bg-neutral-100 disabled:appearance-none disabled:pl-0"
-                            >
-                                {Object.values(CATEGORY_CONFIGS).map(c => (
-                                    <option key={c.id} value={c.id}>{c.shortLabel}</option>
-                                ))}
-                            </select>
-                        </div>
                     </div>
 
                     {/* Subtitle — for cooking, this is ingredients */}

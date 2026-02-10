@@ -569,18 +569,19 @@ export function useHabits(userId?: string) {
         await fetchHabits();
     };
 
-    const toggleHabitLog = async (habitId: string, date: string, completed: boolean) => {
+    const toggleHabitLog = async (habitId: string, date: string, completed: boolean, notes?: string) => {
         // Optimistic
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
         if (completed) {
-            setHabitLogs(prev => [...prev, { habit_id: habitId, date, completed: true }]);
+            setHabitLogs(prev => [...prev, { habit_id: habitId, date, completed: true, notes: notes || '' }]);
             await supabase.from('habit_logs').upsert({
                 habit_id: habitId,
                 user_id: user.id,
                 date,
-                completed: true
+                completed: true,
+                notes: notes || ''
             }, { onConflict: 'habit_id, date' });
         } else {
             setHabitLogs(prev => prev.filter(l => !(l.habit_id === habitId && l.date === date)));
@@ -598,7 +599,7 @@ export function useHabits(userId?: string) {
 
     return {
         habits,
-        logs: habitLogs.map(l => ({ habitId: l.habit_id, date: l.date, completed: l.completed })),
+        logs: habitLogs.map(l => ({ habitId: l.habit_id, date: l.date, completed: l.completed, notes: l.notes || '' })),
         loading,
         addHabit,
         removeHabit,

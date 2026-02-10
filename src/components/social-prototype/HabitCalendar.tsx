@@ -48,11 +48,14 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
     const getDateStr = (day: number) =>
         `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    const getCompletedHabits = (day: number): Habit[] => {
+    const getCompletedHabits = (day: number): { habit: Habit; note: string }[] => {
         const dateStr = getDateStr(day);
-        return habits.filter(h =>
-            logs.some(l => l.habitId === h.id && l.date === dateStr && l.completed)
-        );
+        return habits
+            .filter(h => logs.some(l => l.habitId === h.id && l.date === dateStr && l.completed))
+            .map(h => ({
+                habit: h,
+                note: logs.find(l => l.habitId === h.id && l.date === dateStr)?.notes || ''
+            }));
     };
 
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -156,16 +159,21 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                                                             {day}
                                                         </div>
                                                         {completed.length > 0 && (
-                                                            <div className="flex flex-wrap gap-0.5">
-                                                                {completed.map(h => {
+                                                            <div className="space-y-0.5">
+                                                                {completed.map(({ habit: h, note }) => {
                                                                     const idx = habits.findIndex(hb => hb.id === h.id);
                                                                     return (
-                                                                        <span
-                                                                            key={h.id}
-                                                                            className="inline-block w-3 h-3 rounded-full"
-                                                                            style={{ backgroundColor: HABIT_COLORS[idx % HABIT_COLORS.length] }}
-                                                                            title={h.name}
-                                                                        />
+                                                                        <div key={h.id} className="flex items-start gap-1" title={note ? `${h.name}: ${note}` : h.name}>
+                                                                            <span
+                                                                                className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5"
+                                                                                style={{ backgroundColor: HABIT_COLORS[idx % HABIT_COLORS.length] }}
+                                                                            />
+                                                                            {note && (
+                                                                                <span className="text-[7px] text-neutral-500 leading-tight line-clamp-2">
+                                                                                    {note}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     );
                                                                 })}
                                                             </div>
