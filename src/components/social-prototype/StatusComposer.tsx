@@ -20,6 +20,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [showMentionPicker, setShowMentionPicker] = useState(false);
     const [mentionCategory, setMentionCategory] = useState<Category | null>(null);
     const [mentionTitle, setMentionTitle] = useState('');
+    const [atPosition, setAtPosition] = useState<number>(-1); // where the @ was typed
     const mentionInputRef = useRef<HTMLInputElement>(null);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -54,17 +55,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setContent(val);
         adjustTextareaHeight();
 
-        // Detect @ trigger
+        // Detect @ trigger: look for a fresh @ at cursor
         const cursorPos = e.target.selectionStart;
-        const textBeforeCursor = val.substring(0, cursorPos);
-        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-
-        if (lastAtIndex !== -1 && (lastAtIndex === 0 || textBeforeCursor[lastAtIndex - 1] === ' ' || textBeforeCursor[lastAtIndex - 1] === '\n')) {
-            const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-            if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n') && textAfterAt.length === 0) {
+        if (cursorPos > 0 && val[cursorPos - 1] === '@') {
+            const charBefore = cursorPos > 1 ? val[cursorPos - 2] : ' ';
+            if (charBefore === ' ' || charBefore === '\n' || cursorPos === 1) {
                 setShowMentionPicker(true);
                 setMentionCategory(null);
                 setMentionTitle('');
+                setAtPosition(cursorPos - 1); // remember where @ is
                 return;
             }
         }
@@ -83,26 +82,30 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const handleMentionSubmit = async () => {
         if (!mentionTitle.trim() || !mentionCategory) return;
 
-        // Add the item
+        const title = mentionTitle.trim();
+
+        // Add the item to today's status
         await addItemToActive({
             category: mentionCategory,
-            title: mentionTitle.trim(),
+            title,
             rating: undefined,
             subtitle: '',
             notes: ''
         });
 
-        // Replace the trailing @ in content with the title
-        const newContent = content.replace(/@$/, mentionTitle.trim());
+        // Replace the @ in content with the title
+        const before = content.substring(0, atPosition);
+        const after = content.substring(atPosition + 1); // skip the @
+        const newContent = before + title + after;
         setContent(newContent);
         updateActiveStatus(newContent);
 
-        // Reset
+        // Reset mention state
         setShowMentionPicker(false);
         setMentionCategory(null);
         setMentionTitle('');
+        setAtPosition(-1);
 
-        // Refocus textarea
         setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
@@ -110,12 +113,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setShowMentionPicker(false);
         setMentionCategory(null);
         setMentionTitle('');
-        // Remove trailing @ if present
-        if (content.endsWith('@')) {
-            const newContent = content.slice(0, -1);
-            setContent(newContent);
-            updateActiveStatus(newContent);
-        }
+        setAtPosition(-1);
         setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
@@ -169,7 +167,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         return (
             <div
-                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-xs text-transparent leading-relaxed z-0 align-top overflow-hidden"
+                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-[16px] sm:text-xs text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
                 dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
@@ -189,7 +187,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     type="date"
                     value={activeDate}
                     onChange={(e) => setActiveDate(e.target.value)}
-                    className="bg-transparent text-right font-mono text-[10px] text-neutral-500 cursor-pointer outline-none"
+                    className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none"
                 />
             </header>
 
@@ -202,7 +200,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     onChange={handleContentChange}
                     onBlur={handleBlur}
                     placeholder="What did you do today? Type @ to add an item..."
-                    className="relative z-10 w-full text-xs bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
+                    className="relative z-10 w-full text-[16px] sm:text-xs bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden"
                     spellCheck={false}
                 />
             </div>
@@ -250,7 +248,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         if (e.key === 'Enter') handleMentionSubmit();
                                         if (e.key === 'Escape') handleMentionCancel();
                                     }}
-                                    className="flex-1 text-xs font-mono border border-neutral-300 px-2 py-1.5 outline-none focus:border-neutral-500 bg-white"
+                                    className="flex-1 text-[16px] sm:text-xs font-mono border border-neutral-300 px-2 py-1.5 outline-none focus:border-neutral-500 bg-white"
                                     autoFocus
                                 />
                                 <button
@@ -275,49 +273,57 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Habit Checklist */}
             <HabitChecklist date={activeDate} />
 
-            {/* Items — stacked cards instead of table */}
+            {/* Items Table */}
             {items.length > 0 && (
-                <div className="mt-2 space-y-1">
-                    <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-1">
-                        Items ({items.length})
-                    </div>
-                    {items.map((item) => {
-                        const config = CATEGORY_CONFIGS[item.category];
-                        if (!config) return null;
-                        return (
-                            <div
-                                key={item.id}
-                                onClick={() => openModal(item)}
-                                className="flex items-center gap-2 px-2 py-1.5 border border-neutral-200 bg-white cursor-pointer hover:bg-neutral-50 active:bg-neutral-100"
-                            >
-                                <span
-                                    className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 flex-shrink-0"
-                                    style={{ backgroundColor: config.color || '#f5f5f5' }}
-                                >
-                                    {config.shortLabel}
-                                </span>
-                                <span className="text-xs font-medium truncate flex-1">
-                                    {item.title}
-                                </span>
-                                {item.subtitle && (
-                                    <span className="text-[10px] text-neutral-400 truncate max-w-[80px]">
-                                        {item.subtitle}
-                                    </span>
-                                )}
-                                {item.rating && (
-                                    <span className="text-[10px] text-neutral-500">
-                                        ★{item.rating}
-                                    </span>
-                                )}
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
-                                    className="text-neutral-300 hover:text-neutral-600 text-sm flex-shrink-0 ml-auto"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        );
-                    })}
+                <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto">
+                    <table className="w-full text-xs font-mono border-collapse min-w-[320px]">
+                        <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
+                            <tr>
+                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
+                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
+                                <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-24 hidden sm:table-cell">Details</th>
+                                <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">★</th>
+                                <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-6"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.map((item) => {
+                                const config = CATEGORY_CONFIGS[item.category];
+                                if (!config) return null;
+                                return (
+                                    <tr
+                                        key={item.id}
+                                        className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100"
+                                        onClick={() => openModal(item)}
+                                    >
+                                        <td
+                                            className="px-2 py-1.5 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                            style={{ backgroundColor: config.color || undefined }}
+                                        >
+                                            {config.shortLabel}
+                                        </td>
+                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium truncate max-w-[120px]">
+                                            {item.title}
+                                        </td>
+                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-neutral-500 truncate hidden sm:table-cell">
+                                            {item.subtitle || '—'}
+                                        </td>
+                                        <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
+                                            {item.rating || '—'}
+                                        </td>
+                                        <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
+                                                className="text-neutral-400 hover:text-neutral-600"
+                                            >
+                                                ×
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
