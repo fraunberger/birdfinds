@@ -15,6 +15,7 @@ type View = 'feed' | 'settings' | 'profile';
 export function SocialLayout() {
     const { user, loading: authLoading } = useAuth();
     const { profile, loading: profileLoading, refetch } = useUserProfile();
+    const { setActiveDate } = useSocialStore();
     const [view, setView] = useState<View>('feed');
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
@@ -77,18 +78,36 @@ export function SocialLayout() {
         await supabase.auth.signOut();
     };
 
+    const getToday = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const handleReset = () => {
+        setActiveDate(getToday());
+        setView('feed');
+        setProfileUserId(null);
+    };
+
     return (
         <div className="min-h-screen bg-white font-mono text-neutral-900">
             <div className="max-w-2xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
                 {/* Header */}
                 <header className="flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
                     <div className="flex items-center gap-4">
-                        <Link href="/" className="text-xs font-bold uppercase tracking-widest text-neutral-600 hover:text-neutral-900">
+                        <Link
+                            href="/"
+                            onClick={handleReset}
+                            className="text-xs font-bold uppercase tracking-widest text-neutral-600 hover:text-neutral-900"
+                        >
                             BirdFinds
                         </Link>
                         <span className="text-neutral-300">/</span>
                         <button
-                            onClick={() => { setView('feed'); setProfileUserId(null); }}
+                            onClick={handleReset}
                             className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700"
                         >
                             The BirdPile
