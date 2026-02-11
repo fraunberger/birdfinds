@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Election, Nomination } from '@/lib/election/types';
 import { Reorder } from "framer-motion";
 import { RestaurantSearch } from './RestaurantSearch';
@@ -32,6 +32,7 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
 
     // Fetch Loop
     const [errorCount, setErrorCount] = useState(0);
+    const [now, setNow] = useState(Date.now());
 
     const fetchElection = async () => {
         try {
@@ -60,6 +61,12 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
         pollRef.current = setInterval(fetchElection, 3000); // 3s polling
         return () => clearInterval(pollRef.current!);
     }, [electionId]);
+
+    // Live countdown tick every second
+    useEffect(() => {
+        const tick = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(tick);
+    }, []);
 
     // Restore session
     useEffect(() => {
@@ -92,21 +99,38 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
         e.preventDefault();
         if (!username || !codeword) return;
 
-        // Call join endpoint to reserve name
+        // Normalize username to lowercase for case-insensitive matching
+        const safeName = username.trim().toLowerCase();
         const safeCodeword = codeword.trim().toLowerCase();
         const res = await fetch(`/api/elections/${electionId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: username, groupCodeword: safeCodeword })
+            body: JSON.stringify({ name: safeName, groupCodeword: safeCodeword })
         });
 
         if (res.ok) {
-            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username, codeword: safeCodeword }));
+            setUsername(safeName);
+            localStorage.setItem(`bird_election_${electionId}`, JSON.stringify({ username: safeName, codeword: safeCodeword }));
             setIsAuthenticated(true);
             fetchElection();
         } else {
             const err = await res.json();
             alert(err.error || "Failed to join");
+        }
+    };
+
+    const cancelNomination = async (nominationId: string) => {
+        if (!confirm("Remove this nomination?")) return;
+        const safeCodeword = codeword.trim().toLowerCase();
+        const res = await fetch(`/api/elections/${electionId}/nominate`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nominationId, requesterName: username, groupCodeword: safeCodeword })
+        });
+        if (res.ok) {
+            fetchElection();
+        } else {
+            alert("Failed to cancel nomination");
         }
     };
 
@@ -176,15 +200,22 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
         }
     };
 
-    // Calculate time remaining
-    const timeUntilStart = election ? election.voteStartTime - Date.now() : 0;
-    const timeUntilEnd = election ? (election.votingEndsAt || 0) - Date.now() : 0;
+    // Calculate time remaining using live tick
+    const timeUntilStart = election ? election.voteStartTime - now : 0;
+    const timeUntilEnd = election ? (election.votingEndsAt || 0) - now : 0;
 
-    const getTimer = (ms: number) => {
-        if (ms < 0) return "00:00";
-        const m = Math.floor(ms / 60000);
+    const formatCountdown = (ms: number) => {
+        if (ms <= 0) return "0s";
+        const d = Math.floor(ms / 86400000);
+        const h = Math.floor((ms % 86400000) / 3600000);
+        const m = Math.floor((ms % 3600000) / 60000);
         const s = Math.floor((ms % 60000) / 1000);
-        return `${m}:${s.toString().padStart(2, '0')}`;
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m}m`);
+        parts.push(`${s}s`);
+        return parts.join(' ');
     };
 
     const renderCandidateCard = (nom: Nomination, minimal = false) => {
@@ -256,8 +287,8 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                 <div className="text-right">
                     <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Status</div>
                     <div className={`text-xl font-mono font-bold ${election.status === 'voting' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
-                        {election.status === 'nomination' && `STARTS IN ${getTimer(timeUntilStart)}`}
-                        {election.status === 'voting' && `ENDS IN ${getTimer(timeUntilEnd)}`}
+                        {election.status === 'nomination' && `STARTS IN ${formatCountdown(timeUntilStart)}`}
+                        {election.status === 'voting' && `ENDS IN ${formatCountdown(timeUntilEnd)}`}
                         {election.status === 'completed' && 'CLOSED'}
                     </div>
                 </div>
@@ -271,10 +302,17 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                             <h3 className="text-lg font-bold uppercase mb-4 border-b border-gray-200 pb-2">Your Nomination</h3>
 
                             {election.nominations.some(n => n.nominatorName === username) ? (
-                                <div className="bg-gray-50 border border-gray-200 p-4">
+                                <div className="bg-gray-50 border border-gray-200 p-4 relative group">
+                                    <button
+                                        onClick={() => cancelNomination(election.nominations.find(n => n.nominatorName === username)!.id)}
+                                        className="absolute top-2 right-2 text-gray-300 hover:text-red-600 font-bold"
+                                        title="Cancel Nomination"
+                                    >
+                                        ✕
+                                    </button>
                                     <div className="text-xs font-bold text-gray-400 uppercase mb-2">You nominated:</div>
                                     {renderCandidateCard(election.nominations.find(n => n.nominatorName === username)!)}
-                                    <p className="text-xs text-gray-400 mt-4 italic">To change, just search again below.</p>
+                                    <p className="text-xs text-gray-400 mt-4 italic">To change, cancel this nomination first.</p>
                                 </div>
                             ) : (
                                 <p className="text-sm text-gray-500 mb-6">Search for a restaurant to nominate for dinner.</p>
@@ -310,11 +348,23 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                             {election.nominations.length === 0 ? (
                                 <li className="text-gray-400 italic py-4">Waiting for nominations...</li>
                             ) : (
-                                election.nominations.map(nom => (
-                                    <li key={nom.id} className="bg-white border border-gray-100 p-3 shadow-sm hover:shadow-md transition-shadow">
-                                        {renderCandidateCard(nom)}
-                                    </li>
-                                ))
+                                election.nominations.map(nom => {
+                                    const canCancel = nom.nominatorName.toLowerCase() === username.toLowerCase() || username.toLowerCase() === election.adminName.toLowerCase();
+                                    return (
+                                        <li key={nom.id} className="bg-white border border-gray-100 p-3 shadow-sm hover:shadow-md transition-shadow relative group">
+                                            {renderCandidateCard(nom)}
+                                            {canCancel && (
+                                                <button
+                                                    onClick={() => cancelNomination(nom.id)}
+                                                    className="absolute top-2 right-2 text-gray-300 hover:text-red-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity px-2"
+                                                    title="Cancel nomination"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </li>
+                                    );
+                                })
                             )}
                         </ul>
                     </div>
@@ -472,6 +522,19 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                                 <p className="text-gray-500 font-mono text-sm uppercase mb-4">
                                     Winner by {(election as any).winnerMethod || "Consensus"}
                                 </p>
+
+                                {(election as any).tieBroken && (
+                                    <div className="mt-4 p-4 border-2 border-dashed border-red-500 bg-red-50 max-w-sm mx-auto animate-in zoom-in duration-500">
+                                        <p className="text-red-600 font-extrabold uppercase text-[10px] mb-1 tracking-tighter flex items-center justify-center gap-1">
+                                            <span>⚡</span> Tie-Broken by Speed <span>⚡</span>
+                                        </p>
+                                        <p className="text-[11px] text-red-800 leading-tight">
+                                            This was a perfect tie! This candidate won because they received a #1 ranking first — just
+                                            <strong> {Math.max(0, Math.floor(((election as any).winnerVoteTime - election.voteStartTime) / 1000))} seconds </strong>
+                                            after voting opened.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
