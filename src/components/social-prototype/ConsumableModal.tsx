@@ -105,29 +105,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 ))}
                             </select>
                         )}
-                        {/* Rating — prominent /10 */}
-                        {readOnly ? (
-                            rating ? (
-                                <span className="text-sm font-bold text-neutral-800 bg-white/70 border border-neutral-300 px-2 py-0.5">
-                                    {rating}<span className="text-[10px] text-neutral-400 font-normal">/10</span>
-                                </span>
-                            ) : null
-                        ) : (
-                            <div className="flex items-center gap-0.5 bg-white/70 border border-neutral-300 px-1.5 py-0.5">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="10"
-                                    step="0.1"
-                                    inputMode="decimal"
-                                    value={rating || ''}
-                                    onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                    placeholder="--"
-                                    className="w-8 text-center text-sm font-bold font-mono border-none outline-none bg-transparent"
-                                />
-                                <span className="text-[10px] text-neutral-400">/10</span>
-                            </div>
-                        )}
                     </div>
                     <button
                         onClick={onClose}
@@ -138,22 +115,73 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 </div>
 
                 {/* Form — scrollable */}
-                <div className="p-4 space-y-4 overflow-y-auto flex-1">
-                    {/* Title */}
-                    <div>
-                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                            {config.titleLabel}
-                        </label>
-                        <input
-                            autoFocus={!readOnly}
-                            disabled={readOnly}
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
-                        />
+                <div className="p-4 space-y-6 overflow-y-auto flex-1">
+                    {/* Top Section: Title/Subtitle + Score Box */}
+                    <div className="flex gap-4">
+                        <div className="flex-1 space-y-4">
+                            {/* Title */}
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.titleLabel}
+                                </label>
+                                <input
+                                    autoFocus={!readOnly}
+                                    disabled={readOnly}
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
+                                />
+                            </div>
+                            {/* Subtitle (if not recipe split view, but we can just render here for now or conditional logic) */}
+                            {category !== 'cooking' && (
+                                <div>
+                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                        {config.subtitleLabel}
+                                    </label>
+                                    {readOnly ? (
+                                        <div className="text-sm font-mono text-neutral-700 py-1">
+                                            {subtitle || '—'}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            rows={2}
+                                            value={subtitle}
+                                            onChange={(e) => setSubtitle(e.target.value)}
+                                            placeholder={config.subtitlePlaceholder}
+                                            className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Score Box — Black Square */}
+                        <div className="flex-shrink-0">
+                            {readOnly ? (
+                                <div className="w-20 h-20 bg-black text-white flex flex-col items-center justify-center">
+                                    <span className="text-3xl font-bold leading-none">{rating || '—'}</span>
+                                    <span className="text-[10px] text-neutral-400 mt-1">/ 10</span>
+                                </div>
+                            ) : (
+                                <div className="w-20 h-20 bg-black text-white flex flex-col items-center justify-center relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="10"
+                                        step="0.1"
+                                        value={rating || ''}
+                                        onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
+                                        className="w-full h-full bg-transparent text-center text-3xl font-bold text-white outline-none absolute inset-0 z-10"
+                                        placeholder="-"
+                                    />
+                                    <span className="text-[10px] text-neutral-400 absolute bottom-2 z-0">/ 10</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
+                    {/* Subtitle — for cooking, this is ingredients */}
                     {/* Subtitle — for cooking, this is ingredients */}
                     {category === 'cooking' ? (
                         /* Recipe Split View: Ingredients left, Instructions right */
@@ -163,17 +191,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     {config.subtitleLabel}
                                 </label>
                                 {readOnly ? (
-                                    <ul className="list-disc list-inside text-sm font-mono text-neutral-700 space-y-0.5 bg-neutral-50 p-3 border border-neutral-200 min-h-[120px]">
-                                        {(subtitle || '').split('\n').filter(Boolean).map((line, i) => (
-                                            <li key={i}>{line.trim()}</li>
-                                        ))}
-                                        {!(subtitle || '').trim() && <li className="text-neutral-300">No ingredients</li>}
-                                    </ul>
+                                    <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap bg-neutral-50 p-3 border border-neutral-200">
+                                        {subtitle || <span className="text-neutral-300">No ingredients</span>}
+                                    </div>
                                 ) : (
                                     <textarea
                                         value={subtitle}
                                         onChange={(e) => setSubtitle(e.target.value)}
-                                        rows={6}
+                                        rows={8}
                                         placeholder="One ingredient per line..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
                                     />
@@ -184,14 +209,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     {config.notesLabel || 'Instructions'}
                                 </label>
                                 {readOnly ? (
-                                    <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap bg-neutral-50 p-3 border border-neutral-200 min-h-[120px]">
+                                    <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap bg-neutral-50 p-3 border border-neutral-200">
                                         {notes || <span className="text-neutral-300">No instructions</span>}
                                     </div>
                                 ) : (
                                     <textarea
                                         value={notes}
                                         onChange={(e) => setNotes(e.target.value)}
-                                        rows={6}
+                                        rows={8}
                                         placeholder="Step-by-step instructions..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
                                     />
@@ -200,36 +225,24 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
                     ) : (
                         /* Standard layout for non-cooking */
-                        <>
-                            <div>
-                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                    {config.subtitleLabel}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={subtitle}
-                                    onChange={(e) => setSubtitle(e.target.value)}
-                                    disabled={readOnly}
-                                    placeholder={config.subtitlePlaceholder}
-                                    className="w-full text-sm font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
-                                />
-                            </div>
-
-                            {/* Notes */}
-                            <div>
-                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                    {config.notesLabel || 'Notes'}
-                                </label>
+                        <div>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                {config.notesLabel || 'Notes'}
+                            </label>
+                            {readOnly ? (
+                                <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap leading-relaxed py-2 border-t border-neutral-100 min-h-[100px]">
+                                    {notes || <span className="text-neutral-400 italic">No notes</span>}
+                                </div>
+                            ) : (
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
-                                    rows={config.notesPlaceholder ? 5 : 3}
-                                    placeholder={config.notesPlaceholder || ''}
-                                    disabled={readOnly}
-                                    className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300 disabled:text-neutral-600 disabled:border-transparent"
+                                    rows={8}
+                                    placeholder={config.notesPlaceholder || 'Add notes...'}
+                                    className="w-full text-sm font-mono outline-none border border-neutral-300 focus:border-neutral-400 p-3 bg-transparent resize-y placeholder:text-neutral-300"
                                 />
-                            </div>
-                        </>
+                            )}
+                        </div>
                     )}
                 </div>
 
