@@ -21,6 +21,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
     const today = new Date();
     const [viewMonth, setViewMonth] = useState(today.getMonth());
     const [viewYear, setViewYear] = useState(today.getFullYear());
+    const [selectedNote, setSelectedNote] = useState<{ text: string; habitName: string; date: string } | null>(null);
 
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -85,7 +86,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
 
     return (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto font-mono">
-            <div className="max-w-lg mx-auto p-6">
+            <div className="max-w-lg mx-auto p-6 relative min-h-screen">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6 border-b border-neutral-300 pb-4">
                     <h2 className="text-lg font-bold uppercase tracking-widest">Habit Calendar</h2>
@@ -159,19 +160,27 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                                                             {day}
                                                         </div>
                                                         {completed.length > 0 && (
-                                                            <div className="space-y-0.5">
+                                                            <div className="space-y-1">
                                                                 {completed.map(({ habit: h, note }) => {
                                                                     const idx = habits.findIndex(hb => hb.id === h.id);
                                                                     return (
-                                                                        <div key={h.id} className="flex items-start gap-1" title={note ? `${h.name}: ${note}` : h.name}>
+                                                                        <div key={h.id} className="flex items-center gap-1 h-3">
                                                                             <span
-                                                                                className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5"
+                                                                                className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
                                                                                 style={{ backgroundColor: HABIT_COLORS[idx % HABIT_COLORS.length] }}
+                                                                                title={h.name}
                                                                             />
                                                                             {note && (
-                                                                                <span className="text-[7px] text-neutral-500 leading-tight line-clamp-2">
-                                                                                    {note}
-                                                                                </span>
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedNote({ text: note, habitName: h.name, date: getDateStr(day) });
+                                                                                    }}
+                                                                                    className="text-[8px] leading-none text-neutral-400 hover:text-black border border-neutral-200 hover:border-neutral-400 px-0.5 rounded flex items-center justify-center bg-white h-3 w-3"
+                                                                                    title="View Note"
+                                                                                >
+                                                                                    +
+                                                                                </button>
                                                                             )}
                                                                         </div>
                                                                     );
@@ -187,6 +196,35 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                             ))}
                         </div>
                     </>
+                )}
+
+                {/* Simple Note Modal */}
+                {selectedNote && (
+                    <div
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-white/80 p-6"
+                        onClick={() => setSelectedNote(null)}
+                    >
+                        <div
+                            className="bg-white border border-neutral-300 w-full max-w-sm shadow-xl p-6 relative"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
+                                NOTE — {selectedNote.date}
+                            </div>
+                            <div className="text-xs font-bold mb-4">
+                                {selectedNote.habitName}
+                            </div>
+                            <div className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed font-mono bg-neutral-50 p-3 border border-neutral-100">
+                                {selectedNote.text}
+                            </div>
+                            <button
+                                onClick={() => setSelectedNote(null)}
+                                className="absolute top-4 right-4 text-neutral-400 hover:text-black font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
