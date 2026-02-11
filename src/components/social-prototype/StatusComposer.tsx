@@ -288,7 +288,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 >
                     <span className={`text-[10px] transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
-                        {isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY (Draft)' : 'NEW ENTRY')}
+                        {isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY')}
                     </h2>
                 </button>
                 <div className="flex items-center gap-3">
@@ -296,7 +296,17 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         type="date"
                         value={activeDate}
                         onChange={(e) => setActiveDate(e.target.value)}
-                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none border-b border-transparent hover:border-neutral-300 transition-colors w-[130px] sm:w-[100px] p-1"
+                        // Try to open the picker on click for better UX
+                        onClick={(e) => {
+                            try {
+                                if ('showPicker' in e.target) {
+                                    (e.target as any).showPicker();
+                                }
+                            } catch (err) {
+                                // Fallback or ignore
+                            }
+                        }}
+                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none border-b border-transparent hover:border-neutral-300 transition-colors w-[130px] sm:w-[100px] p-1 appearance-none"
                     />
                 </div>
             </header>

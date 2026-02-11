@@ -25,7 +25,7 @@ interface ProfilePageProps {
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
     const { user } = useAuth();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -97,15 +97,28 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 {/* Actions */}
                 <div className="flex items-center justify-center gap-2 mt-3">
                     {!isOwnProfile && (
-                        <button
-                            onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
-                            className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${isFollowing(userId)
-                                ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
-                                : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
-                                }`}
-                        >
-                            {isFollowing(userId) ? 'Following' : 'Follow'}
-                        </button>
+                        <>
+                            <button
+                                onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
+                                className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${isFollowing(userId)
+                                    ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
+                                    : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
+                                    }`}
+                            >
+                                {isFollowing(userId) ? 'Following' : 'Follow'}
+                            </button>
+                            {/* Block Button */}
+                            <button
+                                onClick={() => toggleMute(userId)}
+                                className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${mutedUsers?.includes(userId)
+                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                                    : 'text-neutral-400 border-neutral-300 hover:bg-neutral-50 hover:text-neutral-600'
+                                    }`}
+                                title={mutedUsers?.includes(userId) ? "Unblock user" : "Block user & hide posts"}
+                            >
+                                {mutedUsers?.includes(userId) ? 'Unblock' : 'Block'}
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={() => setShowHabitCalendar(true)}

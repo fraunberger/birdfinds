@@ -53,6 +53,7 @@ export interface UserProfile {
     categories: Category[];
     isPrivate?: boolean;
     createdAt?: string;
+    muted_users?: string[];
 }
 
 export interface Habit {
@@ -91,6 +92,7 @@ interface SocialState {
     activeDate: string;
     activeStatus: Status | null;
     isLoaded: boolean;
+    mutedUsers: string[];
 }
 
 class SocialStore {
@@ -99,7 +101,8 @@ class SocialStore {
         allStatuses: [],
         activeDate: getTodayDateString(),
         activeStatus: null,
-        isLoaded: false
+        isLoaded: false,
+        mutedUsers: []
     };
     private listeners = new Set<() => void>();
     private initialized = false;
@@ -158,7 +161,7 @@ class SocialStore {
             const { data: statusData, error: statusError } = await supabase
                 .from('social_statuses')
                 .select('*')
-                .order('date', { ascending: false });
+                .order('created_at', { ascending: false }); // Sort by creation time (chronological feed)
 
             if (statusError) throw statusError;
 
@@ -190,13 +193,30 @@ class SocialStore {
                     }))
             }));
 
-            // Filter for current user
+            // Filter for current user (Journal view)
             const userStatuses = user ? combined.filter(s => s.userId === user.id) : combined;
+
+            // Fetch Current User's Muted List
+            let mutedUsers: string[] = [];
+            if (user) {
+                const { data: myProfile } = await supabase
+                    .from('user_profiles')
+                    .select('muted_users')
+                    .eq('user_id', user.id)
+                    .single();
+                if (myProfile?.muted_users) {
+                    mutedUsers = myProfile.muted_users || [];
+                }
+            }
+
+            // Filter out muted users from allStatuses (Feed)
+            const visibleStatuses = combined.filter(s => s.userId && !mutedUsers.includes(s.userId));
 
             this.state = {
                 ...this.state,
-                allStatuses: combined,
-                statuses: userStatuses,
+                allStatuses: visibleStatuses,
+                statuses: userStatuses.sort((a, b) => b.date.localeCompare(a.date)), // Sort journal by date
+                mutedUsers,
                 isLoaded: true
             };
             this.syncActiveStatus();
@@ -383,6 +403,32 @@ class SocialStore {
     getUserStatuses(userId: string): Status[] {
         return this.state.allStatuses.filter(s => s.userId === userId);
     }
+
+    async toggleMute(userId: string) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const currentMuted = this.state.mutedUsers || [];
+        const isMuted = currentMuted.includes(userId);
+        let newMuted: string[];
+
+        if (isMuted) {
+            newMuted = currentMuted.filter(id => id !== userId);
+        } else {
+            newMuted = [...currentMuted, userId];
+        }
+
+        // Optimistic update
+        this.state = { ...this.state, mutedUsers: newMuted };
+        this.emit(); // IMPORTANT: emit change
+
+        await supabase
+            .from('user_profiles')
+            .update({ muted_users: newMuted })
+            .eq('user_id', user.id);
+
+        await this.fetchStatuses();
+    }
 }
 
 export const socialStore = new SocialStore();
@@ -405,6 +451,8 @@ export function useSocialStore() {
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
+        toggleMute: (uid: string) => socialStore.toggleMute(uid),
+        mutedUsers: state.mutedUsers,
     };
 }
 
@@ -448,7 +496,8 @@ export function useUserProfile() {
                     avatarUrl: data.avatar_url,
                     categories: data.categories || [],
                     isPrivate: data.is_private || false,
-                    createdAt: data.created_at
+                    createdAt: data.created_at,
+                    muted_users: data.muted_users || [] // Added
                 });
             } else {
                 setProfile(null);
