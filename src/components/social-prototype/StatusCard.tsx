@@ -15,6 +15,7 @@ interface StatusCardProps {
 
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
+    const [showHabits, setShowHabits] = useState(false);
     const { deleteStatus } = useSocialStore();
 
     // Render content with highlighted items
@@ -105,10 +106,20 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             timeZone: 'UTC'
                         })}
                     </span>
+                    {/* Habit Toggle */}
+                    {status.userId && (
+                        <button
+                            onClick={() => setShowHabits(!showHabits)}
+                            className={`text-[10px] uppercase tracking-widest border px-3 py-1.5 ml-1 transition-colors min-w-[44px] flex items-center justify-center ${showHabits ? 'border-neutral-400 text-neutral-800' : 'border-transparent text-neutral-300 hover:text-neutral-500'}`}
+                            title={showHabits ? "Hide habits" : "Show habits"}
+                        >
+                            {showHabits ? 'Habits' : 'Habits ▼'}
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Body: two-column — content left, habits right */}
+            {/* Body: two-column — content left, habits right (conditional) */}
             <div className="flex gap-2">
                 {/* Left: content + items */}
                 <div className="flex-1 min-w-0">
@@ -144,8 +155,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                 </div>
 
                 {/* Right: habits column */}
-                {status.userId && (
-                    <div className="flex-shrink-0 border-l border-neutral-100 pl-1.5">
+                {status.userId && showHabits && (
+                    <div className="flex-shrink-0 border-l border-neutral-100 pl-1.5 animate-in fade-in slide-in-from-right-1 duration-150">
                         <HabitChecklist
                             date={status.date}
                             readOnly={!isOwn}

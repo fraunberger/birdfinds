@@ -29,28 +29,28 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
     };
 
     return (
-        <div className={vertical ? 'flex flex-col gap-0.5' : 'space-y-1'}>
-            <div className={vertical ? 'flex flex-col gap-0.5' : 'flex flex-wrap gap-2 py-1'}>
+        <div className={vertical ? 'flex flex-col gap-1' : 'space-y-1'}>
+            <div className={vertical ? 'flex flex-col gap-1' : 'flex flex-wrap gap-2 py-1'}>
                 {habits.map(habit => {
                     const completed = isHabitCompleted(habit.id, date);
                     const note = getHabitNote(habit.id);
                     return (
-                        <div key={habit.id} className="flex items-center gap-0.5">
+                        <div key={habit.id} className="flex items-center gap-1">
                             <button
                                 onClick={() => !readOnly && toggleHabitLog(habit.id, date, !completed)}
                                 disabled={readOnly}
-                                className={`inline-flex items-center font-mono transition-all ${vertical
-                                    ? `gap-1 px-1 py-0.5 text-[9px] border-none ${completed ? 'text-neutral-700' : 'text-neutral-300'}`
-                                    : `gap-1.5 px-2.5 py-1 text-xs border ${completed ? 'bg-neutral-800 text-white border-neutral-800' : 'bg-white text-neutral-400 border-neutral-300 hover:border-neutral-500'}`
+                                className={`inline-flex items-center font-mono transition-all rounded-sm ${vertical
+                                    ? `gap-2 px-2 py-1.5 text-[10px] min-h-[30px] border-none ${completed ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`
+                                    : `gap-2 px-3 py-2 text-xs border min-h-[36px] ${completed ? 'bg-neutral-800 text-white border-neutral-800' : 'bg-white text-neutral-400 border-neutral-300 hover:border-neutral-500'}`
                                     } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                             >
                                 {vertical ? (
-                                    <span className={`text-[8px] ${completed ? 'text-neutral-800' : 'text-neutral-300'}`}>
-                                        {completed ? '*' : '-'}
+                                    <span className={`text-[10px] w-4 text-center ${completed ? 'text-neutral-900' : 'text-neutral-300'}`}>
+                                        {completed ? '●' : '○'}
                                     </span>
                                 ) : (
-                                    <span className={`inline-block w-2.5 h-2.5 border ${completed ? 'border-white bg-white/20' : 'border-neutral-300'
-                                        } flex items-center justify-center text-[7px] leading-none`}>
+                                    <span className={`inline-block w-3 h-3 border ${completed ? 'border-white bg-white/20' : 'border-neutral-300'
+                                        } flex items-center justify-center text-[8px] leading-none`}>
                                         {completed && '+'}
                                     </span>
                                 )}
@@ -60,18 +60,13 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                             {completed && !readOnly && !vertical && (
                                 <button
                                     onClick={() => { setEditingNote(habit.id); setNoteText(note); }}
-                                    className="text-[9px] text-neutral-400 hover:text-neutral-600 px-0.5 leading-none"
+                                    className="text-[10px] text-neutral-400 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded px-3 py-2 min-w-[30px] flex items-center justify-center transition-colors"
                                     title="Add note"
                                 >
-                                    {note ? 'edit' : '+'}
+                                    +
                                 </button>
                             )}
-                            {/* Show existing note inline */}
-                            {completed && note && !vertical && editingNote !== habit.id && (
-                                <span className="text-[9px] text-neutral-400 font-mono truncate max-w-[120px]">
-                                    {note}
-                                </span>
-                            )}
+                            {/* Inline note removed as requested (handled by calendar hover/click now) */}
                         </div>
                     );
                 })}
@@ -79,7 +74,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
 
             {/* Note input — only when + is clicked */}
             {editingNote && !readOnly && (
-                <div className="flex gap-1 items-center mt-1">
+                <div className="flex gap-2 items-center mt-2 p-1 bg-neutral-50 border border-neutral-200 rounded">
                     <input
                         type="text"
                         value={noteText}
@@ -87,17 +82,17 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                         onKeyDown={(e) => { if (e.key === 'Enter') saveNote(editingNote); if (e.key === 'Escape') { setEditingNote(null); setNoteText(''); } }}
                         placeholder="Quick note..."
                         autoFocus
-                        className="flex-1 text-[10px] font-mono px-2 py-1 border border-neutral-300 outline-none focus:border-neutral-500 bg-transparent"
+                        className="flex-1 text-xs font-mono px-3 py-2 border border-neutral-300 outline-none focus:border-neutral-500 bg-white"
                     />
                     <button
                         onClick={() => saveNote(editingNote)}
-                        className="text-[10px] font-mono px-2 py-1 bg-neutral-800 text-white uppercase tracking-wider"
+                        className="text-xs font-mono px-4 py-2 bg-neutral-800 text-white uppercase tracking-wider rounded"
                     >
                         ok
                     </button>
                     <button
                         onClick={() => { setEditingNote(null); setNoteText(''); }}
-                        className="text-[10px] font-mono px-1.5 py-1 text-neutral-400 hover:text-neutral-600"
+                        className="text-xs font-mono px-3 py-2 text-neutral-400 hover:text-neutral-600 border border-transparent hover:border-neutral-300 rounded"
                     >
                         x
                     </button>
