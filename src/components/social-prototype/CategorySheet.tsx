@@ -80,7 +80,7 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                             onClick={() => setSelectedItem(item)}
                             className="w-full text-left group"
                         >
-                            <div className="flex items-start gap-2.5 px-3 py-2 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
+                            <div className="flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
                                 {/* Rank number for top mode */}
                                 {sortMode === 'top' && (
                                     <span className="text-[10px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
@@ -90,23 +90,24 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
 
                                 {/* Main info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-bold truncate">{item.title}</div>
+                                    <div className="text-xs font-bold">{item.title}</div>
                                     {item.subtitle && (
-                                        <div className="text-[11px] text-neutral-600 truncate mt-0.5">
+                                        <div className="text-[11px] text-neutral-600 mt-0.5">
                                             {item.subtitle.split('\n')[0]}
                                         </div>
                                     )}
                                     {item.notes && (
-                                        <div className="text-[10px] text-neutral-400 mt-0.5 line-clamp-1">
-                                            {item.notes.split('\n')[0]}
+                                        <div className="text-[10px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
+                                            {item.notes}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Rating */}
+                                {/* Rating /10 — prominent on the right */}
                                 {item.rating && item.rating > 0 && (
-                                    <div className="flex-shrink-0 text-[10px] font-bold text-neutral-700 bg-neutral-100 px-1.5 py-0.5 rounded-sm">
-                                        {item.rating}
+                                    <div className="flex-shrink-0 text-right">
+                                        <span className="text-sm font-bold text-neutral-800">{item.rating}</span>
+                                        <span className="text-[9px] text-neutral-400">/10</span>
                                     </div>
                                 )}
                             </div>
