@@ -83,32 +83,34 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 {/* Header — category colored */}
                 <div
                     className="flex items-center justify-between px-4 py-3 border-b border-neutral-300"
-                    style={{ backgroundColor: config.color + '33' }}
+                    style={{ backgroundColor: config.color + '40' }}
                 >
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-700">
-                            {readOnly ? 'VIEW' : (existingItem ? 'EDIT' : 'NEW')}
-                        </span>
-                        {/* Type selector — compact, inline */}
+                        {/* Category Label / Dropdown */}
                         {readOnly ? (
-                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 border border-neutral-300 px-1.5 py-0.5 bg-white/60">
+                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">
                                 {config.shortLabel}
                             </span>
                         ) : (
-                            <select
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value as Category)}
-                                className="text-[10px] font-mono uppercase tracking-wider border border-neutral-300 px-1 py-0.5 bg-white/60 outline-none cursor-pointer"
-                            >
-                                {Object.values(CATEGORY_CONFIGS).map(c => (
-                                    <option key={c.id} value={c.id}>{c.shortLabel}</option>
-                                ))}
-                            </select>
+                            <div className="relative group">
+                                <select
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value as Category)}
+                                    className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4"
+                                >
+                                    {Object.values(CATEGORY_CONFIGS).map(c => (
+                                        <option key={c.id} value={c.id}>{c.shortLabel}</option>
+                                    ))}
+                                </select>
+                                <span className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-neutral-500">
+                                    ▼
+                                </span>
+                            </div>
                         )}
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-neutral-400 hover:text-neutral-600 text-2xl font-bold leading-none w-8 h-8 flex items-center justify-center -mr-2"
+                        className="text-neutral-500 hover:text-neutral-800 text-2xl leading-none w-8 h-8 flex items-center justify-center -mr-2"
                     >
                         ×
                     </button>
@@ -156,15 +158,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             )}
                         </div>
 
-                        {/* Score Box — Black Square */}
-                        <div className="flex-shrink-0">
+                        {/* Score Box — Styled transparent box with thick border */}
+                        <div className="flex-shrink-0 pt-6"> {/* Align with input baseline roughly */}
                             {readOnly ? (
-                                <div className="w-20 h-20 bg-black text-white flex flex-col items-center justify-center">
-                                    <span className="text-3xl font-bold leading-none">{rating || '—'}</span>
-                                    <span className="text-[10px] text-neutral-400 mt-1">/ 10</span>
+                                <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
+                                    <span className="text-2xl font-bold text-neutral-800 leading-none">{rating || '—'}</span>
+                                    <span className="text-[9px] text-neutral-400 mt-0.5">/ 10</span>
                                 </div>
                             ) : (
-                                <div className="w-20 h-20 bg-black text-white flex flex-col items-center justify-center relative">
+                                <div className="w-16 h-16 border-2 border-neutral-300 hover:border-neutral-400 flex flex-col items-center justify-center relative bg-white">
                                     <input
                                         type="number"
                                         min="0"
@@ -172,10 +174,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         step="0.1"
                                         value={rating || ''}
                                         onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
-                                        className="w-full h-full bg-transparent text-center text-3xl font-bold text-white outline-none absolute inset-0 z-10"
+                                        className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
-                                    <span className="text-[10px] text-neutral-400 absolute bottom-2 z-0">/ 10</span>
+                                    <span className="text-[9px] text-neutral-400 absolute bottom-1.5 z-0 pointer-events-none">/ 10</span>
                                 </div>
                             )}
                         </div>
