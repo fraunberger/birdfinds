@@ -202,7 +202,7 @@ class SocialStore {
                 const { data: myProfile } = await supabase
                     .from('user_profiles')
                     .select('muted_users')
-                    .eq('user_id', user.id)
+                    .eq('id', user.id)
                     .single();
                 if (myProfile?.muted_users) {
                     mutedUsers = myProfile.muted_users || [];
@@ -425,7 +425,7 @@ class SocialStore {
         await supabase
             .from('user_profiles')
             .update({ muted_users: newMuted })
-            .eq('user_id', user.id);
+            .eq('id', user.id);
 
         await this.fetchStatuses();
     }
