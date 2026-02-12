@@ -487,13 +487,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 adjustTextareaHeight();
                                 // Auto-expand slightly on focus if small
                                 if (textareaRef.current) {
-                                    textareaRef.current.style.minHeight = '150px';
+                                    textareaRef.current.style.minHeight = isMobileTagging ? '200px' : '150px';
                                 }
                             }}
                             onBlur={(e) => {
                                 handleBlur();
                                 if (textareaRef.current && !content) {
-                                    textareaRef.current.style.minHeight = '100px';
+                                    textareaRef.current.style.minHeight = isMobileTagging ? '140px' : '100px';
                                 }
                             }}
                             onSelect={(e) => {
@@ -545,7 +545,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
-                            className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
+                            className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[140px] sm:min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                             spellCheck={false}
                         />
                         {isMobileTagging && !showMentionPicker && mentionTitle.trim() && (
@@ -597,10 +597,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         <table className="w-full text-xs font-mono border-collapse">
                             <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                                 <tr>
-                                    <th className="px-2 py-2 text-left border-b border-r border-neutral-300 w-14">Type</th>
-                                    <th className="px-2 py-2 text-left border-b border-r border-neutral-300">Title</th>
-                                    <th className="px-2 py-2 text-center border-b border-r border-neutral-300 w-10">R</th>
-                                    <th className="px-2 py-2 text-center border-b border-neutral-300 w-8"></th>
+                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
+                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
+                                    <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">R</th>
+                                    <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-8"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -614,24 +614,24 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                             onClick={() => openModal(item)}
                                         >
                                             <td
-                                                className="px-2 py-3 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                                className="px-2 py-1.5 border-b border-r border-neutral-200 text-[10px] font-bold"
                                                 style={{ backgroundColor: config.color || undefined }}
                                             >
                                                 {config.shortLabel}
                                             </td>
-                                            <td className="px-2 py-3 border-b border-r border-neutral-200 font-medium">
+                                            <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium">
                                                 {item.title}
                                                 {item.subtitle && (
                                                     <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 border-b border-r border-neutral-200 text-center">
+                                            <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
                                                 {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                             </td>
-                                            <td className="px-2 py-3 border-b border-neutral-200 text-center">
+                                            <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
-                                                    className="text-neutral-400 hover:text-neutral-600 p-2"
+                                                    className="text-neutral-400 hover:text-neutral-600 p-1"
                                                 >
                                                     ×
                                                 </button>
@@ -642,32 +642,32 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
                                 {/* Quick Add Row — always visible */}
                                 <tr className="bg-neutral-50">
-                                    <td className="px-1 py-1.5 border-r border-neutral-200">
+                                    <td className="px-1 py-1 border-r border-neutral-200">
                                         <select
                                             value={effectiveQuickAddCategory}
                                             onChange={(e) => setQuickAddCategory(e.target.value as Category)}
-                                            className="w-full bg-transparent text-[10px] outline-none cursor-pointer px-1 py-2 text-neutral-500 h-full"
+                                            className="w-full bg-transparent text-[10px] outline-none cursor-pointer px-1 py-1 text-neutral-500 h-full"
                                         >
                                             {activeCategoryConfigs.map(c => (
                                                 <option key={c.id} value={c.id}>{c.shortLabel}</option>
                                             ))}
                                         </select>
                                     </td>
-                                    <td className="px-1 py-1.5 border-r border-neutral-200">
+                                    <td className="px-1 py-1 border-r border-neutral-200">
                                         <input
                                             type="text"
                                             value={quickAddTitle}
                                             onChange={(e) => setQuickAddTitle(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
                                             placeholder="Add new entry..."
-                                            className="w-full bg-transparent outline-none text-[16px] sm:text-xs placeholder:text-neutral-300 px-1 py-2"
+                                            className="w-full bg-transparent outline-none text-[14px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
                                         />
                                     </td>
-                                    <td className="px-2 py-1.5 text-center" colSpan={2}>
+                                    <td className="px-2 py-1 text-center" colSpan={2}>
                                         <button
                                             onClick={handleQuickAddRow}
                                             disabled={!quickAddTitle.trim()}
-                                            className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30 p-2 w-full h-full flex items-center justify-center"
+                                            className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30 p-1 w-full h-full flex items-center justify-center"
                                         >
                                             +
                                         </button>

@@ -18,6 +18,7 @@ export function SocialLayout() {
     const { setActiveDate } = useSocialStore();
     const [view, setView] = useState<View>('feed');
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
+    const needsOnboarding = !profile?.username?.trim();
 
     // Loading state
     if (authLoading || profileLoading) {
@@ -48,8 +49,8 @@ export function SocialLayout() {
         );
     }
 
-    // Profile setup if no profile exists
-    if (!profile && view !== 'settings') {
+    // First-time setup: only require onboarding when username is missing.
+    if (needsOnboarding) {
         return (
             <div className="min-h-screen bg-white font-mono text-neutral-900">
                 <div className="max-w-lg mx-auto p-6 min-h-screen flex flex-col pt-12">
