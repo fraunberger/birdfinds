@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 interface ITunesResult {
+    wrapperType?: string;
+    collectionType?: string;
     trackId?: number;
     collectionId?: number;
     trackName?: string;
@@ -41,14 +43,17 @@ export async function GET(request: Request) {
         }
 
         const data = (await response.json()) as ITunesSearchResponse;
-        const results = (data.results || []).map((item) => ({
-            id: item.collectionId ?? item.trackId ?? 0,
-            title: item.collectionName || item.trackName || '',
-            artist: item.artistName || '',
-            genre: item.primaryGenreName || '',
-            image: item.artworkUrl100 || '',
-            releaseDate: item.releaseDate || '',
-        })).filter((item) => item.id && item.title);
+        const results = (data.results || [])
+            .filter((item) => item.wrapperType === 'collection' && item.collectionType === 'Album')
+            .map((item) => ({
+                id: item.collectionId ?? 0,
+                title: item.collectionName || '',
+                artist: item.artistName || '',
+                genre: item.primaryGenreName || '',
+                image: item.artworkUrl100 || '',
+                releaseDate: item.releaseDate || '',
+            }))
+            .filter((item) => item.id && item.title);
 
         return NextResponse.json(results);
     } catch (error) {
