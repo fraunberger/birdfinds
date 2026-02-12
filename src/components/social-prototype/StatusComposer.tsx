@@ -73,6 +73,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
     const [isMobileTagging, setIsMobileTagging] = useState(false);
+    const [mobilePickerBottom, setMobilePickerBottom] = useState(12);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -139,6 +140,24 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         window.addEventListener('resize', updateMode);
         return () => window.removeEventListener('resize', updateMode);
     }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.visualViewport) return;
+
+        const updateBottomOffset = () => {
+            const vv = window.visualViewport;
+            const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            setMobilePickerBottom(keyboardHeight + 12);
+        };
+
+        updateBottomOffset();
+        window.visualViewport.addEventListener('resize', updateBottomOffset);
+        window.visualViewport.addEventListener('scroll', updateBottomOffset);
+        return () => {
+            window.visualViewport?.removeEventListener('resize', updateBottomOffset);
+            window.visualViewport?.removeEventListener('scroll', updateBottomOffset);
+        };
+    }, [isMobileTagging]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -349,16 +368,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             );
         });
 
-        // Live inline hint for "@title" before user closes with the second "@"
-        if (!showMentionPicker && atPosition >= 0 && triggerLength > 1 && mentionTitle.trim()) {
-            const liveStart = atPosition + 1; // after opening "@"
-            const liveEnd = atPosition + triggerLength;
-            if (liveEnd > liveStart) {
-                const before = highlightedHtml.substring(0, liveStart);
-                const inside = highlightedHtml.substring(liveStart, liveEnd);
-                const after = highlightedHtml.substring(liveEnd);
-                highlightedHtml = `${before}<mark style="background-color: #d4d4d8; color: #111; padding: 0 2px;">${inside}</mark>${after}`;
-            }
+        // Live inline gray hint for currently open @token (before closing @).
+        if (!showMentionPicker && mentionTitle.trim()) {
+            highlightedHtml = highlightedHtml.replace(
+                /@([^@\n]+)$/g,
+                '@<mark style="background-color: #d4d4d8; color: #111; padding: 0 2px;">$1</mark>'
+            );
         }
 
         if (content.endsWith('\n')) {
@@ -381,7 +396,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Inline style to sync highlight + textarea font sizes */}
             <style>{`
                 .composer-text, .highlight-layer {
-                    font-size: 16px;
+                    font-size: 14px;
                 }
                 @media (min-width: 640px) {
                     .composer-text, .highlight-layer {
@@ -431,9 +446,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         {showMentionPicker && !mentionCategory && (
                             <div
                                 className={isMobileTagging
-                                    ? "fixed left-3 right-3 bottom-3 z-50 bg-black text-white p-2 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150"
+                                    ? "fixed left-3 right-3 z-50 bg-black text-white p-2 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150"
                                     : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
+                                    bottom: isMobileTagging ? `${mobilePickerBottom}px` : undefined,
                                     top: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.top ?? 0) + 24}px, calc(100% - 140px))`,
                                     left: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.left ?? 0) + 16}px, calc(100% - 132px))`,
                                     width: isMobileTagging ? undefined : '124px',
