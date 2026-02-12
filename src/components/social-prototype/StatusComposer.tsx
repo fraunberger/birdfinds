@@ -588,7 +588,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     )}
 
                     {/* Habit Checklist */}
-                    <div className="py-2">
+                    <div className="py-1.5 px-2 border border-neutral-200 bg-neutral-50/60 rounded-sm">
                         <HabitChecklist date={activeDate} />
                     </div>
 
@@ -677,8 +677,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </table>
                     </div>
 
-                    {/* Footer: Post button aligned right, large touch target */}
-                    <div className="flex justify-end mt-4">
+                    {/* Footer: sticky on mobile so action stays reachable */}
+                    <div className="sticky bottom-2 sm:static flex justify-end mt-4 z-20 pb-[calc(env(safe-area-inset-bottom)+2px)]">
                         <button
                             onClick={async () => {
                                 if (activeStatus?.published) {
@@ -697,9 +697,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     }
                                 }
                             }}
-                            className={`px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all border rounded shadow-sm ${activeStatus?.published
+                            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition-all border rounded shadow-sm backdrop-blur-sm ${activeStatus?.published
                                 ? 'bg-green-700 text-white border-green-700 hover:bg-green-800'
-                                : 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
+                                : 'bg-neutral-900/95 text-white border-neutral-900 hover:bg-neutral-700'
                                 }`}
                         >
                             {activeStatus?.published ? 'POSTED ✓' : 'POST ENTRY'}

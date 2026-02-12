@@ -41,7 +41,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                 disabled={readOnly}
                                 className={`inline-flex items-center font-mono transition-all rounded-sm ${vertical
                                     ? `gap-2 px-2 py-1.5 text-[10px] min-h-[30px] border-none ${completed ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`
-                                    : `gap-2 px-3 py-2 text-xs border min-h-[36px] ${completed ? 'bg-neutral-800 text-white border-neutral-800' : 'bg-white text-neutral-400 border-neutral-300 hover:border-neutral-500'}`
+                                    : `gap-1.5 px-2.5 py-1.5 text-[10px] border rounded-full min-h-[28px] ${completed ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm' : 'bg-neutral-50 text-neutral-500 border-neutral-300 hover:border-neutral-500'}`
                                     } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                             >
                                 {vertical ? (
@@ -49,7 +49,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                         {completed ? '●' : '○'}
                                     </span>
                                 ) : (
-                                    <span className={`inline-block w-3 h-3 border ${completed ? 'border-white bg-white/20' : 'border-neutral-300'
+                                    <span className={`inline-block w-2.5 h-2.5 border rounded-full ${completed ? 'border-white bg-white/30' : 'border-neutral-300'
                                         } flex items-center justify-center text-[8px] leading-none`}>
                                         {completed && '+'}
                                     </span>
@@ -60,7 +60,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                             {completed && !readOnly && !vertical && (
                                 <button
                                     onClick={() => { setEditingNote(habit.id); setNoteText(note); }}
-                                    className="text-[10px] text-neutral-400 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded px-3 py-2 min-w-[30px] flex items-center justify-center transition-colors"
+                                    className="text-[10px] text-neutral-400 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-full px-2 py-1 min-w-[24px] flex items-center justify-center transition-colors"
                                     title="Add note"
                                 >
                                     +
