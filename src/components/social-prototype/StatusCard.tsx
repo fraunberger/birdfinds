@@ -169,6 +169,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
 
             {/* Item detail modal */}
             <ConsumableModal
+                key={`${selectedItem?.id ?? 'none'}-${selectedItem?.category ?? 'movie'}`}
                 isOpen={!!selectedItem}
                 onClose={() => setSelectedItem(null)}
                 existingItem={selectedItem || undefined}

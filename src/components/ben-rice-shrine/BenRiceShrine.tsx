@@ -105,30 +105,28 @@ export function BenRiceShrine() {
 }
 
 function WhizzingElement() {
-    const [style, setStyle] = useState<React.CSSProperties>({});
-    const [type, setType] = useState<'baseball' | 'text'>('baseball');
-    const [text, setText] = useState("");
-
-    useEffect(() => {
+    const [style] = useState<React.CSSProperties>(() => {
         const top = Math.random() * 90;
         const duration = Math.random() * 3 + 2; // Slower, more majestic 90s speed
-        const textOptions = ["HOMERUN!", "YANKEES!", "WOW!!", "RICE!", "GUESTBOOK??"];
-
-        setStyle({
+        return {
             top: `${top}%`,
             animationDuration: `${duration}s`,
-        });
+        };
+    });
 
+    const [content] = useState(() => {
+        const textOptions = ["HOMERUN!", "YANKEES!", "WOW!!", "RICE!", "GUESTBOOK??"];
         if (Math.random() > 0.6) {
-            setType('text');
-            setText(textOptions[Math.floor(Math.random() * textOptions.length)]);
-        } else {
-            setType('baseball');
+            return {
+                type: "text" as const,
+                text: textOptions[Math.floor(Math.random() * textOptions.length)],
+                color: Math.random() > 0.5 ? "#FFFF00" : "#FF0000",
+            };
         }
+        return { type: "baseball" as const, text: "", color: "#FFFF00" };
+    });
 
-    }, []);
-
-    if (type === 'baseball') {
+    if (content.type === 'baseball') {
         return (
             <div className="absolute -left-32 w-16 h-16 animate-whiz z-20" style={style}>
                 <Image src="/shrines/ben-rice/baseball.png" alt="Baseball" width={64} height={64} className="animate-spin" />
@@ -137,8 +135,8 @@ function WhizzingElement() {
     }
 
     return (
-        <div className="absolute -left-64 text-4xl font-black italic text-[#FFFF00] shadow-black drop-shadow-md animate-whiz whitespace-nowrap z-20 font-sans" style={{ ...style, color: Math.random() > 0.5 ? '#FFFF00' : '#FF0000' }}>
-            {text}
+        <div className="absolute -left-64 text-4xl font-black italic text-[#FFFF00] shadow-black drop-shadow-md animate-whiz whitespace-nowrap z-20 font-sans" style={{ ...style, color: content.color }}>
+            {content.text}
         </div>
     );
 }

@@ -21,7 +21,7 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): IRVResul
     };
 
     while (candidates.length > 1) {
-        let activeVotes = votes.map(v => ({
+        const activeVotes = votes.map(v => ({
             rankings: v.rankings.filter(id => candidates.includes(id))
         })).filter(v => v.rankings.length > 0);
 
@@ -45,8 +45,8 @@ export function calculateIRV(nominations: Nomination[], votes: Vote[]): IRVResul
         }
 
         // Elimination
-        let minVotes = Math.min(...candidates.map(id => counts[id]));
-        let losers = candidates.filter(id => counts[id] === minVotes);
+        const minVotes = Math.min(...candidates.map(id => counts[id]));
+        const losers = candidates.filter(id => counts[id] === minVotes);
 
         if (losers.length === candidates.length) {
             // Perfect tie among all remaining - use the requested tie-breaker

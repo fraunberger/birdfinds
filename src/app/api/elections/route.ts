@@ -1,4 +1,5 @@
 import { store } from "@/lib/election/store";
+import { determineCondorcetWinner } from "@/lib/election/condorcet";
 import { Election } from "@/lib/election/types";
 import { NextResponse } from "next/server";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
         await store.createElection(election);
 
         return NextResponse.json(election);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Error" }, { status: 500 });
     }
 }
@@ -47,9 +48,8 @@ export async function GET() {
 
         let winnerName: string | null = null;
         if (status === 'completed') {
-            let winnerId = (e as any).winner;
+            let winnerId = e.winner;
             if (!winnerId) {
-                const { determineCondorcetWinner } = require("@/lib/election/condorcet");
                 winnerId = determineCondorcetWinner(e.nominations, e.votes);
             }
             if (winnerId) {

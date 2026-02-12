@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Category, ConsumableItem, CATEGORY_CONFIGS } from '@/lib/social-prototype/store';
 
 interface ConsumableModalProps {
@@ -13,42 +13,48 @@ interface ConsumableModalProps {
     readOnly?: boolean;
 }
 
+interface ModalDraft {
+    category: Category;
+    title: string;
+    subtitle: string;
+    rating: number | undefined;
+    notes: string;
+}
+
+function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
+    if (existingItem) {
+        return {
+            category: existingItem.category,
+            title: existingItem.title,
+            subtitle: existingItem.subtitle || '',
+            rating: existingItem.rating,
+            notes: existingItem.notes || '',
+        };
+    }
+    return {
+        category: initialCategory,
+        title: '',
+        subtitle: '',
+        rating: undefined,
+        notes: '',
+    };
+}
+
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
-    const [category, setCategory] = useState<Category>(initialCategory);
-    const [title, setTitle] = useState('');
-    const [subtitle, setSubtitle] = useState('');
-    const [rating, setRating] = useState<number | undefined>(undefined);
-    const [notes, setNotes] = useState('');
+    const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
+    const { category, title, subtitle, rating, notes } = draft;
 
-    useEffect(() => {
-        if (isOpen) {
-            if (existingItem) {
-                setCategory(existingItem.category);
-                setTitle(existingItem.title);
-                setSubtitle(existingItem.subtitle || '');
-                setRating(existingItem.rating);
-                setNotes(existingItem.notes || '');
-            } else {
-                setCategory(initialCategory);
-                setTitle('');
-                setSubtitle('');
-                setRating(undefined);
-                setNotes('');
-            }
-        }
-    }, [isOpen, existingItem, initialCategory]);
-
-    const handleSave = () => {
-        if (!title.trim()) return;
+    const handleSave = useCallback(() => {
+        if (!draft.title.trim()) return;
         onSave?.({
-            category,
-            title,
-            subtitle,
-            rating,
-            notes,
+            category: draft.category,
+            title: draft.title,
+            subtitle: draft.subtitle,
+            rating: draft.rating,
+            notes: draft.notes,
         });
         onClose();
-    };
+    }, [draft, onClose, onSave]);
 
     const handleDelete = () => {
         if (onDelete && confirm('Delete this entry?')) {
@@ -95,7 +101,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <div className="relative group">
                                 <select
                                     value={category}
-                                    onChange={(e) => setCategory(e.target.value as Category)}
+                                    onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
                                     className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4"
                                 >
                                     {Object.values(CATEGORY_CONFIGS).map(c => (
@@ -131,7 +137,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     disabled={readOnly}
                                     type="text"
                                     value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
+                                    onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
                             </div>
@@ -149,7 +155,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         <textarea
                                             rows={2}
                                             value={subtitle}
-                                            onChange={(e) => setSubtitle(e.target.value)}
+                                            onChange={(e) => setDraft((prev) => ({ ...prev, subtitle: e.target.value }))}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
                                         />
@@ -173,7 +179,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         max="10"
                                         step="0.1"
                                         value={rating || ''}
-                                        onChange={(e) => setRating(parseFloat(e.target.value) || undefined)}
+                                        onChange={(e) => setDraft((prev) => ({ ...prev, rating: parseFloat(e.target.value) || undefined }))}
                                         className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
@@ -199,7 +205,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 ) : (
                                     <textarea
                                         value={subtitle}
-                                        onChange={(e) => setSubtitle(e.target.value)}
+                                        onChange={(e) => setDraft((prev) => ({ ...prev, subtitle: e.target.value }))}
                                         rows={8}
                                         placeholder="One ingredient per line..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
@@ -217,7 +223,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 ) : (
                                     <textarea
                                         value={notes}
-                                        onChange={(e) => setNotes(e.target.value)}
+                                        onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
                                         rows={8}
                                         placeholder="Step-by-step instructions..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300"
@@ -238,7 +244,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             ) : (
                                 <textarea
                                     value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
+                                    onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
                                     rows={8}
                                     placeholder={config.notesPlaceholder || 'Add notes...'}
                                     className="w-full text-sm font-mono outline-none border border-neutral-300 focus:border-neutral-400 p-3 bg-transparent resize-y placeholder:text-neutral-300"

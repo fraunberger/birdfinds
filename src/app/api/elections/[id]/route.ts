@@ -1,5 +1,5 @@
 import { store } from "@/lib/election/store";
-import { determineCondorcetWinner } from "@/lib/election/condorcet";
+import { calculatePairwiseMatrix, determineCondorcetWinner } from "@/lib/election/condorcet";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -17,7 +17,7 @@ export async function GET(
     const votingEndsAt = election.voteStartTime + 10 * 60 * 1000;
 
     let status = election.state || 'nomination';
-    let winner: string | null = (election as any).winner || null;
+    let winner: string | null = election.winner || null;
 
     if (!election.state) {
         if (now >= election.voteStartTime) {
@@ -35,7 +35,6 @@ export async function GET(
         if (!winner) {
             winner = determineCondorcetWinner(election.nominations, election.votes);
         }
-        const { calculatePairwiseMatrix } = require("@/lib/election/condorcet");
         matrix = calculatePairwiseMatrix(election.nominations, election.votes);
     }
 

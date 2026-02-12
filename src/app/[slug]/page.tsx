@@ -6,42 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SocialLayout } from "@/components/social-prototype/SocialLayout";
 import { BirdLog } from "@/components/bird-log/BirdLog";
-import { Category } from "@/lib/social-prototype/store";
-
-// Re-using the same list to check validity or just passing through. 
-// Ideally this is shared or fetched.
-const BIRDS = {
-    "australian_magpie": "australian_magpie.png",
-    "australian_pied_cormorant": "australian_pied_cormorant.png",
-    "eastern_blue_bird": "eastern_blue_bird.png",
-    "takahe": "takahe.png",
-    "yellowhammer": "yellowhammer.png",
-    "european_greenfinch": "european_greenfinch.png",
-    "cardinal": "cardinal.png",
-    "great_blue_heron": "great_blue_heron.png",
-    "california_quail": "california_quail.png",
-    "pileated_woodpecker": "pileated_woodpecker.png",
-    "new_zealand_pigeon": "new_zealand_pigeon.png",
-    "silver_gull": "silver_gull.png",
-    "kaka": "kaka.png",
-    "black_billed_gull": "black_billed_gull.png",
-    "chaffinch": "chaffinch.png",
-    "spotted_shag": "spotted_shag.png",
-    "new_zealand_bellbird": "new_zealand_bellbird.png",
-    "norther_mockingbird": "norther_mockingbird.png",
-    "coot": "coot.png",
-    "house_sparrow": "house_sparrow.png",
-};
-
-// Bird → Category mapping (Michael's public logs)
-const BIRD_CATEGORY_MAP: Record<string, Category> = {
-    kaka: 'movie',
-    chaffinch: 'tv',
-    new_zealand_bellbird: 'music',
-    silver_gull: 'restaurant',
-    yellowhammer: 'beer',
-    new_zealand_pigeon: 'cooking',
-};
+import { BIRD_CATEGORY_BY_SLUG, BIRD_FILENAME_BY_SLUG } from "@/lib/birds";
 
 export default async function BirdPage({
     params,
@@ -101,14 +66,14 @@ export default async function BirdPage({
     }
 
     // Bird Category Log — Michael's public data
-    const birdCategory = BIRD_CATEGORY_MAP[slug];
-    const birdImage = BIRDS[slug as keyof typeof BIRDS];
+    const birdCategory = BIRD_CATEGORY_BY_SLUG[slug as keyof typeof BIRD_CATEGORY_BY_SLUG];
+    const birdImage = BIRD_FILENAME_BY_SLUG[slug as keyof typeof BIRD_FILENAME_BY_SLUG];
     if (birdCategory && birdImage) {
         return <BirdLog category={birdCategory} birdSlug={slug} birdImage={birdImage} />;
     }
 
     // Generic View for other birds
-    const filename = BIRDS[slug as keyof typeof BIRDS];
+    const filename = BIRD_FILENAME_BY_SLUG[slug as keyof typeof BIRD_FILENAME_BY_SLUG];
 
     if (!filename) {
         return (
@@ -147,4 +112,3 @@ export default async function BirdPage({
         </div>
     );
 }
-

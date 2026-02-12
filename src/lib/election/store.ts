@@ -1,5 +1,6 @@
-
-import { Election } from "./types";
+import { determineCondorcetWinner } from "./condorcet";
+import { calculateIRV } from "./irv";
+import { Election, Nomination, Vote } from "./types";
 import { getAdapter, StorageAdapter } from "./storage-adapter";
 
 class ElectionStore {
@@ -72,7 +73,7 @@ class ElectionStore {
         return true;
     }
 
-    async addNomination(electionId: string, nomination: any) {
+    async addNomination(electionId: string, nomination: Nomination) {
         const adapter = this.getAdapter();
         const election = await adapter.getElection(electionId);
         if (!election) return null;
@@ -102,17 +103,17 @@ class ElectionStore {
         return election;
     }
 
-    async addVote(electionId: string, vote: any) {
+    async addVote(electionId: string, vote: Omit<Vote, "createdAt">) {
         const adapter = this.getAdapter();
         const election = await adapter.getElection(electionId);
         if (!election) return null;
 
-        vote.createdAt = Date.now();
-        const existingIndex = election.votes.findIndex(v => v.voterName === vote.voterName);
+        const voteWithTimestamp: Vote = { ...vote, createdAt: Date.now() };
+        const existingIndex = election.votes.findIndex(v => v.voterName === voteWithTimestamp.voterName);
         if (existingIndex >= 0) {
-            election.votes[existingIndex] = vote;
+            election.votes[existingIndex] = voteWithTimestamp;
         } else {
-            election.votes.push(vote);
+            election.votes.push(voteWithTimestamp);
         }
 
         await adapter.saveElection(election);
@@ -126,13 +127,10 @@ class ElectionStore {
         election.state = 'completed';
 
         try {
-            const { determineCondorcetWinner } = require("./condorcet");
-            const { calculateIRV } = require("./irv");
-
             let winner = determineCondorcetWinner(election.nominations, election.votes);
             let method = "Condorcet";
             let tieBroken = false;
-            let winnerVoteTime = undefined;
+            let winnerVoteTime: number | undefined;
 
             if (!winner) {
                 console.log("[Winner] No Condorcet winner, attempting IRV...");
@@ -143,10 +141,10 @@ class ElectionStore {
                 winnerVoteTime = irvResult.winnerVoteTime;
             }
 
-            (election as any).winner = winner;
-            (election as any).winnerMethod = method; // Store method for UI
-            (election as any).tieBroken = tieBroken;
-            (election as any).winnerVoteTime = winnerVoteTime;
+            election.winner = winner;
+            election.winnerMethod = method as Election["winnerMethod"];
+            election.tieBroken = tieBroken;
+            election.winnerVoteTime = winnerVoteTime;
         } catch (e) {
             console.error("Failed to calculate winner logic", e);
         }

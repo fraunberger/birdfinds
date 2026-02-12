@@ -111,6 +111,7 @@ export function UserStats() {
             {/* Item Modal */}
             {selectedItem && selectedCategory && (
                 <ConsumableModal
+                    key={`${selectedItem.id}-${selectedCategory}`}
                     initialCategory={selectedCategory}
                     isOpen={true}
                     onClose={handleCloseModal}

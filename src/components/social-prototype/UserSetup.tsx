@@ -69,7 +69,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setAvatarUrl(url);
             setIsCropping(false);
             setCropImageSrc(null);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
             setError('Failed to crop/upload image');
         } finally {
@@ -104,8 +104,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 isPrivate,
             });
             onComplete();
-        } catch (err: any) {
-            setError(err.message || 'Failed to save profile');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to save profile');
         } finally {
             setSaving(false);
         }

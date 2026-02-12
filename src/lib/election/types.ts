@@ -39,4 +39,8 @@ export interface Election {
 
     // Computed or explicitly set
     createdAt: number;
+    winner?: string | null;
+    winnerMethod?: "Condorcet" | "Instant Runoff";
+    tieBroken?: boolean;
+    winnerVoteTime?: number;
 }

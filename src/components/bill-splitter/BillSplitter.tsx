@@ -139,8 +139,8 @@ export function BillSplitter() {
             : 1;
 
     // Distribute rounding differences
-    let finalDistributions = personSubtotals.map((sub) => sub * multiplier);
-    let roundedAmounts = finalDistributions.map((amt) => Math.round(amt * 100) / 100);
+    const finalDistributions = personSubtotals.map((sub) => sub * multiplier);
+    const roundedAmounts = finalDistributions.map((amt) => Math.round(amt * 100) / 100);
 
     if (receiptGrandTotal > 0 && calculatedSubtotal > 0) {
         const currentSum = roundedAmounts.reduce((a, b) => a + b, 0);

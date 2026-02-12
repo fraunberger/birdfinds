@@ -9,9 +9,11 @@ interface StatusComposerProps {
     userCategories?: Category[];
 }
 
+const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+
 export function StatusComposer({ userCategories }: StatusComposerProps) {
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
-    const [content, setContent] = useState('');
+    const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -70,6 +72,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     // Quick Add State
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
+    const [isMobileTagging, setIsMobileTagging] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -79,23 +82,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
     const activeCategoryConfigs = activeCategories.map(c => CATEGORY_CONFIGS[c]).filter(Boolean);
+    const activeContentKey = activeStatus?.id ?? `draft:${activeDate}`;
+    const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
+    const effectiveQuickAddCategory = activeCategories.includes(quickAddCategory)
+        ? quickAddCategory
+        : (activeCategories[0] ?? 'movie');
 
-    // Set default quick add category to first active category
-    useEffect(() => {
-        if (activeCategories.length > 0 && !activeCategories.includes(quickAddCategory)) {
-            setQuickAddCategory(activeCategories[0]);
-        }
-    }, [activeCategories]);
-
-    // Sync content with store
-    useEffect(() => {
-        if (activeStatus) {
-            setContent(activeStatus.content || '');
-            adjustTextareaHeight();
-        } else if (isLoaded) {
-            setContent('');
-        }
-    }, [activeStatus?.id, isLoaded]);
+    const setContentForActive = (value: string) => {
+        setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
+    };
 
     const adjustTextareaHeight = () => {
         const el = textareaRef.current;
@@ -105,56 +100,83 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         }
     };
 
+    const clearTaggingState = () => {
+        setShowMentionPicker(false);
+        setMentionCategory(null);
+        setMentionTitle('');
+        setSelectionRange(null);
+        setTriggerLength(1);
+        setAtPosition(-1);
+    };
+
+    const openTagMenuForRange = (target: HTMLTextAreaElement, start: number, end: number, rawText: string) => {
+        const trimmed = rawText.trim();
+        if (!trimmed) return;
+
+        const coords = getSelectionCoords(target, start, end);
+        setMentionTitle(trimmed);
+        setAtPosition(start);
+        setTriggerLength(end - start);
+        setSelectionRange({ start, end, ...coords });
+        setMentionCategory(null);
+        setShowMentionPicker(true);
+    };
+
     // Auto-resize on content change
     // Using layout effect to reduce flicker
     useEffect(() => {
         adjustTextareaHeight();
     }, [content]);
 
+    useEffect(() => {
+        const updateMode = () => {
+            if (typeof window === 'undefined') return;
+            const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+            setIsMobileTagging(coarsePointer || window.innerWidth < 640);
+        };
+
+        updateMode();
+        window.addEventListener('resize', updateMode);
+        return () => window.removeEventListener('resize', updateMode);
+    }, []);
+
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
-        setContent(val);
+        setContentForActive(val);
         adjustTextareaHeight();
 
         const cursorPos = e.target.selectionStart || 0;
+        const justTypedAt = cursorPos > 0 && val[cursorPos - 1] === '@';
 
-        // Detect @ trigger
-        if (cursorPos > 0 && val[cursorPos - 1] === '@') {
-            const charBefore = cursorPos > 1 ? val[cursorPos - 2] : ' ';
-            if (charBefore === ' ' || charBefore === '\n' || cursorPos === 1) {
-                setShowMentionPicker(true);
-                setMentionCategory(null);
-                setMentionTitle('');
-                setAtPosition(cursorPos - 1);
-                setTriggerLength(1);
-                // Calculate coords for toolbar near cursor
-                if (textareaRef.current) {
-                    const coords = getSelectionCoords(textareaRef.current, cursorPos - 1, cursorPos);
-                    setSelectionRange({ start: cursorPos - 1, end: cursorPos, ...coords });
+        // "@title@" flow: only open category menu after closing @ is typed.
+        if (justTypedAt) {
+            const openAt = val.lastIndexOf('@', cursorPos - 2);
+            if (openAt >= 0) {
+                const candidate = val.substring(openAt + 1, cursorPos - 1);
+                const hasLineBreak = candidate.includes('\n');
+                if (candidate.trim() && !hasLineBreak) {
+                    openTagMenuForRange(e.target, openAt, cursorPos, candidate);
+                    return;
                 }
-                return;
             }
+
+            // This is likely the opening "@": keep a live highlight while user types.
+            setAtPosition(cursorPos - 1);
+            setTriggerLength(1);
+            setMentionTitle('');
+            setShowMentionPicker(false);
+            setMentionCategory(null);
+            setSelectionRange(null);
+            return;
         }
 
-        // If currently in @ mode (triggerLength === 1), update the search term
-        if (showMentionPicker && triggerLength === 1 && atPosition >= 0) {
-            // Check if cursor moved before @
-            if (cursorPos <= atPosition) {
-                setShowMentionPicker(false);
-                setSelectionRange(null);
+        // Live highlight while typing between opening @ and closing @.
+        if (!showMentionPicker && atPosition >= 0 && cursorPos > atPosition + 1) {
+            const segment = val.substring(atPosition + 1, cursorPos);
+            if (!segment.includes('@') && segment.trim().length > 0) {
+                setMentionTitle(segment);
+                setTriggerLength(cursorPos - atPosition);
                 return;
-            }
-
-            // Extract typed text after @
-            const typed = val.substring(atPosition + 1, cursorPos);
-            // If space typed, maybe close? Or allow multi-word? User says "type word then x out"
-            // Let's keep it open to allow multi-word until they click a category or hit Enter
-            setMentionTitle(typed);
-
-            // Update coords to follow cursor
-            if (textareaRef.current) {
-                const coords = getSelectionCoords(textareaRef.current, atPosition, cursorPos);
-                setSelectionRange({ start: atPosition, end: cursorPos, ...coords });
             }
         }
     };
@@ -190,10 +212,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             // Dynamic length replacement
             const after = content.substring(atPosition + triggerLength);
             const newContent = before + title + after;
-            setContent(newContent);
+            setContentForActive(newContent);
             updateActiveStatus(newContent);
-        } catch (error: any) {
-            alert(`Failed to add item: ${error.message}`);
+        } catch (error: unknown) {
+            alert(`Failed to add item: ${getErrorMessage(error)}`);
         }
 
         // Reset
@@ -206,27 +228,55 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     };
 
     const handleMentionCancel = () => {
-        setShowMentionPicker(false);
-        setMentionCategory(null);
-        setMentionTitle('');
-        setAtPosition(-1);
-        setSelectionRange(null);
+        clearTaggingState();
         setTimeout(() => textareaRef.current?.focus(), 50);
+    };
+
+    const applyCategoryToMention = async (category: Category) => {
+        if (!mentionTitle.trim()) {
+            handleSelectCategory(category);
+            return;
+        }
+
+        try {
+            await addItemToActive({
+                category,
+                title: mentionTitle.trim(),
+                rating: undefined,
+                subtitle: '',
+                notes: ''
+            });
+
+            let start = selectionRange ? selectionRange.start : atPosition;
+            let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1));
+
+            if (start < 0) start = 0;
+            if (end > content.length) end = content.length;
+
+            const before = content.substring(0, start);
+            const after = content.substring(end);
+            const newContent = before + mentionTitle.trim() + after;
+            setContentForActive(newContent);
+            updateActiveStatus(newContent);
+            clearTaggingState();
+        } catch (error: unknown) {
+            alert(`Failed to add item: ${getErrorMessage(error)}`);
+        }
     };
 
     const handleQuickAddRow = async () => {
         if (!quickAddTitle.trim()) return;
         try {
             await addItemToActive({
-                category: quickAddCategory,
+                category: effectiveQuickAddCategory,
                 title: quickAddTitle,
                 rating: undefined,
                 subtitle: '',
                 notes: ''
             });
             setQuickAddTitle('');
-        } catch (error: any) {
-            alert(`Failed to quick add: ${error.message}`);
+        } catch (error: unknown) {
+            alert(`Failed to quick add: ${getErrorMessage(error)}`);
         }
     };
 
@@ -237,8 +287,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             }
             await addItemToActive(item);
             setExistingItem(undefined);
-        } catch (error: any) {
-            alert(`Failed to save item: ${error.message}`);
+        } catch (error: unknown) {
+            alert(`Failed to save item: ${getErrorMessage(error)}`);
         }
     };
 
@@ -256,6 +306,27 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     };
 
     const items = activeStatus?.items || [];
+
+    const handleTextSelection = (target: HTMLTextAreaElement) => {
+        const start = target.selectionStart;
+        const end = target.selectionEnd;
+
+        if (start !== end) {
+            const selectedText = target.value.substring(start, end);
+            if (!selectedText.trim()) return;
+
+            const existing = items.find(i => i.title.toLowerCase() === selectedText.toLowerCase());
+            if (existing) {
+                openModal(existing);
+                return;
+            }
+
+            openTagMenuForRange(target, start, end, selectedText);
+            return;
+        }
+
+        if (triggerLength !== 1) clearTaggingState();
+    };
 
     // Highlight rendering — font size must match the textarea exactly
     const renderHighlights = () => {
@@ -277,6 +348,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
             );
         });
+
+        // Live inline hint for "@title" before user closes with the second "@"
+        if (!showMentionPicker && atPosition >= 0 && triggerLength > 1 && mentionTitle.trim()) {
+            const liveStart = atPosition + 1; // after opening "@"
+            const liveEnd = atPosition + triggerLength;
+            if (liveEnd > liveStart) {
+                const before = highlightedHtml.substring(0, liveStart);
+                const inside = highlightedHtml.substring(liveStart, liveEnd);
+                const after = highlightedHtml.substring(liveEnd);
+                highlightedHtml = `${before}<mark style="background-color: #d4d4d8; color: #111; padding: 0 2px;">${inside}</mark>${after}`;
+            }
+        }
 
         if (content.endsWith('\n')) {
             highlightedHtml += '<br/>';
@@ -326,8 +409,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         // Try to open the picker on click for better UX
                         onClick={(e) => {
                             try {
-                                if ('showPicker' in e.target) {
-                                    (e.target as any).showPicker();
+                                const target = e.target as HTMLInputElement;
+                                if (typeof target.showPicker === 'function') {
+                                    target.showPicker();
                                 }
                             } catch (err) {
                                 // Fallback or ignore
@@ -346,74 +430,28 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         {/* Floating "Black Bar" Toolbar */}
                         {showMentionPicker && !mentionCategory && (
                             <div
-                                className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150"
+                                className={isMobileTagging
+                                    ? "fixed left-3 right-3 bottom-3 z-50 bg-black text-white p-2 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-150"
+                                    : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
-                                    top: selectionRange?.top !== undefined ? (selectionRange.top - 40) : -40,
-                                    // Align horizontally with selection or center if undefined
-                                    left: selectionRange?.left !== undefined ? selectionRange.left : '50%',
-                                    transform: 'translateX(-50%)',
-                                    maxWidth: '90%',
-                                    // Ensure minimum width to not squash buttons
-                                    minWidth: 'max-content',
+                                    top: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.top ?? 0) + 24}px, calc(100% - 140px))`,
+                                    left: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.left ?? 0) + 16}px, calc(100% - 132px))`,
+                                    width: isMobileTagging ? undefined : '124px',
+                                    maxHeight: isMobileTagging ? '40vh' : '45vh',
                                 }}
                             >
                                 {activeCategoryConfigs.map(cat => (
                                     <button
                                         key={cat.id}
-                                        onClick={() => {
-                                            // Instant Add logic (Expanded to support @ mentions)
-                                            // If we have a title (either from selection or typed after @), add immediately
-                                            if (mentionTitle.trim()) {
-                                                // Instant Add
-                                                addItemToActive({
-                                                    category: cat.id,
-                                                    title: mentionTitle.trim(),
-                                                    rating: undefined,
-                                                    subtitle: '',
-                                                    notes: ''
-                                                }).then(() => {
-                                                    // Replace text logic
-                                                    // If selectionRange exists, use it. If not (rare), fallback to atPosition
-                                                    let start = selectionRange ? selectionRange.start : atPosition;
-                                                    let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1)); // +1 for @
-
-                                                    // Ensure valid range
-                                                    if (start < 0) start = 0;
-                                                    if (end > content.length) end = content.length;
-
-                                                    const before = content.substring(0, start);
-                                                    const after = content.substring(end);
-
-                                                    // Just remove the raw text, it becomes a highlight overlay item
-                                                    // Or replace with the Title?
-                                                    // User says "x out of highlight and it gets added to table"
-                                                    // Usually we keep the text in the body?
-                                                    // Yes, keep the text so it highlights.
-                                                    const newContent = before + mentionTitle.trim() + after;
-                                                    setContent(newContent);
-                                                    updateActiveStatus(newContent);
-
-                                                    // Reset & auto-dismiss toolbar
-                                                    setShowMentionPicker(false);
-                                                    setMentionCategory(null);
-                                                    setMentionTitle('');
-                                                    setSelectionRange(null);
-                                                    setTriggerLength(1);
-                                                    setAtPosition(-1);
-                                                }).catch(err => alert(err.message));
-                                            } else {
-                                                // Just open the picker for typing
-                                                handleSelectCategory(cat.id);
-                                            }
-                                        }}
-                                        className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
+                                        onClick={() => { void applyCategoryToMention(cat.id); }}
+                                        className="w-full px-2 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-900 transition-colors whitespace-nowrap text-left"
                                     >
                                         {cat.shortLabel}
                                     </button>
                                 ))}
                                 <button
                                     onClick={handleMentionCancel}
-                                    className="px-3 py-2 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
+                                    className="w-full px-2 py-2 text-[10px] text-neutral-500 hover:text-white border-t border-neutral-800 text-left"
                                 >
                                     x
                                 </button>
@@ -438,41 +476,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 }
                             }}
                             onSelect={(e) => {
+                                if (isMobileTagging) return;
                                 const target = e.target as HTMLTextAreaElement;
-                                const start = target.selectionStart;
-                                const end = target.selectionEnd;
-                                if (start !== end) {
-                                    const selectedText = target.value.substring(start, end);
-                                    if (selectedText.trim()) {
-                                        // Check if this matches an existing item (Edit Mode)
-                                        // We look for an exact match in the active items list
-                                        const existing = items.find(i => i.title.toLowerCase() === selectedText.toLowerCase());
-
-                                        if (existing) {
-                                            // Open modal for editing
-                                            openModal(existing);
-                                        } else {
-                                            // New item (Add Mode) - Capture ranges
-                                            setMentionTitle(selectedText);
-                                            setAtPosition(start);
-
-                                            // Calculate coordinates
-                                            const coords = getSelectionCoords(target, start, end);
-                                            setSelectionRange({ start, end, ...coords });
-
-                                            setTriggerLength(selectedText.length);
-                                            setShowMentionPicker(true);
-                                            setMentionCategory(null);
-                                        }
-                                    }
-                                } else {
-                                    // Dismiss toolbar if selection cleared and NOT in @ typing mode
-                                    // We know we are in @ mode if triggerLength === 1
-                                    if (triggerLength !== 1) {
-                                        setShowMentionPicker(false);
-                                        setSelectionRange(null);
-                                    }
-                                }
+                                handleTextSelection(target);
+                            }}
+                            onTouchEnd={(e) => {
+                                if (isMobileTagging) return;
+                                const target = e.target as HTMLTextAreaElement;
+                                window.setTimeout(() => handleTextSelection(target), 0);
+                            }}
+                            onPointerUp={(e) => {
+                                if (isMobileTagging) return;
+                                const target = e.target as HTMLTextAreaElement;
+                                window.setTimeout(() => handleTextSelection(target), 0);
                             }}
                             onClick={(e) => {
                                 const target = e.target as HTMLTextAreaElement;
@@ -503,11 +519,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 if (foundItem) {
                                     openModal(foundItem);
                                 } else {
-                                    // Clicked empty space - dismiss unless typing @
-                                    if (triggerLength !== 1) {
-                                        setShowMentionPicker(false);
-                                        setSelectionRange(null);
-                                    }
+                                    // Clicked empty space - do not auto-dismiss while tag menu is open.
+                                    if (!showMentionPicker && triggerLength !== 1) clearTaggingState();
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
@@ -605,7 +618,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 <tr className="bg-neutral-50">
                                     <td className="px-1 py-1.5 border-r border-neutral-200">
                                         <select
-                                            value={quickAddCategory}
+                                            value={effectiveQuickAddCategory}
                                             onChange={(e) => setQuickAddCategory(e.target.value as Category)}
                                             className="w-full bg-transparent text-[10px] outline-none cursor-pointer px-1 py-2 text-neutral-500 h-full"
                                         >
@@ -670,6 +683,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             )}
 
             <ConsumableModal
+                key={`${existingItem?.id ?? 'new'}-${activeCategory}-${isModalOpen ? 'open' : 'closed'}`}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveItem}

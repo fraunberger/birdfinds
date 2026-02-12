@@ -128,12 +128,12 @@ export class VercelKvAdapter implements StorageAdapter {
 // 2. Standard Redis via TCP
 export class RedisUrlAdapter implements StorageAdapter {
     type = "redis-url";
-    private client: any;
+    private client: ReturnType<typeof createClient>;
     private isConnected = false;
 
     constructor(url: string) {
         this.client = createClient({ url });
-        this.client.on('error', (err: any) => console.error('Redis Client Error', err));
+        this.client.on('error', (err: unknown) => console.error('Redis Client Error', err));
     }
 
     private async ensureConnection() {

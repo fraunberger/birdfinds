@@ -119,6 +119,7 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
             {/* Item detail modal */}
             {selectedItem && (
                 <ConsumableModal
+                    key={selectedItem.id}
                     isOpen={true}
                     initialCategory={selectedItem.category}
                     existingItem={selectedItem}

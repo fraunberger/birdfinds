@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Election, Nomination } from '@/lib/election/types';
+import { useState, useEffect, useRef } from 'react';
+import { Election } from '@/lib/election/types';
 import { Reorder } from "framer-motion";
 
 interface ExtendedElection extends Election {
@@ -272,7 +272,7 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
     if (!election) return (
         <div className="max-w-md mx-auto mt-20 p-8 bg-white border border-gray-900 text-center">
             <h2 className="text-xl font-bold mb-4 uppercase">Connection Lost</h2>
-            <p className="text-gray-500 mb-8 text-sm">We couldn't find this election. It may have ended or your connection was interrupted.</p>
+            <p className="text-gray-500 mb-8 text-sm">We couldn&apos;t find this election. It may have ended or your connection was interrupted.</p>
             <button onClick={onExit} className="w-full py-3 bg-black text-white font-bold uppercase tracking-wide hover:bg-gray-800">
                 Back to Menu
             </button>
@@ -535,17 +535,17 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                                 </h3>
                                 <div className="h-1 w-20 bg-red-600 mx-auto my-6"></div>
                                 <p className="text-gray-500 font-mono text-sm uppercase mb-4">
-                                    Winner by {(election as any).winnerMethod || "Consensus"}
+                                    Winner by {election.winnerMethod || "Consensus"}
                                 </p>
 
-                                {(election as any).tieBroken && (
+                                {election.tieBroken && (
                                     <div className="mt-4 p-4 border-2 border-dashed border-red-500 bg-red-50 max-w-sm mx-auto animate-in zoom-in duration-500">
                                         <p className="text-red-600 font-extrabold uppercase text-[10px] mb-1 tracking-tighter flex items-center justify-center gap-1">
                                             <span>⚡</span> Tie-Broken by Speed <span>⚡</span>
                                         </p>
                                         <p className="text-[11px] text-red-800 leading-tight">
                                             This was a perfect tie! This candidate won because they received a #1 ranking first — just
-                                            <strong> {Math.max(0, Math.floor(((election as any).winnerVoteTime - election.voteStartTime) / 1000))} seconds </strong>
+                                            <strong> {Math.max(0, Math.floor(((election.winnerVoteTime ?? election.voteStartTime) - election.voteStartTime) / 1000))} seconds </strong>
                                             after voting opened.
                                         </p>
                                     </div>
@@ -555,7 +555,7 @@ export function ElectionRoom({ electionId, onExit }: { electionId: string, onExi
                     ) : (
                         <div className="p-8 bg-white border border-gray-200 max-w-md mx-auto">
                             <h3 className="text-xl font-bold">No Clear Winner</h3>
-                            <p className="text-gray-500 mt-2">The math says it's a tie or a cycle. Rock paper scissors?</p>
+                            <p className="text-gray-500 mt-2">The math says it&apos;s a tie or a cycle. Rock paper scissors?</p>
                         </div>
                     )}
 

@@ -69,6 +69,32 @@ export interface FollowData {
     followers: string[]; // array of userIds following you
 }
 
+interface UserProfileDbUpdates {
+    username?: string;
+    avatar_url?: string;
+    categories?: Category[];
+    is_private?: boolean;
+}
+
+interface HabitLogRow {
+    habit_id: string;
+    date: string;
+    completed: boolean;
+    notes?: string;
+}
+
+interface HabitRow {
+    id: string;
+    user_id: string;
+    name: string;
+    icon: string;
+    sort_order: number;
+}
+
+interface FollowRow {
+    following_id: string;
+}
+
 export const HIGHLIGHT_COLOR = '#fffb91';
 
 export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
@@ -531,7 +557,7 @@ export function useUserProfile() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const dbUpdates: any = {};
+        const dbUpdates: UserProfileDbUpdates = {};
         if (updates.username) dbUpdates.username = updates.username;
         if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
         if (updates.categories) dbUpdates.categories = updates.categories;
@@ -563,7 +589,7 @@ export function useUserProfile() {
 
 export function useHabits(userId?: string) {
     const [habits, setHabits] = useState<Habit[]>([]);
-    const [habitLogs, setHabitLogs] = useState<any[]>([]); // simplified type
+    const [habitLogs, setHabitLogs] = useState<HabitLogRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchHabits = async () => {
@@ -581,7 +607,7 @@ export function useHabits(userId?: string) {
             .eq('user_id', targetId)
             .order('sort_order');
 
-        setHabits((data || []).map((h: any) => ({
+        setHabits((data || []).map((h: HabitRow) => ({
             id: h.id,
             userId: h.user_id,
             name: h.name,
@@ -670,7 +696,7 @@ export function useFollows() {
             .select('following_id')
             .eq('follower_id', user.id);
 
-        setFollowing((data || []).map((f: any) => f.following_id));
+        setFollowing((data || []).map((f: FollowRow) => f.following_id));
     };
 
     const toggleFollow = async (targetUserId: string) => {

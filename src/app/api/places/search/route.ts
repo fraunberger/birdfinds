@@ -2,6 +2,20 @@
 import { NextResponse } from 'next/server';
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+interface GooglePlace {
+    name: string;
+    formattedAddress?: string;
+    rating?: number;
+    userRatingCount?: number;
+    priceLevel?: string;
+    displayName?: {
+        text?: string;
+    };
+}
+
+interface GooglePlacesResponse {
+    places?: GooglePlace[];
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -36,7 +50,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Failed to fetch places' }, { status: response.status });
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as GooglePlacesResponse;
 
         // Transform to our app's internal format
         // Note: Photos need a separate call to get the URL usually, or we construct the reference.
@@ -49,7 +63,7 @@ export async function GET(request: Request) {
         // Actually, let's re-fetch with a better field mask to get the proper display name.
         // Correction: 'name' is the resource name (ID), 'displayName' is the readable name.
 
-        const results = (data.places || []).map((place: any) => ({
+        const results = (data.places || []).map((place) => ({
             name: place.displayName?.text || place.name,
             address: place.formattedAddress,
             rating: place.rating,

@@ -246,6 +246,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
             {/* Tag Item Modal */}
             {selectedTagItem && (
                 <ConsumableModal
+                    key={selectedTagItem.id}
                     isOpen={true}
                     initialCategory={selectedTagItem.category}
                     existingItem={selectedTagItem}

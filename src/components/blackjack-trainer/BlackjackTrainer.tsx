@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { RefreshCcw, ThumbsUp, ThumbsDown, X, Grid as GridIcon } from "lucide-react";
 
 // --- Types ---
@@ -15,7 +15,6 @@ interface Card {
 }
 
 type Move = "hit" | "stand" | "double" | "split";
-type Mode = "normal" | "soft-only";
 
 interface GameStats {
     correctMoves: number;
@@ -138,7 +137,6 @@ const getOptimalMove = (playerHand: Card[], dealerUpCard: Card): { move: Move, r
     }
 
     // 3. Hard Totals
-    const rowKey = `HARD_${value}`;
     if (value >= 17) return { move: "stand", rowKey: "HARD_17+" };
     if (value >= 13 && value <= 16) {
         if (dealerVal >= 2 && dealerVal <= 6) return { move: "stand", rowKey: value.toString() }; // Using number keys for 13-16 to match specific rows if needed, or grouping.
@@ -165,7 +163,7 @@ const getOptimalMove = (playerHand: Card[], dealerUpCard: Card): { move: Move, r
 // --- Trainer Component ---
 
 export function BlackjackTrainer() {
-    const [deck, setDeck] = useState<Card[]>([]);
+    const [deck, setDeck] = useState<Card[]>(() => createDeck());
 
     const [playerHands, setPlayerHands] = useState<Card[][]>([[]]);
     const [currentHandIndex, setCurrentHandIndex] = useState(0);
@@ -185,11 +183,6 @@ export function BlackjackTrainer() {
 
     const [highlightRowKey, setHighlightRowKey] = useState<string | null>(null);
     const [highlightDealerCol, setHighlightDealerCol] = useState<string | null>(null);
-
-    // Init Deck
-    useEffect(() => {
-        setDeck(createDeck());
-    }, []);
 
     const dealHand = useCallback(() => {
         let currentDeck = [...deck];
@@ -296,8 +289,8 @@ export function BlackjackTrainer() {
         }
 
         // -- Execute Move --
-        let nextDeck = [...deck];
-        let nextHands = [...playerHands];
+        const nextDeck = [...deck];
+        const nextHands = [...playerHands];
         let nextHandIndex = currentHandIndex;
         let turnOver = false;
 
@@ -336,8 +329,8 @@ export function BlackjackTrainer() {
         }
     };
 
-    const runDealer = (finalPlayerHands: Card[][], currentDeck: Card[]) => {
-        let dHand = [...dealerHand];
+    const runDealer = (_finalPlayerHands: Card[][], currentDeck: Card[]) => {
+        const dHand = [...dealerHand];
         let dDeck = [...currentDeck];
         let dVal = calculateHand(dHand).value;
 
@@ -640,19 +633,6 @@ function StrategyGrid({ highlightRow, highlightCol }: { highlightRow: string | n
                 ))}
             </div>
             {COMPACT_ROWS.map((row, i) => {
-                // Determine actual key we use for lookup (some rows share a key like soft_13_14)
-                let lookupKey = row.key;
-                // row.key is used for logic lookup? 
-                // in logic, we return "SOFT_13_14".
-                // here we display "A,2" which maps to data key "SOFT_13_14".
-                // Highlight:
-                // logic returns "SOFT_13_14".
-                // If highlightRow == "SOFT_13_14", we should highlight A,2 AND A,3 ? 
-                // We should check if highlightRow matches row.key.
-
-                // There is a mismatch potential if I return "SOFT_13" from logic but my data is "SOFT_13_14".
-                // Fixed in logic to return grouped keys.
-
                 const isHighlight = highlightRow === row.key;
 
                 return (

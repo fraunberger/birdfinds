@@ -79,7 +79,7 @@ export function CategoryList({ category, title }: CategoryListProps) {
                                     <div className="font-medium">{item.title}</div>
                                     {item.notes && (
                                         <div className="text-xs text-neutral-500 mt-1 italic truncate max-w-md">
-                                            "{item.notes}"
+                                            &quot;{item.notes}&quot;
                                         </div>
                                     )}
                                 </td>
@@ -104,6 +104,7 @@ export function CategoryList({ category, title }: CategoryListProps) {
             </div>
 
             <ConsumableModal
+                key={`${selectedItem?.id ?? 'new'}-${category}`}
                 isOpen={!!selectedItem}
                 onClose={() => setSelectedItem(null)}
                 existingItem={selectedItem || undefined}
