@@ -477,10 +477,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     }
                                 } else {
                                     // Dismiss toolbar if selection cleared 
-                                    // Always dismiss if not typing in the input (which handles its own focus)
-                                    // If we clicked the textarea, we want to dismiss.
-                                    setShowMentionPicker(false);
-                                    setSelectionRange(null);
+                                    // UNLESS we are in @ typing mode (triggerLength === 1)
+                                    // We must keep it open so the user can type in the input.
+                                    if (triggerLength !== 1) {
+                                        setShowMentionPicker(false);
+                                        setSelectionRange(null);
+                                    }
                                 }
                             }}
                             onClick={(e) => {
@@ -510,9 +512,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 if (foundItem) {
                                     openModal(foundItem);
                                 } else {
-                                    // Clicked empty space - dismiss
-                                    setShowMentionPicker(false);
-                                    setSelectionRange(null);
+                                    // Clicked empty space - dismiss unless typing @
+                                    if (triggerLength !== 1) {
+                                        setShowMentionPicker(false);
+                                        setSelectionRange(null);
+                                    }
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
