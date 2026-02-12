@@ -177,6 +177,21 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     }, []);
 
     useEffect(() => {
+        const handleEditEntry = (event: Event) => {
+            const customEvent = event as CustomEvent<{ date?: string }>;
+            const editDate = customEvent.detail?.date;
+            if (editDate) {
+                setActiveDate(editDate);
+            }
+            setIsExpanded(true);
+            window.setTimeout(() => textareaRef.current?.focus(), 220);
+        };
+
+        window.addEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
+        return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
+    }, [setActiveDate]);
+
+    useEffect(() => {
         if (typeof window === 'undefined' || !window.visualViewport) return;
 
         const updateBottomOffset = () => {
