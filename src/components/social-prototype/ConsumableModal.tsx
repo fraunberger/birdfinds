@@ -86,6 +86,12 @@ interface BookSearchResult {
     publishedDate: string;
 }
 
+interface BrewerySearchResult {
+    id: string;
+    name: string;
+    location: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -131,6 +137,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
     const [isSearchingBooks, setIsSearchingBooks] = useState(false);
     const [showBookResults, setShowBookResults] = useState(false);
+    const [breweryResults, setBreweryResults] = useState<BrewerySearchResult[]>([]);
+    const [isSearchingBreweries, setIsSearchingBreweries] = useState(false);
+    const [showBreweryResults, setShowBreweryResults] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -196,6 +205,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             window.clearTimeout(timeoutId);
         };
     }, [category, readOnly, title]);
+
+    useEffect(() => {
+        if (readOnly || category !== 'beer') {
+            setBreweryResults([]);
+            setShowBreweryResults(false);
+            setIsSearchingBreweries(false);
+            return;
+        }
+
+        const query = subtitle.trim();
+        if (query.length < 2) {
+            setBreweryResults([]);
+            setIsSearchingBreweries(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingBreweries(true);
+                const response = await fetch(`/api/breweries/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setBreweryResults([]);
+                    return;
+                }
+                const results = (await response.json()) as BrewerySearchResult[];
+                setBreweryResults(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Brewery search failed:', error);
+                }
+            } finally {
+                setIsSearchingBreweries(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, subtitle]);
 
     useEffect(() => {
         if (readOnly || category !== 'movie') {
@@ -935,10 +987,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 if (category === 'tv') {
                                                     setShowTvPicker(true);
                                                 }
+                                                if (category === 'beer') {
+                                                    setShowBreweryResults(true);
+                                                }
+                                            }}
+                                            onFocus={() => {
+                                                if (category === 'beer') {
+                                                    setShowBreweryResults(true);
+                                                }
                                             }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
                                         />
+                                    )}
+                                    {category === 'beer' && !readOnly && showBreweryResults && (
+                                        <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                            {isSearchingBreweries && (
+                                                <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                    Searching breweries...
+                                                </div>
+                                            )}
+                                            {!isSearchingBreweries && breweryResults.length === 0 && subtitle.trim().length >= 2 && (
+                                                <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                    No breweries
+                                                </div>
+                                            )}
+                                            {!isSearchingBreweries && breweryResults.map((brewery) => (
+                                                <button
+                                                    key={brewery.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            subtitle: brewery.name,
+                                                        }));
+                                                        setShowBreweryResults(false);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                                >
+                                                    <div className="text-sm text-neutral-900">{brewery.name}</div>
+                                                    <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
+                                                </button>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             )}
