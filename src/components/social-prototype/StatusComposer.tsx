@@ -66,7 +66,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [atPosition, setAtPosition] = useState<number>(-1);
     const [triggerLength, setTriggerLength] = useState<number>(1); // 1 for @, N for selection
     const mentionInputRef = useRef<HTMLInputElement>(null);
-    const tagInputRef = useRef<HTMLInputElement>(null);
 
     // Quick Add State
     const [quickAddTitle, setQuickAddTitle] = useState('');
@@ -97,15 +96,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             setContent('');
         }
     }, [activeStatus?.id, isLoaded]);
-
-    // Focus tag input when picker opens in @ mode
-    useEffect(() => {
-        if (showMentionPicker && triggerLength === 1) {
-            setTimeout(() => {
-                tagInputRef.current?.focus();
-            }, 10);
-        }
-    }, [showMentionPicker, triggerLength]);
 
     const adjustTextareaHeight = () => {
         const el = textareaRef.current;
@@ -147,9 +137,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         }
 
         // If currently in @ mode (triggerLength === 1), update the search term
-        // BUT only if focus is still in textarea? 
-        // If focus moved to input, this won't fire. 
-        // If user typed fast, this fires before focus move.
         if (showMentionPicker && triggerLength === 1 && atPosition >= 0) {
             // Check if cursor moved before @
             if (cursorPos <= atPosition) {
@@ -160,6 +147,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
             // Extract typed text after @
             const typed = val.substring(atPosition + 1, cursorPos);
+            // If space typed, maybe close? Or allow multi-word? User says "type word then x out"
+            // Let's keep it open to allow multi-word until they click a category or hit Enter
             setMentionTitle(typed);
 
             // Update coords to follow cursor
@@ -181,40 +170,25 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setTimeout(() => mentionInputRef.current?.focus(), 50);
     };
 
-    const handleMentionSubmit = async (overrideCategory?: Category) => {
-        const category = overrideCategory || mentionCategory || activeCategory; // Default to active layout category if none selected
-        if (!mentionTitle.trim()) return;
+    const handleMentionSubmit = async () => {
+        if (!mentionTitle.trim() || !mentionCategory) return;
 
         const title = mentionTitle.trim();
 
         try {
             // Add the item
             await addItemToActive({
-                category,
+                category: mentionCategory,
                 title,
                 rating: undefined,
                 subtitle: '',
                 notes: ''
             });
 
-            // Calculate replacement length
-            let consumeLength = triggerLength;
-
-            // If in @ mode (triggerLength === 1), check if we should consume typed text
-            if (triggerLength === 1) {
-                // Check if there's text after @ in content
-                const afterAt = content.slice(atPosition + 1);
-                const match = afterAt.match(/^(\S+)/);
-                if (match) {
-                    // Optimization: if the text in textarea matches the start of the title, consume it.
-                    if (title.toLowerCase().startsWith(match[0].toLowerCase())) {
-                        consumeLength += match[0].length;
-                    }
-                }
-            }
-
+            // Replace text
             const before = content.substring(0, atPosition);
-            const after = content.substring(atPosition + consumeLength);
+            // Dynamic length replacement
+            const after = content.substring(atPosition + triggerLength);
             const newContent = before + title + after;
             setContent(newContent);
             updateActiveStatus(newContent);
@@ -283,85 +257,36 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
-    // Highlight rendering — robust token approach
+    // Highlight rendering — font size must match the textarea exactly
     const renderHighlights = () => {
         if (!content) return null;
 
-        const escapeHtml = (str: string) => {
-            return str
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-        };
-
-        const matches: { start: number, end: number, item: ConsumableItem }[] = [];
+        let highlightedHtml = content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br/>');
 
         items.forEach(item => {
             if (!item.title) return;
-            const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escaped})`, 'gi');
-            let match;
-            while ((match = regex.exec(content)) !== null) {
-                matches.push({
-                    start: match.index,
-                    end: match.index + match[0].length,
-                    item: item
-                });
-            }
-        });
-
-        // Sort by Start ASC, then Length DESC (Longest first)
-        matches.sort((a, b) => {
-            if (a.start !== b.start) return a.start - b.start;
-            return (b.end - b.start) - (a.end - a.start);
-        });
-
-        // Filter overlaps
-        const uniqueMatches: typeof matches = [];
-        let lastEnd = 0;
-
-        matches.forEach(m => {
-            if (m.start >= lastEnd) {
-                uniqueMatches.push(m);
-                lastEnd = m.end;
-            }
-        });
-
-        // Build HTML
-        let html = '';
-        let ptr = 0;
-
-        uniqueMatches.forEach(m => {
-            // Text before
-            if (m.start > ptr) {
-                html += escapeHtml(content.substring(ptr, m.start));
-            }
-
-            // Item
-            const config = CATEGORY_CONFIGS[m.item.category];
+            const config = CATEGORY_CONFIGS[item.category];
             const color = config?.color || HIGHLIGHT_COLOR;
-            const text = content.substring(m.start, m.end);
-            html += `<mark style="background-color: ${color}; padding: 0; color: transparent;">${escapeHtml(text)}</mark>`;
-
-            ptr = m.end;
+            const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            highlightedHtml = highlightedHtml.replace(
+                regex,
+                `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
+            );
         });
 
-        // Remaining text
-        if (ptr < content.length) {
-            html += escapeHtml(content.substring(ptr));
-        }
-
-        // Handle newlines
-        html = html.replace(/\n/g, '<br/>');
         if (content.endsWith('\n')) {
-            html += '<br/>';
+            highlightedHtml += '<br/>';
         }
 
         return (
             <div
                 className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: html }}
+                dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
         );
     };
@@ -418,64 +343,80 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Editor Container */}
                     <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
-                        {/* Floating "Black Bar" Toolbar & Popover */}
+                        {/* Floating "Black Bar" Toolbar */}
                         {showMentionPicker && !mentionCategory && (
                             <div
-                                className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col gap-2 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150"
+                                className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150"
                                 style={{
                                     top: selectionRange?.top !== undefined ? (selectionRange.top - 40) : -40,
+                                    // Align horizontally with selection or center if undefined
                                     left: selectionRange?.left !== undefined ? selectionRange.left : '50%',
                                     transform: 'translateX(-50%)',
-                                    maxWidth: '95%',
-                                    minWidth: triggerLength === 1 ? '200px' : 'max-content',
+                                    maxWidth: '90%',
+                                    // Ensure minimum width to not squash buttons
+                                    minWidth: 'max-content',
                                 }}
                             >
-                                {/* Input for @ Mentions only */}
-                                {triggerLength === 1 && (
-                                    <input
-                                        ref={tagInputRef}
-                                        type="text"
-                                        value={mentionTitle}
-                                        onChange={(e) => setMentionTitle(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleMentionSubmit();
-                                            if (e.key === 'Escape') handleMentionCancel();
-                                        }}
-                                        placeholder="Type item..."
-                                        className="w-full bg-neutral-800 text-white border-none text-xs p-1 focus:ring-0 outline-none mb-1"
-                                        autoComplete="off"
-                                    />
-                                )}
-
-                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                                    {activeCategoryConfigs.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => {
-                                                // Instant Add logic
-                                                if (mentionTitle.trim()) {
-                                                    // Add items with this category
-                                                    // Pass category override
-                                                    handleMentionSubmit(cat.id);
-                                                } else {
-                                                    // Selection mode with no title (should not happen if selection has text)
-                                                    // Or @ mode with no text - open secondary?
-                                                    // Let's just focus input if empty
-                                                    tagInputRef.current?.focus();
-                                                }
-                                            }}
-                                            className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
-                                        >
-                                            {cat.shortLabel}
-                                        </button>
-                                    ))}
+                                {activeCategoryConfigs.map(cat => (
                                     <button
-                                        onClick={handleMentionCancel}
-                                        className="px-3 py-2 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
+                                        key={cat.id}
+                                        onClick={() => {
+                                            // Instant Add logic (Expanded to support @ mentions)
+                                            // If we have a title (either from selection or typed after @), add immediately
+                                            if (mentionTitle.trim()) {
+                                                // Instant Add
+                                                addItemToActive({
+                                                    category: cat.id,
+                                                    title: mentionTitle.trim(),
+                                                    rating: undefined,
+                                                    subtitle: '',
+                                                    notes: ''
+                                                }).then(() => {
+                                                    // Replace text logic
+                                                    // If selectionRange exists, use it. If not (rare), fallback to atPosition
+                                                    let start = selectionRange ? selectionRange.start : atPosition;
+                                                    let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1)); // +1 for @
+
+                                                    // Ensure valid range
+                                                    if (start < 0) start = 0;
+                                                    if (end > content.length) end = content.length;
+
+                                                    const before = content.substring(0, start);
+                                                    const after = content.substring(end);
+
+                                                    // Just remove the raw text, it becomes a highlight overlay item
+                                                    // Or replace with the Title?
+                                                    // User says "x out of highlight and it gets added to table"
+                                                    // Usually we keep the text in the body?
+                                                    // Yes, keep the text so it highlights.
+                                                    const newContent = before + mentionTitle.trim() + after;
+                                                    setContent(newContent);
+                                                    updateActiveStatus(newContent);
+
+                                                    // Reset & auto-dismiss toolbar
+                                                    setShowMentionPicker(false);
+                                                    setMentionCategory(null);
+                                                    setMentionTitle('');
+                                                    setSelectionRange(null);
+                                                    setTriggerLength(1);
+                                                    setAtPosition(-1);
+                                                }).catch(err => alert(err.message));
+                                            } else {
+                                                // Just open the picker for typing
+                                                handleSelectCategory(cat.id);
+                                            }
+                                        }}
+                                        className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
                                     >
-                                        x
+                                        {cat.shortLabel}
                                     </button>
-                                </div>
+                                ))}
+                                <button
+                                    onClick={handleMentionCancel}
+                                    className="px-3 py-2 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
+                                >
+                                    x
+                                </button>
                             </div>
                         )}
                         {renderHighlights()}
@@ -525,9 +466,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         }
                                     }
                                 } else {
-                                    // Dismiss toolbar if selection cleared 
-                                    // UNLESS we are in @ typing mode (triggerLength === 1)
-                                    // We must keep it open so the user can type in the input.
+                                    // Dismiss toolbar if selection cleared and NOT in @ typing mode
+                                    // We know we are in @ mode if triggerLength === 1
                                     if (triggerLength !== 1) {
                                         setShowMentionPicker(false);
                                         setSelectionRange(null);
@@ -539,9 +479,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 const cursor = target.selectionStart;
 
                                 // Check if cursor is inside an existing item
+                                // We reconstruct where items are located
                                 let foundItem: ConsumableItem | undefined;
 
-                                // Simple scan
+                                // Simple scan - find all occurrences and check range
                                 for (const item of items) {
                                     if (!item.title) continue;
                                     const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -550,6 +491,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     while ((match = regex.exec(content)) !== null) {
                                         const start = match.index;
                                         const end = start + match[0].length;
+                                        // Strict inequality for end to allow clicking *after* the word to type
                                         if (cursor >= start && cursor < end) {
                                             foundItem = item;
                                             break;
@@ -574,7 +516,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         />
                     </div>
 
-                    {/* Sub-form (Fallback, mostly unused now for @ flow but kept for structure) */}
+                    {/* Sub-form for details (only when category selected AND not instant-added) */}
                     {showMentionPicker && mentionCategory && (
                         <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
                             <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
@@ -596,7 +538,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     autoFocus
                                 />
                                 <button
-                                    onClick={() => handleMentionSubmit()}
+                                    onClick={handleMentionSubmit}
                                     disabled={!mentionTitle.trim()}
                                     className="px-4 py-2 text-xs bg-black text-white font-bold uppercase tracking-wider disabled:opacity-30 shadow-sm"
                                 >
