@@ -116,18 +116,45 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setContent(val);
         adjustTextareaHeight();
 
+        const cursorPos = e.target.selectionStart || 0;
+
         // Detect @ trigger
-        const cursorPos = e.target.selectionStart;
         if (cursorPos > 0 && val[cursorPos - 1] === '@') {
             const charBefore = cursorPos > 1 ? val[cursorPos - 2] : ' ';
             if (charBefore === ' ' || charBefore === '\n' || cursorPos === 1) {
                 setShowMentionPicker(true);
                 setMentionCategory(null);
-                setMentionCategory(null);
                 setMentionTitle('');
                 setAtPosition(cursorPos - 1);
                 setTriggerLength(1);
+                // Calculate coords for toolbar near cursor
+                if (textareaRef.current) {
+                    const coords = getSelectionCoords(textareaRef.current, cursorPos - 1, cursorPos);
+                    setSelectionRange({ start: cursorPos - 1, end: cursorPos, ...coords });
+                }
                 return;
+            }
+        }
+
+        // If currently in @ mode (triggerLength === 1), update the search term
+        if (showMentionPicker && triggerLength === 1 && atPosition >= 0) {
+            // Check if cursor moved before @
+            if (cursorPos <= atPosition) {
+                setShowMentionPicker(false);
+                setSelectionRange(null);
+                return;
+            }
+
+            // Extract typed text after @
+            const typed = val.substring(atPosition + 1, cursorPos);
+            // If space typed, maybe close? Or allow multi-word? User says "type word then x out"
+            // Let's keep it open to allow multi-word until they click a category or hit Enter
+            setMentionTitle(typed);
+
+            // Update coords to follow cursor
+            if (textareaRef.current) {
+                const coords = getSelectionCoords(textareaRef.current, atPosition, cursorPos);
+                setSelectionRange({ start: atPosition, end: cursorPos, ...coords });
             }
         }
     };
@@ -334,8 +361,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     <button
                                         key={cat.id}
                                         onClick={() => {
-                                            // Use selectionRange as the truth source for "is this a selection?"
-                                            if (selectionRange && mentionTitle.trim()) {
+                                            // Instant Add logic (Expanded to support @ mentions)
+                                            // If we have a title (either from selection or typed after @), add immediately
+                                            if (mentionTitle.trim()) {
                                                 // Instant Add
                                                 addItemToActive({
                                                     category: cat.id,
@@ -345,19 +373,33 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                                     notes: ''
                                                 }).then(() => {
                                                     // Replace text logic
-                                                    if (selectionRange) {
-                                                        const before = content.substring(0, selectionRange.start);
-                                                        const after = content.substring(selectionRange.end);
-                                                        const newContent = before + mentionTitle.trim() + after;
-                                                        setContent(newContent);
-                                                        updateActiveStatus(newContent);
-                                                    }
+                                                    // If selectionRange exists, use it. If not (rare), fallback to atPosition
+                                                    let start = selectionRange ? selectionRange.start : atPosition;
+                                                    let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1)); // +1 for @
+
+                                                    // Ensure valid range
+                                                    if (start < 0) start = 0;
+                                                    if (end > content.length) end = content.length;
+
+                                                    const before = content.substring(0, start);
+                                                    const after = content.substring(end);
+
+                                                    // Just remove the raw text, it becomes a highlight overlay item
+                                                    // Or replace with the Title?
+                                                    // User says "x out of highlight and it gets added to table"
+                                                    // Usually we keep the text in the body?
+                                                    // Yes, keep the text so it highlights.
+                                                    const newContent = before + mentionTitle.trim() + after;
+                                                    setContent(newContent);
+                                                    updateActiveStatus(newContent);
+
                                                     // Reset & auto-dismiss toolbar
                                                     setShowMentionPicker(false);
                                                     setMentionCategory(null);
                                                     setMentionTitle('');
                                                     setSelectionRange(null);
                                                     setTriggerLength(1);
+                                                    setAtPosition(-1);
                                                 }).catch(err => alert(err.message));
                                             } else {
                                                 // Just open the picker for typing
@@ -423,6 +465,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                             setMentionCategory(null);
                                         }
                                     }
+                                } else {
+                                    // Dismiss toolbar if selection cleared and NOT in @ typing mode
+                                    // We know we are in @ mode if triggerLength === 1
+                                    if (triggerLength !== 1) {
+                                        setShowMentionPicker(false);
+                                        setSelectionRange(null);
+                                    }
                                 }
                             }}
                             onClick={(e) => {
@@ -453,6 +502,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
                                 if (foundItem) {
                                     openModal(foundItem);
+                                } else {
+                                    // Clicked empty space - dismiss unless typing @
+                                    if (triggerLength !== 1) {
+                                        setShowMentionPicker(false);
+                                        setSelectionRange(null);
+                                    }
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
