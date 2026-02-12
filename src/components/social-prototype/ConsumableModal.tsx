@@ -866,7 +866,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     setDraft((prev) => ({
                                                         ...prev,
                                                         title: place.name,
-                                                        subtitle: place.address || prev.subtitle,
                                                     }));
                                                     setShowRestaurantResults(false);
                                                 }}
