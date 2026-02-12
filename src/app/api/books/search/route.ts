@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
 
+interface OpenLibraryDoc {
+    key?: string;
+    title?: string;
+    author_name?: string[];
+    first_publish_year?: number;
+}
+
+interface OpenLibraryResponse {
+    docs?: OpenLibraryDoc[];
+}
+
 interface GoogleBookVolumeInfo {
     title?: string;
     authors?: string[];
@@ -15,6 +26,61 @@ interface GoogleBooksResponse {
     items?: GoogleBookItem[];
 }
 
+async function searchOpenLibrary(query: string) {
+    const upstreamUrl = new URL('https://openlibrary.org/search.json');
+    upstreamUrl.searchParams.set('q', query);
+    upstreamUrl.searchParams.set('limit', '12');
+    upstreamUrl.searchParams.set('fields', 'key,title,author_name,first_publish_year');
+
+    const response = await fetch(upstreamUrl.toString(), {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 300 },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Open Library search failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as OpenLibraryResponse;
+    return (data.docs || [])
+        .map((doc) => ({
+            id: (doc.key || '').replace('/works/', ''),
+            title: doc.title || '',
+            author: (doc.author_name || []).join(', '),
+            publishedDate: doc.first_publish_year ? String(doc.first_publish_year) : '',
+        }))
+        .filter((item) => item.id && item.title)
+        .slice(0, 10);
+}
+
+async function searchGoogleBooks(query: string) {
+    const upstreamUrl = new URL('https://www.googleapis.com/books/v1/volumes');
+    upstreamUrl.searchParams.set('q', query);
+    upstreamUrl.searchParams.set('maxResults', '12');
+    upstreamUrl.searchParams.set('printType', 'books');
+    upstreamUrl.searchParams.set('langRestrict', 'en');
+
+    const response = await fetch(upstreamUrl.toString(), {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 300 },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Google Books search failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as GoogleBooksResponse;
+    return (data.items || [])
+        .map((item) => ({
+            id: item.id || '',
+            title: item.volumeInfo?.title || '',
+            author: (item.volumeInfo?.authors || []).join(', '),
+            publishedDate: item.volumeInfo?.publishedDate || '',
+        }))
+        .filter((item) => item.id && item.title)
+        .slice(0, 10);
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q')?.trim();
@@ -24,35 +90,17 @@ export async function GET(request: Request) {
     }
 
     try {
-        const upstreamUrl = new URL('https://www.googleapis.com/books/v1/volumes');
-        upstreamUrl.searchParams.set('q', query);
-        upstreamUrl.searchParams.set('maxResults', '12');
-        upstreamUrl.searchParams.set('printType', 'books');
-        upstreamUrl.searchParams.set('langRestrict', 'en');
-
-        const response = await fetch(upstreamUrl.toString(), {
-            headers: { Accept: 'application/json' },
-            next: { revalidate: 300 },
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            console.error('Book search failed:', response.status, text);
-            return NextResponse.json({ error: 'Failed to fetch books' }, { status: response.status });
+        const primaryResults = await searchOpenLibrary(query);
+        if (primaryResults.length > 0) {
+            return NextResponse.json(primaryResults);
         }
+    } catch (error) {
+        console.error('Open Library search error:', error);
+    }
 
-        const data = (await response.json()) as GoogleBooksResponse;
-        const results = (data.items || [])
-            .map((item) => ({
-                id: item.id || '',
-                title: item.volumeInfo?.title || '',
-                author: (item.volumeInfo?.authors || []).join(', '),
-                publishedDate: item.volumeInfo?.publishedDate || '',
-            }))
-            .filter((item) => item.id && item.title)
-            .slice(0, 10);
-
-        return NextResponse.json(results);
+    try {
+        const fallbackResults = await searchGoogleBooks(query);
+        return NextResponse.json(fallbackResults);
     } catch (error) {
         console.error('Book search proxy error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
