@@ -39,6 +39,13 @@ interface MovieSearchResult {
     releaseDate: string;
 }
 
+interface BeerSearchResult {
+    id: string;
+    title: string;
+    brewery: string;
+    quantity: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -66,6 +73,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [movieResults, setMovieResults] = useState<MovieSearchResult[]>([]);
     const [isSearchingMovies, setIsSearchingMovies] = useState(false);
     const [showMovieResults, setShowMovieResults] = useState(false);
+    const [beerResults, setBeerResults] = useState<BeerSearchResult[]>([]);
+    const [isSearchingBeers, setIsSearchingBeers] = useState(false);
+    const [showBeerResults, setShowBeerResults] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -131,6 +141,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             window.clearTimeout(timeoutId);
         };
     }, [category, readOnly, title]);
+
+    useEffect(() => {
+        if (readOnly || category !== 'beer') {
+            setBeerResults([]);
+            setShowBeerResults(false);
+            setIsSearchingBeers(false);
+            return;
+        }
+
+        const query = (title.trim() || subtitle.trim());
+        if (query.length < 2) {
+            setBeerResults([]);
+            setIsSearchingBeers(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingBeers(true);
+                const response = await fetch(`/api/beers/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setBeerResults([]);
+                    return;
+                }
+                const results = (await response.json()) as BeerSearchResult[];
+                setBeerResults(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Beer search failed:', error);
+                }
+            } finally {
+                setIsSearchingBeers(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, subtitle, title]);
 
     useEffect(() => {
         if (readOnly || category !== 'movie') {
@@ -255,6 +308,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         if (category === 'movie') {
                                             setShowMovieResults(true);
                                         }
+                                        if (category === 'beer') {
+                                            setShowBeerResults(true);
+                                        }
                                     }}
                                     onFocus={() => {
                                         if (category === 'music') {
@@ -262,6 +318,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         }
                                         if (category === 'movie') {
                                             setShowMovieResults(true);
+                                        }
+                                        if (category === 'beer') {
+                                            setShowBeerResults(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
@@ -330,6 +389,41 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         ))}
                                     </div>
                                 )}
+                                {category === 'beer' && !readOnly && showBeerResults && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-44 overflow-y-auto">
+                                        {isSearchingBeers && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching...
+                                            </div>
+                                        )}
+                                        {!isSearchingBeers && beerResults.length === 0 && (title.trim().length >= 2 || subtitle.trim().length >= 2) && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No matches
+                                            </div>
+                                        )}
+                                        {!isSearchingBeers && beerResults.map((result) => (
+                                            <button
+                                                key={result.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: result.title,
+                                                        subtitle: result.brewery || prev.subtitle,
+                                                    }));
+                                                    setShowBeerResults(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{result.title}</div>
+                                                <div className="text-xs text-neutral-500">
+                                                    {result.brewery || 'Unknown brewery'}
+                                                    {result.quantity ? ` • ${result.quantity}` : ''}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             {/* Subtitle (if not recipe split view, but we can just render here for now or conditional logic) */}
                             {category !== 'cooking' && (
@@ -345,7 +439,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         <textarea
                                             rows={2}
                                             value={subtitle}
-                                            onChange={(e) => setDraft((prev) => ({ ...prev, subtitle: e.target.value }))}
+                                            onChange={(e) => {
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                                if (category === 'beer') {
+                                                    setShowBeerResults(true);
+                                                }
+                                            }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
                                         />
