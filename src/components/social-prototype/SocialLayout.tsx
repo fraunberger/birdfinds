@@ -73,10 +73,7 @@ export function SocialLayout() {
         setView('profile');
     };
 
-    const handleSignOut = async () => {
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.auth.signOut();
-    };
+
 
     const getToday = () => {
         const d = new Date();
@@ -141,12 +138,7 @@ export function SocialLayout() {
                         >
                             settings
                         </button>
-                        <button
-                            onClick={handleSignOut}
-                            className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-600 underline"
-                        >
-                            Out
-                        </button>
+
                     </div>
                 </header>
 

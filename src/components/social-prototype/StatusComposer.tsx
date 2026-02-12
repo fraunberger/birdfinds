@@ -66,6 +66,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [atPosition, setAtPosition] = useState<number>(-1);
     const [triggerLength, setTriggerLength] = useState<number>(1); // 1 for @, N for selection
     const mentionInputRef = useRef<HTMLInputElement>(null);
+    const tagInputRef = useRef<HTMLInputElement>(null);
 
     // Quick Add State
     const [quickAddTitle, setQuickAddTitle] = useState('');
@@ -96,6 +97,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             setContent('');
         }
     }, [activeStatus?.id, isLoaded]);
+
+    // Focus tag input when picker opens in @ mode
+    useEffect(() => {
+        if (showMentionPicker && triggerLength === 1) {
+            setTimeout(() => {
+                tagInputRef.current?.focus();
+            }, 10);
+        }
+    }, [showMentionPicker, triggerLength]);
 
     const adjustTextareaHeight = () => {
         const el = textareaRef.current;
@@ -137,6 +147,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         }
 
         // If currently in @ mode (triggerLength === 1), update the search term
+        // BUT only if focus is still in textarea? 
+        // If focus moved to input, this won't fire. 
+        // If user typed fast, this fires before focus move.
         if (showMentionPicker && triggerLength === 1 && atPosition >= 0) {
             // Check if cursor moved before @
             if (cursorPos <= atPosition) {
@@ -147,8 +160,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
             // Extract typed text after @
             const typed = val.substring(atPosition + 1, cursorPos);
-            // If space typed, maybe close? Or allow multi-word? User says "type word then x out"
-            // Let's keep it open to allow multi-word until they click a category or hit Enter
             setMentionTitle(typed);
 
             // Update coords to follow cursor
@@ -170,25 +181,74 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setTimeout(() => mentionInputRef.current?.focus(), 50);
     };
 
-    const handleMentionSubmit = async () => {
-        if (!mentionTitle.trim() || !mentionCategory) return;
+    const handleMentionSubmit = async (overrideCategory?: Category) => {
+        const category = overrideCategory || mentionCategory || activeCategory; // Default to active layout category if none selected
+        if (!mentionTitle.trim()) return;
 
         const title = mentionTitle.trim();
 
         try {
             // Add the item
             await addItemToActive({
-                category: mentionCategory,
+                category,
                 title,
                 rating: undefined,
                 subtitle: '',
                 notes: ''
             });
 
-            // Replace text
+            // Replace text logic
+            // We need to know the length of the string to replace in the textarea
+            // If we are in @ mode, it's from atPosition to atPosition + 1 (@) + however much was typed in textarea
+            // But if user typed in Input, textarea might only have '@' or '@S'.
+            // Ideally we assume the USER wants to replace whatever they intended to tag.
+            // Safe bet: Replace from atPosition to... where?
+            // If focus was stolen, textarea cursor implies end of text?
+            // Actually, we use 'triggerLength' to track what's in textarea?
+            // If user typed in input, textarea content hasn't changed.
+            // So we replace '@' + (content.substring(atPosition + 1, ...)).
+            // Wait, simpler: We just replace '@' and any following characters until a space?
+            // Or just replace '@'.
+            // If user typed '@Star' in textarea (fast), then input has 'Star'.
+            // Replaces '@Star'.
+            // If user typed '@' then 'Star' in input. Textarea has '@'.
+            // Replaces '@'.
+            // We can detect this by checking content at atPosition.
+
+            // Re-read content to be safe (state 'content' is current).
+            // Find length of "word" after @?
+            // Or just use the 'triggerLength' we tracked?
+            // If focus triggers input, triggerLength might stop updating.
+            // Let's recalculate based on simple heuristic: replace @ and any non-whitespace chars following it?
+            // Or just replace '@'.
+            // User feedback: "type thing ... hit Enter ... brings you back".
+            // If I replace just '@' and there was '@S', then 'S' remains -> '[Item] S'.
+            // We want '[Item]'.
+            // So we should replace up to current cursor? No, cursor is in input.
+            // Let's replace: content.substring(atPosition, atPosition + 1 + mentionTitle.length)? 
+            // NO, mentionTitle is what's in Input. Textarea might differ.
+
+            // Let's assume we replace '@' and any immediate text that matches the start of mentionTitle?
+            // Or just replace the range that was used to trigger?
+            // If we assume the user stopped typing in textarea when popover opened.
+            // Then we replace '@' + (whatever is after it until whitespace?).
+
+            // Actually, let's just replace '@'.
+            // If the user types strictly in the window, only @ exists.
+
+            let consumeLength = 1; // Default @
+            // Check if there's text after @ in content
+            const afterAt = content.slice(atPosition + 1);
+            const match = afterAt.match(/^(\S+)/);
+            if (match) {
+                // Optimization: if the text in textarea matches the start of the title, consume it.
+                if (title.startsWith(match[0])) {
+                    consumeLength += match[0].length;
+                }
+            }
+
             const before = content.substring(0, atPosition);
-            // Dynamic length replacement
-            const after = content.substring(atPosition + triggerLength);
+            const after = content.substring(atPosition + consumeLength);
             const newContent = before + title + after;
             setContent(newContent);
             updateActiveStatus(newContent);
@@ -343,80 +403,64 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Editor Container */}
                     <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
-                        {/* Floating "Black Bar" Toolbar */}
+                        {/* Floating "Black Bar" Toolbar & Popover */}
                         {showMentionPicker && !mentionCategory && (
                             <div
-                                className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex items-center justify-center gap-2 overflow-x-auto no-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-150"
+                                className="absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col gap-2 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150"
                                 style={{
                                     top: selectionRange?.top !== undefined ? (selectionRange.top - 40) : -40,
-                                    // Align horizontally with selection or center if undefined
                                     left: selectionRange?.left !== undefined ? selectionRange.left : '50%',
                                     transform: 'translateX(-50%)',
-                                    maxWidth: '90%',
-                                    // Ensure minimum width to not squash buttons
-                                    minWidth: 'max-content',
+                                    maxWidth: '95%',
+                                    minWidth: triggerLength === 1 ? '200px' : 'max-content',
                                 }}
                             >
-                                {activeCategoryConfigs.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => {
-                                            // Instant Add logic (Expanded to support @ mentions)
-                                            // If we have a title (either from selection or typed after @), add immediately
-                                            if (mentionTitle.trim()) {
-                                                // Instant Add
-                                                addItemToActive({
-                                                    category: cat.id,
-                                                    title: mentionTitle.trim(),
-                                                    rating: undefined,
-                                                    subtitle: '',
-                                                    notes: ''
-                                                }).then(() => {
-                                                    // Replace text logic
-                                                    // If selectionRange exists, use it. If not (rare), fallback to atPosition
-                                                    let start = selectionRange ? selectionRange.start : atPosition;
-                                                    let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1)); // +1 for @
-
-                                                    // Ensure valid range
-                                                    if (start < 0) start = 0;
-                                                    if (end > content.length) end = content.length;
-
-                                                    const before = content.substring(0, start);
-                                                    const after = content.substring(end);
-
-                                                    // Just remove the raw text, it becomes a highlight overlay item
-                                                    // Or replace with the Title?
-                                                    // User says "x out of highlight and it gets added to table"
-                                                    // Usually we keep the text in the body?
-                                                    // Yes, keep the text so it highlights.
-                                                    const newContent = before + mentionTitle.trim() + after;
-                                                    setContent(newContent);
-                                                    updateActiveStatus(newContent);
-
-                                                    // Reset & auto-dismiss toolbar
-                                                    setShowMentionPicker(false);
-                                                    setMentionCategory(null);
-                                                    setMentionTitle('');
-                                                    setSelectionRange(null);
-                                                    setTriggerLength(1);
-                                                    setAtPosition(-1);
-                                                }).catch(err => alert(err.message));
-                                            } else {
-                                                // Just open the picker for typing
-                                                handleSelectCategory(cat.id);
-                                            }
+                                {/* Input for @ Mentions only */}
+                                {triggerLength === 1 && (
+                                    <input
+                                        ref={tagInputRef}
+                                        type="text"
+                                        value={mentionTitle}
+                                        onChange={(e) => setMentionTitle(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleMentionSubmit();
+                                            if (e.key === 'Escape') handleMentionCancel();
                                         }}
-                                        className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
+                                        placeholder="Type item..."
+                                        className="w-full bg-neutral-800 text-white border-none text-xs p-1 focus:ring-0 outline-none mb-1"
+                                        autoComplete="off"
+                                    />
+                                )}
+
+                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                                    {activeCategoryConfigs.map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => {
+                                                // Instant Add logic
+                                                if (mentionTitle.trim()) {
+                                                    // Add items with this category
+                                                    // Pass category override
+                                                    handleMentionSubmit(cat.id);
+                                                } else {
+                                                    // Selection mode with no title (should not happen if selection has text)
+                                                    // Or @ mode with no text - open secondary?
+                                                    // Let's just focus input if empty
+                                                    tagInputRef.current?.focus();
+                                                }
+                                            }}
+                                            className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:text-neutral-300 transition-colors whitespace-nowrap"
+                                        >
+                                            {cat.shortLabel}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={handleMentionCancel}
+                                        className="px-3 py-2 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
                                     >
-                                        {cat.shortLabel}
+                                        x
                                     </button>
-                                ))}
-                                <button
-                                    onClick={handleMentionCancel}
-                                    className="px-3 py-2 text-[10px] text-neutral-500 hover:text-white ml-auto border-l border-neutral-800"
-                                >
-                                    x
-                                </button>
+                                </div>
                             </div>
                         )}
                         {renderHighlights()}
@@ -466,12 +510,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         }
                                     }
                                 } else {
-                                    // Dismiss toolbar if selection cleared and NOT in @ typing mode
-                                    // We know we are in @ mode if triggerLength === 1
-                                    if (triggerLength !== 1) {
-                                        setShowMentionPicker(false);
-                                        setSelectionRange(null);
-                                    }
+                                    // Dismiss toolbar if selection cleared 
+                                    // Always dismiss if not typing in the input (which handles its own focus)
+                                    // If we clicked the textarea, we want to dismiss.
+                                    setShowMentionPicker(false);
+                                    setSelectionRange(null);
                                 }
                             }}
                             onClick={(e) => {
@@ -479,10 +522,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 const cursor = target.selectionStart;
 
                                 // Check if cursor is inside an existing item
-                                // We reconstruct where items are located
                                 let foundItem: ConsumableItem | undefined;
 
-                                // Simple scan - find all occurrences and check range
+                                // Simple scan
                                 for (const item of items) {
                                     if (!item.title) continue;
                                     const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -491,7 +533,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     while ((match = regex.exec(content)) !== null) {
                                         const start = match.index;
                                         const end = start + match[0].length;
-                                        // Strict inequality for end to allow clicking *after* the word to type
                                         if (cursor >= start && cursor < end) {
                                             foundItem = item;
                                             break;
@@ -503,11 +544,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 if (foundItem) {
                                     openModal(foundItem);
                                 } else {
-                                    // Clicked empty space - dismiss unless typing @
-                                    if (triggerLength !== 1) {
-                                        setShowMentionPicker(false);
-                                        setSelectionRange(null);
-                                    }
+                                    // Clicked empty space - dismiss
+                                    setShowMentionPicker(false);
+                                    setSelectionRange(null);
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
@@ -516,7 +555,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         />
                     </div>
 
-                    {/* Sub-form for details (only when category selected AND not instant-added) */}
+                    {/* Sub-form (Fallback, mostly unused now for @ flow but kept for structure) */}
                     {showMentionPicker && mentionCategory && (
                         <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
                             <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
@@ -538,7 +577,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     autoFocus
                                 />
                                 <button
-                                    onClick={handleMentionSubmit}
+                                    onClick={() => handleMentionSubmit()}
                                     disabled={!mentionTitle.trim()}
                                     className="px-4 py-2 text-xs bg-black text-white font-bold uppercase tracking-wider disabled:opacity-30 shadow-sm"
                                 >
