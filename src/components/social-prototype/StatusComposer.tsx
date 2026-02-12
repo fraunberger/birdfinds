@@ -487,13 +487,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 adjustTextareaHeight();
                                 // Auto-expand slightly on focus if small
                                 if (textareaRef.current) {
-                                    textareaRef.current.style.minHeight = isMobileTagging ? '200px' : '150px';
+                                    textareaRef.current.style.minHeight = isMobileTagging ? '220px' : '150px';
                                 }
                             }}
                             onBlur={(e) => {
                                 handleBlur();
                                 if (textareaRef.current && !content) {
-                                    textareaRef.current.style.minHeight = isMobileTagging ? '140px' : '100px';
+                                    textareaRef.current.style.minHeight = isMobileTagging ? '170px' : '100px';
                                 }
                             }}
                             onSelect={(e) => {
@@ -545,7 +545,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 }
                             }}
                             placeholder="What did you do today? Highlight text to add items or click existing items to edit..."
-                            className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[140px] sm:min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
+                            className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[170px] sm:min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                             spellCheck={false}
                         />
                         {isMobileTagging && !showMentionPicker && mentionTitle.trim() && (
@@ -587,9 +587,33 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </div>
                     )}
 
-                    {/* Habit Checklist */}
-                    <div className="py-1.5 px-2 border border-neutral-200 bg-neutral-50/60 rounded-sm">
-                        <HabitChecklist date={activeDate} />
+                    {/* Habit Checklist + Post Action Row */}
+                    <div className="mt-2 flex items-start justify-between gap-3">
+                        <div className="py-1.5 px-2 border border-neutral-200 bg-neutral-50/60 rounded-sm flex-1 min-w-0">
+                            <HabitChecklist date={activeDate} />
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (activeStatus?.published) {
+                                    await togglePublished(activeStatus.id, false);
+                                } else {
+                                    let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
+                                    if (content) {
+                                        statusId = await updateActiveStatus(content) || statusId;
+                                    }
+                                    if (statusId) {
+                                        await togglePublished(statusId, true);
+                                        setIsExpanded(false);
+                                    }
+                                }
+                            }}
+                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap ${activeStatus?.published
+                                ? 'bg-green-700 text-white border-green-700 hover:bg-green-800'
+                                : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'
+                                }`}
+                        >
+                            {activeStatus?.published ? 'POSTED' : 'POST'}
+                        </button>
                     </div>
 
                     {/* Data Table — always visible with quick-add row */}
@@ -597,10 +621,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         <table className="w-full text-xs font-mono border-collapse">
                             <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                                 <tr>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300 w-14">Type</th>
-                                    <th className="px-2 py-1.5 text-left border-b border-r border-neutral-300">Title</th>
-                                    <th className="px-2 py-1.5 text-center border-b border-r border-neutral-300 w-10">R</th>
-                                    <th className="px-2 py-1.5 text-center border-b border-neutral-300 w-8"></th>
+                                    <th className="px-2 py-1 text-left border-b border-r border-neutral-300 w-14">Type</th>
+                                    <th className="px-2 py-1 text-left border-b border-r border-neutral-300">Title</th>
+                                    <th className="px-2 py-1 text-center border-b border-r border-neutral-300 w-10">R</th>
+                                    <th className="px-2 py-1 text-center border-b border-neutral-300 w-8"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -614,21 +638,21 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                             onClick={() => openModal(item)}
                                         >
                                             <td
-                                                className="px-2 py-1.5 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                                className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
                                                 style={{ backgroundColor: config.color || undefined }}
                                             >
                                                 {config.shortLabel}
                                             </td>
-                                            <td className="px-2 py-1.5 border-b border-r border-neutral-200 font-medium">
+                                            <td className="px-2 py-1 border-b border-r border-neutral-200 font-medium">
                                                 {item.title}
                                                 {item.subtitle && (
                                                     <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-1.5 border-b border-r border-neutral-200 text-center">
+                                            <td className="px-2 py-1 border-b border-r border-neutral-200 text-center">
                                                 {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                             </td>
-                                            <td className="px-2 py-1.5 border-b border-neutral-200 text-center">
+                                            <td className="px-2 py-1 border-b border-neutral-200 text-center">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
                                                     className="text-neutral-400 hover:text-neutral-600 p-1"
@@ -677,34 +701,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </table>
                     </div>
 
-                    {/* Footer: sticky on mobile so action stays reachable */}
-                    <div className="sticky bottom-2 sm:static flex justify-end mt-4 z-20 pb-[calc(env(safe-area-inset-bottom)+2px)]">
-                        <button
-                            onClick={async () => {
-                                if (activeStatus?.published) {
-                                    // Unpost
-                                    await togglePublished(activeStatus.id, false);
-                                } else {
-                                    // Post: save content first, then publish
-                                    let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                    if (content) {
-                                        statusId = await updateActiveStatus(content) || statusId;
-                                    }
-                                    if (statusId) {
-                                        await togglePublished(statusId, true);
-                                        // Collapse after posting
-                                        setIsExpanded(false);
-                                    }
-                                }
-                            }}
-                            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition-all border rounded shadow-sm backdrop-blur-sm ${activeStatus?.published
-                                ? 'bg-green-700 text-white border-green-700 hover:bg-green-800'
-                                : 'bg-neutral-900/95 text-white border-neutral-900 hover:bg-neutral-700'
-                                }`}
-                        >
-                            {activeStatus?.published ? 'POSTED ✓' : 'POST ENTRY'}
-                        </button>
-                    </div>
                 </div>
             )}
 
