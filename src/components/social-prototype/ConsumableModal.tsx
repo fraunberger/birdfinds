@@ -79,6 +79,13 @@ interface RestaurantSearchResult {
     priceLevel?: string;
 }
 
+interface BookSearchResult {
+    id: string;
+    title: string;
+    author: string;
+    publishedDate: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -121,6 +128,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [restaurantResults, setRestaurantResults] = useState<RestaurantSearchResult[]>([]);
     const [isSearchingRestaurants, setIsSearchingRestaurants] = useState(false);
     const [showRestaurantResults, setShowRestaurantResults] = useState(false);
+    const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
+    const [isSearchingBooks, setIsSearchingBooks] = useState(false);
+    const [showBookResults, setShowBookResults] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -437,6 +447,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         };
     }, [category, readOnly, title]);
 
+    useEffect(() => {
+        if (readOnly || category !== 'book') {
+            setBookResults([]);
+            setShowBookResults(false);
+            setIsSearchingBooks(false);
+            return;
+        }
+
+        const query = title.trim();
+        if (query.length < 2) {
+            setBookResults([]);
+            setIsSearchingBooks(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingBooks(true);
+                const response = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setBookResults([]);
+                    return;
+                }
+                const results = (await response.json()) as BookSearchResult[];
+                setBookResults(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Book search failed:', error);
+                }
+            } finally {
+                setIsSearchingBooks(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, title]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -534,6 +587,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         if (category === 'restaurant') {
                                             setShowRestaurantResults(true);
                                         }
+                                        if (category === 'book') {
+                                            setShowBookResults(true);
+                                        }
                                     }}
                                     onFocus={() => {
                                         if (category === 'music') {
@@ -550,6 +606,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         }
                                         if (category === 'restaurant') {
                                             setShowRestaurantResults(true);
+                                        }
+                                        if (category === 'book') {
+                                            setShowBookResults(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
@@ -815,6 +874,41 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             >
                                                 <div className="text-sm text-neutral-900">{place.name}</div>
                                                 <div className="text-xs text-neutral-500">{place.address || 'No address'}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {category === 'book' && !readOnly && showBookResults && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                        {isSearchingBooks && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching books...
+                                            </div>
+                                        )}
+                                        {!isSearchingBooks && bookResults.length === 0 && title.trim().length >= 2 && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No books
+                                            </div>
+                                        )}
+                                        {!isSearchingBooks && bookResults.map((book) => (
+                                            <button
+                                                key={book.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: book.title,
+                                                        subtitle: book.author || prev.subtitle,
+                                                    }));
+                                                    setShowBookResults(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{book.title}</div>
+                                                <div className="text-xs text-neutral-500">
+                                                    {book.author || 'Unknown author'}
+                                                    {book.publishedDate ? ` • ${book.publishedDate}` : ''}
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
