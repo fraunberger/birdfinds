@@ -22,7 +22,7 @@ interface ModalDraft {
 }
 
 interface MusicSearchResult {
-    id: number;
+    id: string;
     title: string;
     artist: string;
     genre: string;

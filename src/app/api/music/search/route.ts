@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
 
-interface ITunesResult {
-    wrapperType?: string;
-    collectionType?: string;
-    trackId?: number;
-    collectionId?: number;
-    trackName?: string;
-    collectionName?: string;
-    artistName?: string;
-    primaryGenreName?: string;
-    artworkUrl100?: string;
-    releaseDate?: string;
+interface MusicBrainzArtistCredit {
+    name?: string;
+    artist?: {
+        name?: string;
+    };
 }
 
-interface ITunesSearchResponse {
-    results?: ITunesResult[];
+interface MusicBrainzReleaseGroup {
+    id: string;
+    title?: string;
+    'first-release-date'?: string;
+    'primary-type'?: string;
+    'artist-credit'?: MusicBrainzArtistCredit[];
+    'secondary-types'?: string[];
+}
+
+interface MusicBrainzSearchResponse {
+    'release-groups'?: MusicBrainzReleaseGroup[];
 }
 
 export async function GET(request: Request) {
@@ -26,32 +29,39 @@ export async function GET(request: Request) {
     }
 
     try {
-        const upstreamUrl = new URL('https://itunes.apple.com/search');
-        upstreamUrl.searchParams.set('term', query);
-        upstreamUrl.searchParams.set('entity', 'album');
-        upstreamUrl.searchParams.set('limit', '8');
+        const upstreamUrl = new URL('https://musicbrainz.org/ws/2/release-group');
+        upstreamUrl.searchParams.set('query', query);
+        upstreamUrl.searchParams.set('fmt', 'json');
+        upstreamUrl.searchParams.set('limit', '12');
 
         const response = await fetch(upstreamUrl.toString(), {
-            headers: { Accept: 'application/json' },
+            headers: {
+                Accept: 'application/json',
+                // MusicBrainz requests should identify the client.
+                'User-Agent': 'Birdfinds/1.0 (cardinal social album lookup)',
+            },
             next: { revalidate: 60 },
         });
 
         if (!response.ok) {
             const text = await response.text();
-            console.error('iTunes search failed:', response.status, text);
+            console.error('MusicBrainz search failed:', response.status, text);
             return NextResponse.json({ error: 'Failed to fetch music results' }, { status: response.status });
         }
 
-        const data = (await response.json()) as ITunesSearchResponse;
-        const results = (data.results || [])
-            .filter((item) => item.wrapperType === 'collection' && item.collectionType === 'Album')
+        const data = (await response.json()) as MusicBrainzSearchResponse;
+        const results = (data['release-groups'] || [])
+            .filter((item) => item['primary-type'] === 'Album')
             .map((item) => ({
-                id: item.collectionId ?? 0,
-                title: item.collectionName || '',
-                artist: item.artistName || '',
-                genre: item.primaryGenreName || '',
-                image: item.artworkUrl100 || '',
-                releaseDate: item.releaseDate || '',
+                id: item.id,
+                title: item.title || '',
+                artist: (item['artist-credit'] || [])
+                    .map((credit) => credit.name || credit.artist?.name || '')
+                    .filter(Boolean)
+                    .join(', '),
+                genre: '',
+                image: '',
+                releaseDate: item['first-release-date'] || '',
             }))
             .filter((item) => item.id && item.title);
 
