@@ -197,53 +197,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 notes: ''
             });
 
-            // Replace text logic
-            // We need to know the length of the string to replace in the textarea
-            // If we are in @ mode, it's from atPosition to atPosition + 1 (@) + however much was typed in textarea
-            // But if user typed in Input, textarea might only have '@' or '@S'.
-            // Ideally we assume the USER wants to replace whatever they intended to tag.
-            // Safe bet: Replace from atPosition to... where?
-            // If focus was stolen, textarea cursor implies end of text?
-            // Actually, we use 'triggerLength' to track what's in textarea?
-            // If user typed in input, textarea content hasn't changed.
-            // So we replace '@' + (content.substring(atPosition + 1, ...)).
-            // Wait, simpler: We just replace '@' and any following characters until a space?
-            // Or just replace '@'.
-            // If user typed '@Star' in textarea (fast), then input has 'Star'.
-            // Replaces '@Star'.
-            // If user typed '@' then 'Star' in input. Textarea has '@'.
-            // Replaces '@'.
-            // We can detect this by checking content at atPosition.
+            // Calculate replacement length
+            let consumeLength = triggerLength;
 
-            // Re-read content to be safe (state 'content' is current).
-            // Find length of "word" after @?
-            // Or just use the 'triggerLength' we tracked?
-            // If focus triggers input, triggerLength might stop updating.
-            // Let's recalculate based on simple heuristic: replace @ and any non-whitespace chars following it?
-            // Or just replace '@'.
-            // User feedback: "type thing ... hit Enter ... brings you back".
-            // If I replace just '@' and there was '@S', then 'S' remains -> '[Item] S'.
-            // We want '[Item]'.
-            // So we should replace up to current cursor? No, cursor is in input.
-            // Let's replace: content.substring(atPosition, atPosition + 1 + mentionTitle.length)? 
-            // NO, mentionTitle is what's in Input. Textarea might differ.
-
-            // Let's assume we replace '@' and any immediate text that matches the start of mentionTitle?
-            // Or just replace the range that was used to trigger?
-            // If we assume the user stopped typing in textarea when popover opened.
-            // Then we replace '@' + (whatever is after it until whitespace?).
-
-            // Actually, let's just replace '@'.
-            // If the user types strictly in the window, only @ exists.
-
-            let consumeLength = 1; // Default @
-            // Check if there's text after @ in content
-            const afterAt = content.slice(atPosition + 1);
-            const match = afterAt.match(/^(\S+)/);
-            if (match) {
-                // Optimization: if the text in textarea matches the start of the title, consume it.
-                if (title.startsWith(match[0])) {
-                    consumeLength += match[0].length;
+            // If in @ mode (triggerLength === 1), check if we should consume typed text
+            if (triggerLength === 1) {
+                // Check if there's text after @ in content
+                const afterAt = content.slice(atPosition + 1);
+                const match = afterAt.match(/^(\S+)/);
+                if (match) {
+                    // Optimization: if the text in textarea matches the start of the title, consume it.
+                    if (title.toLowerCase().startsWith(match[0].toLowerCase())) {
+                        consumeLength += match[0].length;
+                    }
                 }
             }
 
