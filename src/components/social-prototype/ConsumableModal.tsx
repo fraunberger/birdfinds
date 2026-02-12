@@ -53,6 +53,23 @@ interface PodcastEpisodeResult {
     publishedAt: string;
 }
 
+interface TvShowResult {
+    id: string;
+    name: string;
+    network: string;
+    premiered: string;
+    image: string;
+}
+
+interface TvEpisodeResult {
+    id: string;
+    label: string;
+    season: number;
+    episode: number;
+    airdate: string;
+    stamp: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -86,6 +103,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [isSearchingPodcasts, setIsSearchingPodcasts] = useState(false);
     const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(false);
     const [showPodcastPicker, setShowPodcastPicker] = useState(false);
+    const [tvShows, setTvShows] = useState<TvShowResult[]>([]);
+    const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
+    const [selectedTvShow, setSelectedTvShow] = useState<TvShowResult | null>(null);
+    const [isSearchingTvShows, setIsSearchingTvShows] = useState(false);
+    const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
+    const [showTvPicker, setShowTvPicker] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -277,6 +300,88 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         };
     }, [category, readOnly, selectedPodcast]);
 
+    useEffect(() => {
+        if (readOnly || category !== 'tv') {
+            setTvShows([]);
+            setTvEpisodes([]);
+            setSelectedTvShow(null);
+            setShowTvPicker(false);
+            setIsSearchingTvShows(false);
+            setIsLoadingTvEpisodes(false);
+            return;
+        }
+
+        if (selectedTvShow) return;
+
+        const query = title.trim();
+        if (query.length < 2) {
+            setTvShows([]);
+            setIsSearchingTvShows(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingTvShows(true);
+                const response = await fetch(`/api/tv/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setTvShows([]);
+                    return;
+                }
+                const results = (await response.json()) as TvShowResult[];
+                setTvShows(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('TV show search failed:', error);
+                }
+            } finally {
+                setIsSearchingTvShows(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, selectedTvShow, title]);
+
+    useEffect(() => {
+        if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
+            if (!selectedTvShow) setTvEpisodes([]);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsLoadingTvEpisodes(true);
+                const response = await fetch(`/api/tv/episodes?showId=${encodeURIComponent(selectedTvShow.id)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setTvEpisodes([]);
+                    return;
+                }
+                const results = (await response.json()) as TvEpisodeResult[];
+                setTvEpisodes(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('TV episode fetch failed:', error);
+                }
+            } finally {
+                setIsLoadingTvEpisodes(false);
+            }
+        }, 120);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, selectedTvShow]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -364,6 +469,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             }
                                             setShowPodcastPicker(true);
                                         }
+                                        if (category === 'tv') {
+                                            if (selectedTvShow) {
+                                                setSelectedTvShow(null);
+                                                setTvEpisodes([]);
+                                            }
+                                            setShowTvPicker(true);
+                                        }
                                     }}
                                     onFocus={() => {
                                         if (category === 'music') {
@@ -374,6 +486,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         }
                                         if (category === 'podcast') {
                                             setShowPodcastPicker(true);
+                                        }
+                                        if (category === 'tv') {
+                                            setShowTvPicker(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
@@ -526,6 +641,91 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         )}
                                     </div>
                                 )}
+                                {category === 'tv' && !readOnly && showTvPicker && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                        {!selectedTvShow && isSearchingTvShows && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching shows...
+                                            </div>
+                                        )}
+                                        {!selectedTvShow && !isSearchingTvShows && tvShows.length === 0 && title.trim().length >= 2 && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No shows
+                                            </div>
+                                        )}
+                                        {!selectedTvShow && !isSearchingTvShows && tvShows.map((show) => (
+                                            <button
+                                                key={show.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedTvShow(show);
+                                                    setTvEpisodes([]);
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: show.name,
+                                                        subtitle: '',
+                                                    }));
+                                                    setShowTvPicker(true);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{show.name}</div>
+                                                <div className="text-xs text-neutral-500">
+                                                    {show.network || 'TV'}{show.premiered ? ` • ${show.premiered}` : ''}
+                                                </div>
+                                            </button>
+                                        ))}
+                                        {selectedTvShow && (
+                                            <>
+                                                <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
+                                                        <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedTvShow(null);
+                                                            setTvEpisodes([]);
+                                                            setDraft((prev) => ({ ...prev, title: '', subtitle: '' }));
+                                                        }}
+                                                        className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                                    >
+                                                        Change
+                                                    </button>
+                                                </div>
+                                                {isLoadingTvEpisodes && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        Loading episodes...
+                                                    </div>
+                                                )}
+                                                {!isLoadingTvEpisodes && tvEpisodes.length === 0 && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        No episodes
+                                                    </div>
+                                                )}
+                                                {!isLoadingTvEpisodes && tvEpisodes.map((episode) => (
+                                                    <button
+                                                        key={episode.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDraft((prev) => ({
+                                                                ...prev,
+                                                                title: selectedTvShow.name,
+                                                                subtitle: episode.label,
+                                                            }));
+                                                            setShowTvPicker(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                                    >
+                                                        <div className="text-sm text-neutral-900">{episode.label}</div>
+                                                        <div className="text-xs text-neutral-500">{episode.airdate || 'Recent episode'}</div>
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             {/* Subtitle (if not recipe split view, but we can just render here for now or conditional logic) */}
                             {category !== 'cooking' && (
@@ -545,6 +745,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                                 if (category === 'podcast') {
                                                     setShowPodcastPicker(true);
+                                                }
+                                                if (category === 'tv') {
+                                                    setShowTvPicker(true);
                                                 }
                                             }}
                                             placeholder={config.subtitlePlaceholder}
