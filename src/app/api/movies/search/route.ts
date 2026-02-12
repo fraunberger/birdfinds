@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
 interface ITunesMovieResult {
+    trackCensoredName?: string;
+    longDescription?: string;
+    kind?: string;
     trackId?: number;
     trackName?: string;
     artistName?: string;
@@ -24,7 +27,9 @@ export async function GET(request: Request) {
     try {
         const upstreamUrl = new URL('https://itunes.apple.com/search');
         upstreamUrl.searchParams.set('term', query);
-        upstreamUrl.searchParams.set('entity', 'movie');
+        upstreamUrl.searchParams.set('media', 'movie');
+        upstreamUrl.searchParams.set('attribute', 'movieTerm');
+        upstreamUrl.searchParams.set('country', 'us');
         upstreamUrl.searchParams.set('limit', '10');
 
         const response = await fetch(upstreamUrl.toString(), {
@@ -40,10 +45,11 @@ export async function GET(request: Request) {
 
         const data = (await response.json()) as ITunesMovieSearchResponse;
         const results = (data.results || [])
+            .filter((item) => !item.kind || item.kind === 'feature-movie')
             .map((item) => ({
                 id: String(item.trackId || ''),
-                title: item.trackName || '',
-                subtitle: item.artistName || '',
+                title: item.trackName || item.trackCensoredName || '',
+                subtitle: item.artistName || item.longDescription || '',
                 genre: item.primaryGenreName || '',
                 image: item.artworkUrl100 || '',
                 releaseDate: item.releaseDate || '',
