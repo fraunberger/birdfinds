@@ -21,6 +21,15 @@ interface ModalDraft {
     notes: string;
 }
 
+interface MusicSearchResult {
+    id: number;
+    title: string;
+    artist: string;
+    genre: string;
+    image: string;
+    releaseDate: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -42,6 +51,9 @@ function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableI
 
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
+    const [musicResults, setMusicResults] = useState<MusicSearchResult[]>([]);
+    const [isSearchingMusic, setIsSearchingMusic] = useState(false);
+    const [showMusicResults, setShowMusicResults] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -64,6 +76,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     };
 
     const config = CATEGORY_CONFIGS[category];
+
+    useEffect(() => {
+        if (readOnly || category !== 'music') {
+            setMusicResults([]);
+            setShowMusicResults(false);
+            setIsSearchingMusic(false);
+            return;
+        }
+
+        const query = title.trim();
+        if (query.length < 2) {
+            setMusicResults([]);
+            setIsSearchingMusic(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingMusic(true);
+                const response = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setMusicResults([]);
+                    return;
+                }
+                const results = (await response.json()) as MusicSearchResult[];
+                setMusicResults(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Music search failed:', error);
+                }
+            } finally {
+                setIsSearchingMusic(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, title]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -137,9 +192,51 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     disabled={readOnly}
                                     type="text"
                                     value={title}
-                                    onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                    onChange={(e) => {
+                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                        if (category === 'music') {
+                                            setShowMusicResults(true);
+                                        }
+                                    }}
+                                    onFocus={() => {
+                                        if (category === 'music') {
+                                            setShowMusicResults(true);
+                                        }
+                                    }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
+                                {category === 'music' && !readOnly && showMusicResults && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-44 overflow-y-auto">
+                                        {isSearchingMusic && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching...
+                                            </div>
+                                        )}
+                                        {!isSearchingMusic && musicResults.length === 0 && title.trim().length >= 2 && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No matches
+                                            </div>
+                                        )}
+                                        {!isSearchingMusic && musicResults.map((result) => (
+                                            <button
+                                                key={result.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: result.title,
+                                                        subtitle: result.artist || prev.subtitle,
+                                                    }));
+                                                    setShowMusicResults(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{result.title}</div>
+                                                <div className="text-xs text-neutral-500">{result.artist}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             {/* Subtitle (if not recipe split view, but we can just render here for now or conditional logic) */}
                             {category !== 'cooking' && (
