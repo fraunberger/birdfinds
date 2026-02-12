@@ -11,6 +11,41 @@ interface StatusComposerProps {
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
+interface ItemMeta {
+    imageUrl?: string;
+    aliases?: string[];
+}
+
+const META_PREFIX = 'meta:';
+
+const parseItemMeta = (raw?: string): ItemMeta => {
+    if (!raw) return {};
+    if (!raw.startsWith(META_PREFIX)) return { imageUrl: raw };
+    try {
+        const decoded = decodeURIComponent(raw.slice(META_PREFIX.length));
+        const parsed = JSON.parse(decoded) as ItemMeta;
+        return {
+            imageUrl: parsed.imageUrl,
+            aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
+        };
+    } catch {
+        return {};
+    }
+};
+
+const serializeItemMeta = (meta: ItemMeta): string | undefined => {
+    const aliases = (meta.aliases || []).map((v) => v.trim()).filter(Boolean);
+    if (!meta.imageUrl && aliases.length === 0) return undefined;
+    if (aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
+    return `${META_PREFIX}${encodeURIComponent(JSON.stringify({ imageUrl: meta.imageUrl, aliases }))}`;
+};
+
+const getItemHighlightTerms = (item: ConsumableItem): string[] => {
+    const meta = parseItemMeta(item.image);
+    const terms = [item.title, ...(meta.aliases || [])].map((v) => (v || '').trim()).filter(Boolean);
+    return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
+};
+
 export function StatusComposer({ userCategories }: StatusComposerProps) {
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
@@ -306,10 +341,22 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
         try {
+            let nextImage = item.image;
+            if (existingItem) {
+                const meta = parseItemMeta(existingItem.image);
+                const oldTitle = existingItem.title.trim();
+                const newTitle = item.title.trim();
+                if (oldTitle && newTitle && oldTitle.toLowerCase() !== newTitle.toLowerCase()) {
+                    const aliases = new Set([...(meta.aliases || []), oldTitle]);
+                    meta.aliases = Array.from(aliases);
+                }
+                nextImage = serializeItemMeta(meta);
+            }
+
             if (existingItem && existingItem.id !== 'temp') {
                 await removeItemFromActive(existingItem.id);
             }
-            await addItemToActive(item);
+            await addItemToActive({ ...item, image: nextImage });
             setExistingItem(undefined);
         } catch (error: unknown) {
             alert(`Failed to save item: ${getErrorMessage(error)}`);
@@ -339,7 +386,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             const selectedText = target.value.substring(start, end);
             if (!selectedText.trim()) return;
 
-            const existing = items.find(i => i.title.toLowerCase() === selectedText.toLowerCase());
+            const existing = items.find((i) =>
+                getItemHighlightTerms(i).some((term) => term.toLowerCase() === selectedText.toLowerCase())
+            );
             if (existing) {
                 openModal(existing);
                 return;
@@ -363,14 +412,16 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             .replace(/\n/g, '<br/>');
 
         items.forEach(item => {
-            if (!item.title) return;
             const config = CATEGORY_CONFIGS[item.category];
             const color = config?.color || HIGHLIGHT_COLOR;
-            const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            highlightedHtml = highlightedHtml.replace(
-                regex,
-                `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
-            );
+            const terms = getItemHighlightTerms(item);
+            terms.forEach((term) => {
+                const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                highlightedHtml = highlightedHtml.replace(
+                    regex,
+                    `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
+                );
+            });
         });
 
         // Live inline gray hint for currently open @token (before closing @).
@@ -521,19 +572,22 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
                                 // Simple scan - find all occurrences and check range
                                 for (const item of items) {
-                                    if (!item.title) continue;
-                                    const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                                    const regex = new RegExp(`(${escaped})`, 'gi');
-                                    let match;
-                                    while ((match = regex.exec(content)) !== null) {
-                                        const start = match.index;
-                                        const end = start + match[0].length;
-                                        // Strict inequality for end to allow clicking *after* the word to type
-                                        if (cursor >= start && cursor < end) {
-                                            foundItem = item;
-                                            break;
+                                    const terms = getItemHighlightTerms(item);
+                                    for (const term of terms) {
+                                        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                        const regex = new RegExp(`(${escaped})`, 'gi');
+                                        let match;
+                                        while ((match = regex.exec(content)) !== null) {
+                                            const start = match.index;
+                                            const end = start + match[0].length;
+                                            // Strict inequality for end to allow clicking *after* the word to type
+                                            if (cursor >= start && cursor < end) {
+                                                foundItem = item;
+                                                break;
+                                            }
                                         }
-                                    }
+                                        if (foundItem) break;
+                                        }
                                     if (foundItem) break;
                                 }
 

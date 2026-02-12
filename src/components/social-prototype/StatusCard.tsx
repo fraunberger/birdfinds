@@ -13,6 +13,34 @@ interface StatusCardProps {
     onEdit?: () => void;
 }
 
+interface ItemMeta {
+    imageUrl?: string;
+    aliases?: string[];
+}
+
+const META_PREFIX = 'meta:';
+
+const parseItemMeta = (raw?: string): ItemMeta => {
+    if (!raw) return {};
+    if (!raw.startsWith(META_PREFIX)) return { imageUrl: raw };
+    try {
+        const decoded = decodeURIComponent(raw.slice(META_PREFIX.length));
+        const parsed = JSON.parse(decoded) as ItemMeta;
+        return {
+            imageUrl: parsed.imageUrl,
+            aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
+        };
+    } catch {
+        return {};
+    }
+};
+
+const getItemHighlightTerms = (item: ConsumableItem): string[] => {
+    const meta = parseItemMeta(item.image);
+    const terms = [item.title, ...(meta.aliases || [])].map((v) => (v || '').trim()).filter(Boolean);
+    return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
+};
+
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
@@ -29,14 +57,16 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
             .replace(/\n/g, '<br/>');
 
         status.items.forEach(item => {
-            if (!item.title) return;
             const config = CATEGORY_CONFIGS[item.category];
             const color = config?.color || HIGHLIGHT_COLOR;
-            const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            html = html.replace(
-                regex,
-                `<mark data-item-id="${item.id}" style="background-color: ${color}; padding: 0 1px; cursor: pointer;">$1</mark>`
-            );
+            const terms = getItemHighlightTerms(item);
+            terms.forEach((term) => {
+                const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                html = html.replace(
+                    regex,
+                    `<mark data-item-id="${item.id}" style="background-color: ${color}; padding: 0 1px; cursor: pointer;">$1</mark>`
+                );
+            });
         });
 
         return (

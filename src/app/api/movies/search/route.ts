@@ -45,7 +45,7 @@ async function searchImdb(query: string) {
     const data = (await response.json()) as ImdbSuggestionResponse;
     return (data.d || [])
         .filter((item) => item.id?.startsWith('tt'))
-        .filter((item) => !item.qid || item.qid === 'feature' || item.qid === 'tvMovie')
+        .filter((item) => !item.qid || item.qid === 'feature' || item.qid === 'movie' || item.qid === 'tvMovie')
         .map((item) => ({
             id: item.id || '',
             title: item.l || '',
