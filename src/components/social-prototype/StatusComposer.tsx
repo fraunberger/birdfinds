@@ -146,6 +146,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         const updateBottomOffset = () => {
             const vv = window.visualViewport;
+            if (!vv) return;
             const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
             setMobilePickerBottom(keyboardHeight + 12);
         };
