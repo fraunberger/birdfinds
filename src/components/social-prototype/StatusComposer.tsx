@@ -283,36 +283,85 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
-    // Highlight rendering — font size must match the textarea exactly
+    // Highlight rendering — robust token approach
     const renderHighlights = () => {
         if (!content) return null;
 
-        let highlightedHtml = content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br/>');
+        const escapeHtml = (str: string) => {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
+
+        const matches: { start: number, end: number, item: ConsumableItem }[] = [];
 
         items.forEach(item => {
             if (!item.title) return;
-            const config = CATEGORY_CONFIGS[item.category];
-            const color = config?.color || HIGHLIGHT_COLOR;
-            const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            highlightedHtml = highlightedHtml.replace(
-                regex,
-                `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
-            );
+            const escaped = item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escaped})`, 'gi');
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                matches.push({
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    item: item
+                });
+            }
         });
 
+        // Sort by Start ASC, then Length DESC (Longest first)
+        matches.sort((a, b) => {
+            if (a.start !== b.start) return a.start - b.start;
+            return (b.end - b.start) - (a.end - a.start);
+        });
+
+        // Filter overlaps
+        const uniqueMatches: typeof matches = [];
+        let lastEnd = 0;
+
+        matches.forEach(m => {
+            if (m.start >= lastEnd) {
+                uniqueMatches.push(m);
+                lastEnd = m.end;
+            }
+        });
+
+        // Build HTML
+        let html = '';
+        let ptr = 0;
+
+        uniqueMatches.forEach(m => {
+            // Text before
+            if (m.start > ptr) {
+                html += escapeHtml(content.substring(ptr, m.start));
+            }
+
+            // Item
+            const config = CATEGORY_CONFIGS[m.item.category];
+            const color = config?.color || HIGHLIGHT_COLOR;
+            const text = content.substring(m.start, m.end);
+            html += `<mark style="background-color: ${color}; padding: 0; color: transparent;">${escapeHtml(text)}</mark>`;
+
+            ptr = m.end;
+        });
+
+        // Remaining text
+        if (ptr < content.length) {
+            html += escapeHtml(content.substring(ptr));
+        }
+
+        // Handle newlines
+        html = html.replace(/\n/g, '<br/>');
         if (content.endsWith('\n')) {
-            highlightedHtml += '<br/>';
+            html += '<br/>';
         }
 
         return (
             <div
                 className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+                dangerouslySetInnerHTML={{ __html: html }}
             />
         );
     };
