@@ -39,6 +39,20 @@ interface MovieSearchResult {
     releaseDate: string;
 }
 
+interface PodcastShowResult {
+    id: string;
+    name: string;
+    author: string;
+    feedUrl: string;
+    image: string;
+}
+
+interface PodcastEpisodeResult {
+    id: string;
+    title: string;
+    publishedAt: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -66,6 +80,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [movieResults, setMovieResults] = useState<MovieSearchResult[]>([]);
     const [isSearchingMovies, setIsSearchingMovies] = useState(false);
     const [showMovieResults, setShowMovieResults] = useState(false);
+    const [podcastShows, setPodcastShows] = useState<PodcastShowResult[]>([]);
+    const [podcastEpisodes, setPodcastEpisodes] = useState<PodcastEpisodeResult[]>([]);
+    const [selectedPodcast, setSelectedPodcast] = useState<PodcastShowResult | null>(null);
+    const [isSearchingPodcasts, setIsSearchingPodcasts] = useState(false);
+    const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(false);
+    const [showPodcastPicker, setShowPodcastPicker] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -175,6 +195,88 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         };
     }, [category, readOnly, title]);
 
+    useEffect(() => {
+        if (readOnly || category !== 'podcast') {
+            setPodcastShows([]);
+            setPodcastEpisodes([]);
+            setSelectedPodcast(null);
+            setShowPodcastPicker(false);
+            setIsSearchingPodcasts(false);
+            setIsLoadingEpisodes(false);
+            return;
+        }
+
+        if (selectedPodcast) return;
+
+        const query = title.trim();
+        if (query.length < 2) {
+            setPodcastShows([]);
+            setIsSearchingPodcasts(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingPodcasts(true);
+                const response = await fetch(`/api/podcasts/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setPodcastShows([]);
+                    return;
+                }
+                const results = (await response.json()) as PodcastShowResult[];
+                setPodcastShows(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Podcast show search failed:', error);
+                }
+            } finally {
+                setIsSearchingPodcasts(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, selectedPodcast, title]);
+
+    useEffect(() => {
+        if (readOnly || category !== 'podcast' || !selectedPodcast?.feedUrl) {
+            if (!selectedPodcast) setPodcastEpisodes([]);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsLoadingEpisodes(true);
+                const response = await fetch(`/api/podcasts/episodes?feedUrl=${encodeURIComponent(selectedPodcast.feedUrl)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setPodcastEpisodes([]);
+                    return;
+                }
+                const results = (await response.json()) as PodcastEpisodeResult[];
+                setPodcastEpisodes(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Podcast episode fetch failed:', error);
+                }
+            } finally {
+                setIsLoadingEpisodes(false);
+            }
+        }, 120);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, selectedPodcast]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -255,6 +357,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         if (category === 'movie') {
                                             setShowMovieResults(true);
                                         }
+                                        if (category === 'podcast') {
+                                            if (selectedPodcast) {
+                                                setSelectedPodcast(null);
+                                                setPodcastEpisodes([]);
+                                            }
+                                            setShowPodcastPicker(true);
+                                        }
                                     }}
                                     onFocus={() => {
                                         if (category === 'music') {
@@ -262,6 +371,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         }
                                         if (category === 'movie') {
                                             setShowMovieResults(true);
+                                        }
+                                        if (category === 'podcast') {
+                                            setShowPodcastPicker(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
@@ -330,6 +442,90 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         ))}
                                     </div>
                                 )}
+                                {category === 'podcast' && !readOnly && showPodcastPicker && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                        {!selectedPodcast && isSearchingPodcasts && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching shows...
+                                            </div>
+                                        )}
+                                        {!selectedPodcast && !isSearchingPodcasts && podcastShows.length === 0 && title.trim().length >= 2 && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No shows
+                                            </div>
+                                        )}
+                                        {!selectedPodcast && !isSearchingPodcasts && podcastShows.map((show) => (
+                                            <button
+                                                key={show.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedPodcast(show);
+                                                    setPodcastEpisodes([]);
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: '',
+                                                        subtitle: show.name,
+                                                    }));
+                                                    setShowPodcastPicker(true);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{show.name}</div>
+                                                <div className="text-xs text-neutral-500">{show.author}</div>
+                                            </button>
+                                        ))}
+
+                                        {selectedPodcast && (
+                                            <>
+                                                <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
+                                                        <div className="text-xs text-neutral-800 truncate">{selectedPodcast.name}</div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedPodcast(null);
+                                                            setPodcastEpisodes([]);
+                                                            setDraft((prev) => ({ ...prev, title: '' }));
+                                                        }}
+                                                        className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                                    >
+                                                        Change
+                                                    </button>
+                                                </div>
+                                                {isLoadingEpisodes && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        Loading episodes...
+                                                    </div>
+                                                )}
+                                                {!isLoadingEpisodes && podcastEpisodes.length === 0 && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        No episodes
+                                                    </div>
+                                                )}
+                                                {!isLoadingEpisodes && podcastEpisodes.map((episode) => (
+                                                    <button
+                                                        key={episode.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDraft((prev) => ({
+                                                                ...prev,
+                                                                title: episode.title,
+                                                                subtitle: selectedPodcast.name,
+                                                            }));
+                                                            setShowPodcastPicker(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                                    >
+                                                        <div className="text-sm text-neutral-900">{episode.title}</div>
+                                                        <div className="text-xs text-neutral-500">{episode.publishedAt || 'Recent episode'}</div>
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             {/* Subtitle (if not recipe split view, but we can just render here for now or conditional logic) */}
                             {category !== 'cooking' && (
@@ -345,7 +541,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         <textarea
                                             rows={2}
                                             value={subtitle}
-                                            onChange={(e) => setDraft((prev) => ({ ...prev, subtitle: e.target.value }))}
+                                            onChange={(e) => {
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                                if (category === 'podcast') {
+                                                    setShowPodcastPicker(true);
+                                                }
+                                            }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
                                         />
