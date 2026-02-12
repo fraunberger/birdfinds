@@ -165,6 +165,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setContentForActive(val);
         adjustTextareaHeight();
 
+        if (!isMobileTagging) {
+            return;
+        }
+
         const cursorPos = e.target.selectionStart || 0;
         const justTypedAt = cursorPos > 0 && val[cursorPos - 1] === '@';
 
@@ -370,7 +374,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         });
 
         // Live inline gray hint for currently open @token (before closing @).
-        if (!showMentionPicker && mentionTitle.trim()) {
+        if (isMobileTagging && !showMentionPicker && mentionTitle.trim()) {
             highlightedHtml = highlightedHtml.replace(
                 /@([^@\n]+)$/g,
                 '@<mark style="background-color: rgba(161,161,170,0.28); color: transparent; text-decoration: underline; text-decoration-style: dashed; text-decoration-color: #52525b; text-decoration-thickness: 2px; text-underline-offset: 2px; padding: 0 1px;">$1</mark>'
@@ -544,7 +548,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                             spellCheck={false}
                         />
-                        {!showMentionPicker && mentionTitle.trim() && (
+                        {isMobileTagging && !showMentionPicker && mentionTitle.trim() && (
                             <div className="absolute bottom-1 right-2 text-[10px] text-neutral-500 pointer-events-none uppercase tracking-wide">
                                 close with @
                             </div>
