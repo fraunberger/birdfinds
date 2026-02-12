@@ -70,6 +70,15 @@ interface TvEpisodeResult {
     stamp: string;
 }
 
+interface RestaurantSearchResult {
+    id: string;
+    name: string;
+    address?: string;
+    rating?: number;
+    reviewCount?: number;
+    priceLevel?: string;
+}
+
 function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
     if (existingItem) {
         return {
@@ -109,6 +118,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [isSearchingTvShows, setIsSearchingTvShows] = useState(false);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
     const [showTvPicker, setShowTvPicker] = useState(false);
+    const [restaurantResults, setRestaurantResults] = useState<RestaurantSearchResult[]>([]);
+    const [isSearchingRestaurants, setIsSearchingRestaurants] = useState(false);
+    const [showRestaurantResults, setShowRestaurantResults] = useState(false);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -382,6 +394,49 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         };
     }, [category, readOnly, selectedTvShow]);
 
+    useEffect(() => {
+        if (readOnly || category !== 'restaurant') {
+            setRestaurantResults([]);
+            setShowRestaurantResults(false);
+            setIsSearchingRestaurants(false);
+            return;
+        }
+
+        const query = title.trim();
+        if (query.length < 2) {
+            setRestaurantResults([]);
+            setIsSearchingRestaurants(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                setIsSearchingRestaurants(true);
+                const response = await fetch(`/api/places/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    setRestaurantResults([]);
+                    return;
+                }
+                const results = (await response.json()) as RestaurantSearchResult[];
+                setRestaurantResults(results);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Restaurant search failed:', error);
+                }
+            } finally {
+                setIsSearchingRestaurants(false);
+            }
+        }, 220);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [category, readOnly, title]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -476,6 +531,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             }
                                             setShowTvPicker(true);
                                         }
+                                        if (category === 'restaurant') {
+                                            setShowRestaurantResults(true);
+                                        }
                                     }}
                                     onFocus={() => {
                                         if (category === 'music') {
@@ -489,6 +547,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         }
                                         if (category === 'tv') {
                                             setShowTvPicker(true);
+                                        }
+                                        if (category === 'restaurant') {
+                                            setShowRestaurantResults(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
@@ -724,6 +785,38 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 ))}
                                             </>
                                         )}
+                                    </div>
+                                )}
+                                {category === 'restaurant' && !readOnly && showRestaurantResults && (
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                        {isSearchingRestaurants && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                Searching places...
+                                            </div>
+                                        )}
+                                        {!isSearchingRestaurants && restaurantResults.length === 0 && title.trim().length >= 2 && (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                No places
+                                            </div>
+                                        )}
+                                        {!isSearchingRestaurants && restaurantResults.map((place) => (
+                                            <button
+                                                key={place.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        title: place.name,
+                                                        subtitle: place.address || prev.subtitle,
+                                                    }));
+                                                    setShowRestaurantResults(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50"
+                                            >
+                                                <div className="text-sm text-neutral-900">{place.name}</div>
+                                                <div className="text-xs text-neutral-500">{place.address || 'No address'}</div>
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
                             </div>
