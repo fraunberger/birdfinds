@@ -28,8 +28,18 @@ export interface Status {
     content: string;
     date: string; // YYYY-MM-DD
     items: ConsumableItem[];
+    comments: StatusComment[];
     userId?: string;
     published: boolean;
+    createdAt: number;
+}
+
+export interface StatusComment {
+    id: string;
+    statusId: string;
+    userId: string;
+    username: string;
+    content: string;
     createdAt: number;
 }
 
@@ -99,6 +109,14 @@ interface HabitRow {
 
 interface FollowRow {
     following_id: string;
+}
+
+interface CommentRow {
+    id: string;
+    status_id: string;
+    user_id: string;
+    content: string;
+    created_at: string;
 }
 
 interface MeResponse {
@@ -260,6 +278,7 @@ class SocialStore {
                 content: '',
                 date: activeDate,
                 items: [],
+                comments: [],
                 published: false,
                 createdAt: Date.now()
             };
@@ -286,6 +305,23 @@ class SocialStore {
 
             if (itemError) throw itemError;
 
+            const { data: commentData, error: commentError } = await supabase
+                .from('social_comments')
+                .select('*');
+
+            const comments: CommentRow[] = commentError ? [] : ((commentData || []) as CommentRow[]);
+            const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
+            let commentUsernames = new Map<string, string>();
+            if (commentUserIds.length > 0) {
+                const { data: commentProfiles } = await supabase
+                    .from('user_profiles')
+                    .select('id,username')
+                    .in('id', commentUserIds);
+                commentUsernames = new Map(
+                    (commentProfiles || []).map((profile) => [profile.id as string, profile.username as string])
+                );
+            }
+
             const combined: Status[] = (statusData || []).map(s => ({
                 id: s.id,
                 content: s.content,
@@ -304,7 +340,18 @@ class SocialStore {
                         notes: i.notes,
                         image: i.image,
                         createdAt: new Date(i.created_at).getTime()
-                    }))
+                    })),
+                comments: comments
+                    .filter((comment) => comment.status_id === s.id)
+                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                    .map((comment) => ({
+                        id: comment.id,
+                        statusId: comment.status_id,
+                        userId: comment.user_id,
+                        username: commentUsernames.get(comment.user_id) || 'Unknown',
+                        content: comment.content,
+                        createdAt: new Date(comment.created_at).getTime(),
+                    })),
             }));
 
             // Filter for current user (Journal view)
@@ -347,6 +394,7 @@ class SocialStore {
             .channel('social_updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, () => this.fetchStatuses())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, () => this.fetchStatuses())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_comments' }, () => this.fetchStatuses())
             .subscribe();
     }
 
@@ -438,6 +486,26 @@ class SocialStore {
         }
     }
 
+    async addComment(statusId: string, content: string) {
+        try {
+            await socialWrite('social.comment.add', { statusId, content });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error("Error adding comment:", error);
+            throw error;
+        }
+    }
+
+    async deleteComment(commentId: string) {
+        try {
+            await socialWrite('social.comment.delete', { commentId });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error("Error deleting comment:", error);
+            throw error;
+        }
+    }
+
     getAllItemsByCategory(category: Category): ConsumableItem[] {
         return this.state.statuses.flatMap(s => s.items).filter(i => i.category === category);
     }
@@ -490,6 +558,8 @@ export function useSocialStore() {
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
+        addComment: (statusId: string, content: string) => socialStore.addComment(statusId, content),
+        deleteComment: (commentId: string) => socialStore.deleteComment(commentId),
         togglePublished: (id: string, published: boolean) => socialStore.togglePublished(id, published),
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),

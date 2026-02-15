@@ -41,6 +41,18 @@ export const getCanonicalItemSlug = (
       .join("-") || normalizedTitle || "item";
   }
 
+  if (category === "tv") {
+    return normalizedTitle || "item";
+  }
+
+  if (category === "podcast") {
+    return normalizedSubtitle || normalizedTitle || "item";
+  }
+
+  if (category === "beer" || category === "brewery") {
+    return normalizedSubtitle || normalizedTitle || "item";
+  }
+
   return buildItemSlug(title, subtitle);
 };
 
@@ -60,4 +72,10 @@ export const matchesItemRoute = (
 };
 
 export const hasItemAggregatePage = (category: Category) =>
-  category === "movie" || category === "book" || category === "music";
+  category === "movie"
+  || category === "book"
+  || category === "music"
+  || category === "tv"
+  || category === "podcast"
+  || category === "beer"
+  || category === "brewery";

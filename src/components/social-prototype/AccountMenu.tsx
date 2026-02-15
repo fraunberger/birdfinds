@@ -45,6 +45,13 @@ export function AccountMenu({ pileHref, username, avatarUrl }: AccountMenuProps)
             My Pile
           </Link>
           <Link
+            href="/"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+          >
+            Feed
+          </Link>
+          <Link
             href="/settings"
             onClick={() => setOpen(false)}
             className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"

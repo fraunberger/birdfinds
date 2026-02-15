@@ -49,6 +49,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
 export function StatusComposer({ userCategories }: StatusComposerProps) {
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
+    const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -125,8 +126,42 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         : (activeCategories[0] ?? 'movie');
 
     const setContentForActive = (value: string) => {
+        setDraftStatus('saving');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
     };
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const raw = window.localStorage.getItem('birdfinds:composer:drafts:v1');
+            if (!raw) return;
+            const parsed = JSON.parse(raw) as Record<string, string>;
+            if (parsed && typeof parsed === 'object') {
+                setContentDrafts(parsed);
+            }
+        } catch {
+            // Ignore malformed local draft cache.
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const timer = window.setTimeout(() => {
+            try {
+                window.localStorage.setItem('birdfinds:composer:drafts:v1', JSON.stringify(contentDrafts));
+                if (draftStatus === 'saving') setDraftStatus('saved');
+            } catch {
+                // Ignore storage errors.
+            }
+        }, 220);
+        return () => window.clearTimeout(timer);
+    }, [contentDrafts, draftStatus]);
+
+    useEffect(() => {
+        if (draftStatus !== 'saved') return;
+        const timer = window.setTimeout(() => setDraftStatus('idle'), 1200);
+        return () => window.clearTimeout(timer);
+    }, [draftStatus]);
 
     const adjustTextareaHeight = () => {
         const el = textareaRef.current;
@@ -259,6 +294,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const handleBlur = () => {
         // No-op for saving. Content stays local until user explicitly posts.
     };
+
+    const hasUnsavedChanges = !!content.trim() && content.trim() !== (activeStatus?.content || '').trim() && !activeStatus?.published;
+    const hasDraftChanges = content.trim() !== (activeStatus?.content || '').trim();
+
+    useEffect(() => {
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!hasUnsavedChanges) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     const handleSelectCategory = (cat: Category) => {
         setMentionCategory(cat);
@@ -488,6 +536,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     </h2>
                 </button>
                 <div className="flex items-center gap-3">
+                    <span className={`text-[10px] uppercase tracking-widest ${draftStatus === 'saved' ? 'text-green-700' : draftStatus === 'saving' ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                        {draftStatus === 'saved' ? 'Draft Saved' : draftStatus === 'saving' ? 'Saving Draft...' : 'Draft'}
+                    </span>
                     <input
                         type="date"
                         value={activeDate}
@@ -663,25 +714,29 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </div>
                         <button
                             onClick={async () => {
-                                if (activeStatus?.published) {
-                                    await togglePublished(activeStatus.id, false);
-                                } else {
-                                    let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                    if (content) {
-                                        statusId = await updateActiveStatus(content) || statusId;
-                                    }
-                                    if (statusId) {
-                                        await togglePublished(statusId, true);
-                                        setIsExpanded(false);
-                                    }
+                                let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
+                                if (content) {
+                                    statusId = await updateActiveStatus(content) || statusId;
+                                }
+                                if (statusId) {
+                                    await togglePublished(statusId, true);
+                                    setContentDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[activeContentKey];
+                                        return next;
+                                    });
+                                    setIsExpanded(false);
                                 }
                             }}
-                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap ${activeStatus?.published
+                            disabled={!!activeStatus?.published && !hasDraftChanges}
+                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${activeStatus?.published
                                 ? 'bg-green-700 text-white border-green-700 hover:bg-green-800'
                                 : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'
                                 }`}
                         >
-                            {activeStatus?.published ? 'POSTED' : 'POST'}
+                            {activeStatus?.published
+                                ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED')
+                                : 'POST'}
                         </button>
                     </div>
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSocialStore, useFollows, UserProfile, Status } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
+import { useUserProfile } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { supabase } from '@/lib/supabase';
 
@@ -12,10 +13,12 @@ interface SocialFeedProps {
 
 export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { user } = useAuth();
+    const { profile } = useUserProfile();
     const { allStatuses, setActiveDate, isLoaded } = useSocialStore();
-    const { following } = useFollows();
+    const { following, follow } = useFollows();
     const [mode, setMode] = useState<'all' | 'following'>('all');
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
+    const [suggestedUsers, setSuggestedUsers] = useState<UserProfile[]>([]);
 
     // Fetch profiles for all unique userIds in the feed
     useEffect(() => {
@@ -50,6 +53,29 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         fetchProfiles();
     }, [allStatuses, isLoaded]);
 
+    useEffect(() => {
+        if (!isLoaded || !user) return;
+        const fetchSuggestions = async () => {
+            const excluded = new Set([user.id, ...following]);
+            const { data } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .limit(12);
+            const suggestions = (data || [])
+                .filter((profile) => !excluded.has(profile.id) && !profile.is_private)
+                .slice(0, 4)
+                .map((profile) => ({
+                    id: profile.id,
+                    username: profile.username,
+                    avatarUrl: profile.avatar_url,
+                    categories: profile.categories || [],
+                    isPrivate: profile.is_private || false,
+                } satisfies UserProfile));
+            setSuggestedUsers(suggestions);
+        };
+        fetchSuggestions();
+    }, [isLoaded, user, following]);
+
     if (!isLoaded) {
         return <div className="h-40 bg-neutral-100 mb-4 border border-neutral-300" />;
     }
@@ -62,12 +88,18 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         return true;
     });
 
+    const linkedUserId = profile?.id || null;
+
     const feedStatuses: Status[] = mode === 'all'
         ? publishedStatuses
-        : publishedStatuses.filter((s) => s.userId && (s.userId === user?.id || following.includes(s.userId)));
+        : publishedStatuses.filter((s) => s.userId && (s.userId === linkedUserId || following.includes(s.userId)));
 
     // Sort by date descending
     feedStatuses.sort((a, b) => b.date.localeCompare(a.date));
+    const followingPostCountToday = publishedStatuses.filter((status) => {
+        if (!status.userId || !following.includes(status.userId)) return false;
+        return status.date === new Date().toISOString().slice(0, 10);
+    }).length;
 
     return (
         <div className="font-mono">
@@ -98,20 +130,52 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                 </div>
             </div>
 
+            {user && mode === 'all' && (
+                <div className="mb-4 border border-neutral-200 bg-neutral-50 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-500">
+                    {followingPostCountToday > 0
+                        ? `${followingPostCountToday} posts today from people you follow`
+                        : 'No new posts today from people you follow'}
+                </div>
+            )}
+
             {/* Feed */}
             <div className="space-y-4">
                 {feedStatuses.length === 0 && (
-                    <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest">
+                    <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
                         {mode === 'all'
-                            ? 'No posts in the public feed yet.'
+                            ? 'No posts in the public feed yet. Be the first to publish.'
                             : user
                                 ? 'No posts from accounts you follow yet.'
                                 : 'Sign in to use Following feed.'}
                     </div>
                 )}
 
+                {mode === 'following' && user && feedStatuses.length === 0 && suggestedUsers.length > 0 && (
+                    <div className="border border-neutral-200 p-3 bg-neutral-50">
+                        <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">Suggested People</h3>
+                        <div className="space-y-2">
+                            {suggestedUsers.map((profile) => (
+                                <div key={profile.id} className="flex items-center justify-between border border-neutral-200 bg-white px-2 py-2">
+                                    <button
+                                        onClick={() => onClickProfile(profile.id)}
+                                        className="text-xs text-neutral-700 hover:text-neutral-900"
+                                    >
+                                        {profile.username}
+                                    </button>
+                                    <button
+                                        onClick={() => follow(profile.id)}
+                                        className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:bg-neutral-100"
+                                    >
+                                        Follow
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {feedStatuses.map(status => {
-                    const isOwn = status.userId === user?.id;
+                    const isOwn = !!linkedUserId && status.userId === linkedUserId;
                     return (
                         <StatusCard
                             key={status.id}

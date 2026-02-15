@@ -6,6 +6,7 @@ import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, g
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
+import { useAuth } from '@/lib/auth';
 
 interface StatusCardProps {
     status: Status;
@@ -46,7 +47,11 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
-    const { deleteStatus } = useSocialStore();
+    const [showComments, setShowComments] = useState(false);
+    const [commentDraft, setCommentDraft] = useState('');
+    const [commentSubmitting, setCommentSubmitting] = useState(false);
+    const { user } = useAuth();
+    const { deleteStatus, addComment, deleteComment } = useSocialStore();
 
     // Render content with highlighted items
     const renderContent = () => {
@@ -114,9 +119,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                     {onEdit && (
                         <button
                             onClick={onEdit}
-                            className="text-[10px] text-neutral-400 hover:text-neutral-600 uppercase tracking-widest"
+                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
                         >
-                            edit
+                            Edit
                         </button>
                     )}
                     {isOwn && (
@@ -207,6 +212,84 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             userId={isOwn ? undefined : status.userId}
                             vertical
                         />
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-2 pt-2 border-t border-neutral-100">
+                <button
+                    onClick={() => setShowComments((prev) => !prev)}
+                    className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                >
+                    {showComments ? 'Hide Comments' : `Comments (${status.comments?.length || 0})`}
+                </button>
+
+                {showComments && (
+                    <div className="mt-2 space-y-2">
+                        {(status.comments || []).length === 0 && (
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-300 border border-dashed border-neutral-200 p-2">
+                                No comments yet.
+                            </div>
+                        )}
+
+                        {(status.comments || []).map((comment) => (
+                            <div key={comment.id} className="border border-neutral-200 p-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-neutral-500">{comment.username}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-neutral-300">
+                                            {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                        </span>
+                                        {user && (user.id === comment.userId || isOwn) && (
+                                            <button
+                                                onClick={async () => {
+                                                    await deleteComment(comment.id);
+                                                }}
+                                                className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-500"
+                                            >
+                                                Del
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-neutral-700 mt-1 whitespace-pre-wrap">{comment.content}</p>
+                            </div>
+                        ))}
+
+                        {user ? (
+                            <form
+                                onSubmit={async (event) => {
+                                    event.preventDefault();
+                                    if (!commentDraft.trim() || commentSubmitting) return;
+                                    setCommentSubmitting(true);
+                                    try {
+                                        await addComment(status.id, commentDraft.trim());
+                                        setCommentDraft('');
+                                    } finally {
+                                        setCommentSubmitting(false);
+                                    }
+                                }}
+                                className="flex items-center gap-2"
+                            >
+                                <input
+                                    value={commentDraft}
+                                    onChange={(event) => setCommentDraft(event.target.value)}
+                                    placeholder="Add a comment..."
+                                    className="flex-1 border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-500"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!commentDraft.trim() || commentSubmitting}
+                                    className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40"
+                                >
+                                    Send
+                                </button>
+                            </form>
+                        ) : (
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-300">
+                                Sign in to comment.
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

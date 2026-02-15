@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Ban, UserCheck, UserPlus } from 'lucide-react';
 import {
     usePublicProfile,
@@ -31,9 +31,29 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
     const [selectedTagItem, setSelectedTagItem] = useState<ConsumableItem | null>(null);
+    const [statusSort, setStatusSort] = useState<'recent' | 'top'>('recent');
+    const [statusCategoryFilter, setStatusCategoryFilter] = useState<'all' | Category>('all');
 
     const isOwnProfile = myProfile?.id === userId;
     const userStatuses = getUserStatuses(userId);
+    const sortedFilteredStatuses = useMemo(() => {
+        const withCategory = userStatuses.filter((status) => {
+            if (statusCategoryFilter === 'all') return true;
+            return status.items.some((item) => item.category === statusCategoryFilter);
+        });
+
+        if (statusSort === 'recent') {
+            return withCategory.sort((a, b) => b.date.localeCompare(a.date));
+        }
+
+        return withCategory.sort((a, b) => {
+            const aRatings = a.items.map((item) => item.rating).filter((rating): rating is number => typeof rating === 'number');
+            const bRatings = b.items.map((item) => item.rating).filter((rating): rating is number => typeof rating === 'number');
+            const aAvg = aRatings.length > 0 ? aRatings.reduce((sum, value) => sum + value, 0) / aRatings.length : -1;
+            const bAvg = bRatings.length > 0 ? bRatings.reduce((sum, value) => sum + value, 0) / bRatings.length : -1;
+            return bAvg - aAvg;
+        });
+    }, [userStatuses, statusSort, statusCategoryFilter]);
 
     if (profileLoading) {
         return (
@@ -137,6 +157,14 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         Habits
                     </button>
                 </div>
+
+                <div className="mt-3 text-[10px] uppercase tracking-widest text-neutral-400">
+                    <span>{userStatuses.length} posts</span>
+                    <span className="mx-2">•</span>
+                    <span>{Object.values(categoryItems).flat().length} tagged items</span>
+                    <span className="mx-2">•</span>
+                    <span>{profile.categories?.length || 0} categories</span>
+                </div>
             </div>
 
             {/* Two-column layout: tags sidebar + main content */}
@@ -222,13 +250,41 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
                                 Posts
                             </h3>
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setStatusSort('recent')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${statusSort === 'recent' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                >
+                                    Recent
+                                </button>
+                                <button
+                                    onClick={() => setStatusSort('top')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${statusSort === 'top' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                >
+                                    Highest Rated
+                                </button>
+                                <select
+                                    value={statusCategoryFilter}
+                                    onChange={(event) => setStatusCategoryFilter(event.target.value as Category | 'all')}
+                                    className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                >
+                                    <option value="all">All Categories</option>
+                                    {(profile.categories || []).map((category) => (
+                                        <option key={category} value={category}>
+                                            {getCategoryConfig(category).label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="space-y-3">
-                                {userStatuses.length === 0 ? (
-                                    <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest">
-                                        No posts yet.
+                                {sortedFilteredStatuses.length === 0 ? (
+                                    <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
+                                        {isOwnProfile
+                                            ? 'No posts yet. Use the composer on Feed to publish your first one.'
+                                            : 'No posts in this view yet.'}
                                     </div>
                                 ) : (
-                                    userStatuses.map(status => (
+                                    sortedFilteredStatuses.map(status => (
                                         <StatusCard
                                             key={status.id}
                                             status={status}

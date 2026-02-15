@@ -10,6 +10,8 @@ type WriteAction =
   | "social.status.delete"
   | "social.item.add"
   | "social.item.delete"
+  | "social.comment.add"
+  | "social.comment.delete"
   | "social.profile.upsert"
   | "social.follow.toggle"
   | "social.mute.toggle"
@@ -42,6 +44,18 @@ const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, user
   if (!data) throw new Error("Item not found");
   await ensureOwnStatus(supabaseAdmin, data.status_id, userId);
   return data.status_id;
+};
+
+const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string, userId: string) => {
+  const { data } = await supabaseAdmin
+    .from("social_comments")
+    .select("id,user_id,status_id")
+    .eq("id", commentId)
+    .maybeSingle();
+  if (!data) throw new Error("Comment not found");
+  if (data.user_id !== userId) {
+    await ensureOwnStatus(supabaseAdmin, data.status_id, userId);
+  }
 };
 
 export async function POST(req: NextRequest) {
@@ -134,6 +148,37 @@ export async function POST(req: NextRequest) {
       const itemId = String(payload.itemId || "");
       await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
       const { error } = await supabaseAdmin.from("social_items").delete().eq("id", itemId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.comment.add") {
+      const statusId = String(payload.statusId || "");
+      const content = String(payload.content || "").trim();
+      if (!statusId || !content) {
+        return NextResponse.json({ error: "Missing statusId or content" }, { status: 400 });
+      }
+      const { data: status } = await supabaseAdmin
+        .from("social_statuses")
+        .select("id,published")
+        .eq("id", statusId)
+        .maybeSingle();
+      if (!status?.id) return NextResponse.json({ error: "Status not found" }, { status: 404 });
+      if (!status.published) return NextResponse.json({ error: "Cannot comment on unpublished status" }, { status: 400 });
+      const { error } = await supabaseAdmin.from("social_comments").insert({
+        status_id: statusId,
+        user_id: linkedUserId,
+        content,
+      });
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.comment.delete") {
+      const commentId = String(payload.commentId || "");
+      if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
+      await ensureOwnComment(supabaseAdmin, commentId, linkedUserId);
+      const { error } = await supabaseAdmin.from("social_comments").delete().eq("id", commentId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
