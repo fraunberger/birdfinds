@@ -32,15 +32,19 @@ export function SocialLayout() {
     const syncAboutFromLocation = () => {
       const params = new URLSearchParams(window.location.search);
       const hash = (window.location.hash || "").toLowerCase();
-      setShowAbout(params.get("about") === "1" || hash === "#about-birdfinds");
+      const requestedByMenu = window.sessionStorage.getItem("birdfinds:open-about") === "1";
+      setShowAbout(params.get("about") === "1" || hash === "#about-birdfinds" || requestedByMenu);
     };
 
     syncAboutFromLocation();
+    const handleOpenAbout = () => setShowAbout(true);
     window.addEventListener("hashchange", syncAboutFromLocation);
     window.addEventListener("popstate", syncAboutFromLocation);
+    window.addEventListener("birdfinds:open-about", handleOpenAbout);
     return () => {
       window.removeEventListener("hashchange", syncAboutFromLocation);
       window.removeEventListener("popstate", syncAboutFromLocation);
+      window.removeEventListener("birdfinds:open-about", handleOpenAbout);
     };
   }, []);
 
@@ -124,6 +128,7 @@ export function SocialLayout() {
                   onClick={() => {
                     setShowAbout(false);
                     if (typeof window !== "undefined") {
+                      window.sessionStorage.removeItem("birdfinds:open-about");
                       window.history.replaceState({}, "", "/");
                     } else {
                       router.replace("/");

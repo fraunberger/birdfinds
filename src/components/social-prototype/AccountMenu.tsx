@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
 interface AccountMenuProps {
@@ -13,6 +13,7 @@ interface AccountMenuProps {
 
 export function AccountMenu({ pileHref, username, avatarUrl }: AccountMenuProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -58,13 +59,21 @@ export function AccountMenu({ pileHref, username, avatarUrl }: AccountMenuProps)
           >
             Settings
           </Link>
-          <Link
-            href="/#about-birdfinds"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+          <button
+            onClick={() => {
+              setOpen(false);
+              if (typeof window !== "undefined") {
+                window.sessionStorage.setItem("birdfinds:open-about", "1");
+                window.dispatchEvent(new Event("birdfinds:open-about"));
+              }
+              if (pathname !== "/") {
+                router.push("/");
+              }
+            }}
+            className="block w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             About Birdfinds
-          </Link>
+          </button>
           <button
             onClick={async () => {
               await signOut();
