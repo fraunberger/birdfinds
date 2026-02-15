@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Category, CATEGORY_CONFIGS, ConsumableItem } from '@/lib/social-prototype/store';
+import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
@@ -13,7 +13,7 @@ interface CategorySheetProps {
 type SortMode = 'latest' | 'top';
 
 export function CategorySheet({ category, items, onClose }: CategorySheetProps) {
-    const config = CATEGORY_CONFIGS[category];
+    const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
 

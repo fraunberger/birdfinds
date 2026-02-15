@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from 'react';
+import { Ban, UserCheck, UserPlus } from 'lucide-react';
 import {
     usePublicProfile,
+    useUserProfile,
     useSocialStore,
     useFollows,
-    CATEGORY_CONFIGS,
+    getCategoryConfig,
     Category,
     ConsumableItem
 } from '@/lib/social-prototype/store';
-import { useAuth } from '@/lib/auth';
 import { StatusCard } from './StatusCard';
 import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
@@ -23,7 +24,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
-    const { user } = useAuth();
+    const { profile: myProfile } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
     const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
@@ -31,7 +32,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
     const [selectedTagItem, setSelectedTagItem] = useState<ConsumableItem | null>(null);
 
-    const isOwnProfile = user?.id === userId;
+    const isOwnProfile = myProfile?.id === userId;
     const userStatuses = getUserStatuses(userId);
 
     if (profileLoading) {
@@ -77,14 +78,15 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 </div>
 
                 {/* Username */}
-                <h2 className="text-sm font-bold uppercase tracking-widest">{profile.username}</h2>
+                <h2 className="text-sm font-bold uppercase tracking-widest">
+                    {`${profile.username}'s Pile`}
+                </h2>
 
                 {/* Category icons */}
                 {profile.categories && profile.categories.length > 0 && (
                     <div className="flex items-center justify-center gap-1.5 mt-1.5">
                         {profile.categories.map(cat => {
-                            const config = CATEGORY_CONFIGS[cat];
-                            if (!config) return null;
+                            const config = getCategoryConfig(cat);
                             return (
                                 <span key={cat} className="text-sm" title={config.label}>
                                     {config.icon}
@@ -96,27 +98,35 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
 
                 {/* Actions */}
                 <div className="flex items-center justify-center gap-2 mt-3">
+                    {isOwnProfile && onSettings && (
+                        <button
+                            onClick={onSettings}
+                            className="text-[10px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
+                        >
+                            Settings
+                        </button>
+                    )}
                     {!isOwnProfile && (
                         <>
                             <button
                                 onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
-                                className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${isFollowing(userId)
+                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${isFollowing(userId)
                                     ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
                                     : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
                                     }`}
+                                title={isFollowing(userId) ? "Following" : "Follow"}
                             >
-                                {isFollowing(userId) ? 'Following' : 'Follow'}
+                                {isFollowing(userId) ? <UserCheck size={13} /> : <UserPlus size={13} />}
                             </button>
-                            {/* Block Button */}
                             <button
                                 onClick={() => toggleMute(userId)}
-                                className={`text-[10px] uppercase tracking-widest px-3 py-1 border transition-colors ${mutedUsers?.includes(userId)
+                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${mutedUsers?.includes(userId)
                                     ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                    : 'text-neutral-400 border-neutral-300 hover:bg-neutral-50 hover:text-neutral-600'
+                                    : 'text-neutral-500 border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700'
                                     }`}
-                                title={mutedUsers?.includes(userId) ? "Unblock user" : "Block user & hide posts"}
+                                title={mutedUsers?.includes(userId) ? "Unblock user" : "Block user"}
                             >
-                                {mutedUsers?.includes(userId) ? 'Unblock' : 'Block'}
+                                <Ban size={13} />
                             </button>
                         </>
                     )}
@@ -148,7 +158,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 return <div className="text-[10px] text-neutral-300 py-2">No items yet</div>;
                             }
                             return sorted.map(item => {
-                                const config = CATEGORY_CONFIGS[item.category];
+                                const config = getCategoryConfig(item.category);
                                 return (
                                     <button
                                         key={item.id}
@@ -172,8 +182,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         <div className="mb-6">
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                                 {profile.categories.map(cat => {
-                                    const config = CATEGORY_CONFIGS[cat];
-                                    if (!config) return null;
+                                    const config = getCategoryConfig(cat);
                                     const count = categoryItems[cat]?.length || 0;
                                     const isOpen = openCategory === cat;
                                     return (

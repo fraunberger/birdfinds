@@ -8,6 +8,7 @@ interface ElectionSummary {
     adminName: string;
     voteStartTime: number;
     status: string;
+    ballotVisibility?: 'secret' | 'open';
     nominationCount: number;
     winnerName?: string;
 }
@@ -23,6 +24,7 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
     const [date, setDate] = useState(''); // YYYY-MM-DD
     const [time, setTime] = useState('18:10'); // HH:MM
     const [codeword, setCodeword] = useState('');
+    const [ballotVisibility, setBallotVisibility] = useState<'secret' | 'open'>('secret');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -49,7 +51,8 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
                 name,
                 adminName,
                 voteStartTime: timestamp,
-                groupCodeword: safeCodeword
+                groupCodeword: safeCodeword,
+                ballotVisibility
             })
         });
 
@@ -91,6 +94,25 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
                         <label className="block text-xs font-bold uppercase text-gray-500 mb-1 tracking-wider">Group Codeword</label>
                         <input required type="password" autoComplete="new-password" value={codeword} onChange={e => setCodeword(e.target.value)} placeholder="Secret123" className="w-full bg-white border border-gray-300 p-3 focus:ring-1 focus:ring-black focus:border-black outline-none transition-colors" />
                     </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 mb-2 tracking-wider">Ballots</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setBallotVisibility('secret')}
+                                className={`border p-3 text-xs font-bold uppercase tracking-wider transition-colors ${ballotVisibility === 'secret' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}
+                            >
+                                Secret
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setBallotVisibility('open')}
+                                className={`border p-3 text-xs font-bold uppercase tracking-wider transition-colors ${ballotVisibility === 'open' ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}
+                            >
+                                Open
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={() => setIsCreating(false)} className="flex-1 py-3 font-bold bg-white border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 uppercase text-sm tracking-wide">Cancel</button>
@@ -114,7 +136,7 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
 
             <div className="space-y-12">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {elections.filter(e => e.status !== 'completed').map(election => (
+                    {elections.filter(e => e.status !== 'completed' && e.status !== 'cancelled').map(election => (
                         <div
                             key={election.id}
                             onClick={() => onJoined(election.id)}
@@ -137,22 +159,23 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
                                     {new Date(election.voteStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                                 <p>Host: <span className="text-gray-900 font-medium">{election.adminName}</span></p>
+                                <p className="uppercase text-[11px] tracking-wider">Ballots: {election.ballotVisibility || 'secret'}</p>
                                 <p>{election.nominationCount} Nominations</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {elections.some(e => e.status === 'completed') && (
+                {elections.some(e => e.status === 'completed' || e.status === 'cancelled') && (
                     <details className="group pt-8 border-t border-gray-200">
                         <summary className="cursor-pointer list-none flex items-center gap-2 font-bold uppercase text-gray-400 hover:text-gray-600 transition-colors w-max">
                             <span className="text-xl">📁</span>
-                            <span>Archived Elections ({elections.filter(e => e.status === 'completed').length})</span>
+                            <span>Archived Elections ({elections.filter(e => e.status === 'completed' || e.status === 'cancelled').length})</span>
                             <span className="group-open:rotate-180 transition-transform">▼</span>
                         </summary>
 
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6 animate-in slide-in-from-top-2 fade-in">
-                            {elections.filter(e => e.status === 'completed').map(election => (
+                            {elections.filter(e => e.status === 'completed' || e.status === 'cancelled').map(election => (
                                 <div
                                     key={election.id}
                                     onClick={() => onJoined(election.id)}
@@ -160,11 +183,13 @@ export function CreateElection({ onJoined }: { onJoined: (id: string) => void })
                                 >
                                     <div className="flex justify-between items-center mb-2">
                                         <h3 className="font-bold text-gray-700">{election.name}</h3>
-                                        <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 uppercase font-bold tracking-wider">Ended</span>
+                                        <span className={`text-[10px] px-2 py-1 uppercase font-bold tracking-wider ${election.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-600'}`}>
+                                            {election.status === 'cancelled' ? 'Cancelled' : 'Ended'}
+                                        </span>
                                     </div>
                                     <p className="text-xs text-gray-500 flex justify-between">
                                         <span>{new Date(election.voteStartTime).toLocaleDateString()}</span>
-                                        <span>Winner: {election.winnerName || '?'}</span>
+                                        <span>{election.status === 'cancelled' ? 'No winner' : `Winner: ${election.winnerName || '?'}`}</span>
                                     </p>
                                 </div>
                             ))}

@@ -6,7 +6,8 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { name, voteStartTime, groupCodeword, adminName } = body;
+        const { name, voteStartTime, groupCodeword, adminName, ballotVisibility } = body;
+        const safeBallotVisibility = ballotVisibility === "open" ? "open" : "secret";
 
         if (!name || !voteStartTime || !groupCodeword || !adminName) {
             return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
             name,
             groupCodeword,
             adminName,
+            ballotVisibility: safeBallotVisibility,
             voteStartTime,
             participants: [],
             nominations: [],
@@ -62,6 +64,7 @@ export async function GET() {
             id: e.id,
             name: e.name,
             adminName: e.adminName,
+            ballotVisibility: e.ballotVisibility || "secret",
             voteStartTime: e.voteStartTime,
             status,
             nominationCount: e.nominations.length,

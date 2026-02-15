@@ -7,11 +7,19 @@ import { Reorder } from "framer-motion";
 import { RestaurantSearch } from './RestaurantSearch';
 
 interface ExtendedElection extends Election {
-    status: 'nomination' | 'voting' | 'completed';
+    status: 'nomination' | 'voting' | 'completed' | 'cancelled';
+    ballotVisibility: 'secret' | 'open';
     votingEndsAt?: number;
     winner?: string; // ID of winner
     matrix?: Record<string, Record<string, number>>;
     participantCount?: number;
+    ballots?: Array<{
+        voterName: string;
+        rankings: Array<{
+            nominationId: string;
+            restaurantName: string;
+        }>;
+    }> | null;
 }
 
 interface RestaurantSelection {
@@ -202,6 +210,24 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
         if (res.ok) fetchElection();
     };
 
+    const cancelElection = async () => {
+        if (!confirm("Cancel this election for everyone? This cannot be undone.")) return;
+        const safeCodeword = codeword.trim().toLowerCase();
+        const res = await fetch(`/api/elections/${electionId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupCodeword: safeCodeword, requesterName: username })
+        });
+
+        if (res.ok) {
+            fetchElection();
+            return;
+        }
+
+        const err = await res.json().catch(() => ({ error: "Failed to cancel election" }));
+        alert(err.error || "Failed to cancel election");
+    };
+
     const toggleRank = (id: string) => {
         if (rankings.includes(id)) {
             setRankings(rankings.filter(r => r !== id));
@@ -300,6 +326,7 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                         {election.status === 'nomination' && `STARTS IN ${formatCountdown(timeUntilStart)}`}
                         {election.status === 'voting' && `ENDS IN ${formatCountdown(timeUntilEnd)}`}
                         {election.status === 'completed' && 'CLOSED'}
+                        {election.status === 'cancelled' && 'CANCELLED'}
                     </div>
                 </div>
             </header>
@@ -486,12 +513,14 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                         </div>
                     </div>
 
-                    <button
-                        onClick={finishElection}
-                        className="text-sm font-bold text-gray-400 hover:text-red-600 uppercase tracking-widest underline decoration-gray-300 hover:decoration-red-600 transition-colors"
-                    >
-                        Force End Voting
-                    </button>
+                    {username.toLowerCase() === election.adminName.toLowerCase() && (
+                        <button
+                            onClick={finishElection}
+                            className="text-sm font-bold text-gray-400 hover:text-red-600 uppercase tracking-widest underline decoration-gray-300 hover:decoration-red-600 transition-colors"
+                        >
+                            Force End Voting
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -554,8 +583,56 @@ export function RestaurantElectionRoom({ electionId, onExit }: { electionId: str
                         </div>
                     )}
 
+                    {election.ballotVisibility === 'open' && (
+                        <div className="max-w-3xl mx-auto mt-12 text-left">
+                            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">All Ballots (Open)</h3>
+                            <div className="space-y-3">
+                                {(election.ballots || []).map((ballot) => (
+                                    <div key={ballot.voterName} className="bg-white border border-gray-200 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">{ballot.voterName}</p>
+                                        {ballot.rankings.length > 0 ? (
+                                            <ol className="space-y-1">
+                                                {ballot.rankings.map((ranked, index) => (
+                                                    <li key={`${ballot.voterName}-${ranked.nominationId}`} className="text-sm text-gray-800">
+                                                        <span className="font-mono text-gray-500 mr-2">{index + 1}.</span>
+                                                        {ranked.restaurantName}
+                                                    </li>
+                                                ))}
+                                            </ol>
+                                        ) : (
+                                            <p className="text-sm text-gray-400 italic">No ranked choices submitted.</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <button onClick={onExit} className="block mx-auto mt-16 text-sm font-bold uppercase tracking-widest text-gray-400 hover:text-black">
                         ← Back to Menu
+                    </button>
+                </div>
+            )}
+
+            {election.status === 'cancelled' && (
+                <div className="max-w-xl mx-auto text-center py-12">
+                    <div className="bg-red-50 border border-red-200 p-8">
+                        <h2 className="text-2xl font-bold uppercase tracking-tight text-red-700 mb-2">Election Cancelled</h2>
+                        <p className="text-red-700/80 text-sm">The admin cancelled this election before final results were published.</p>
+                    </div>
+                    <button onClick={onExit} className="block mx-auto mt-10 text-sm font-bold uppercase tracking-widest text-gray-400 hover:text-black">
+                        ← Back to Menu
+                    </button>
+                </div>
+            )}
+
+            {username.toLowerCase() === election.adminName.toLowerCase() && (election.status === 'nomination' || election.status === 'voting') && (
+                <div className="fixed top-4 right-4">
+                    <button
+                        onClick={cancelElection}
+                        className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-700 border border-red-300 bg-white hover:bg-red-50"
+                    >
+                        Cancel Election
                     </button>
                 </div>
             )}

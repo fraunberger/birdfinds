@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Category, ConsumableItem, CATEGORY_CONFIGS } from '@/lib/social-prototype/store';
+import Link from 'next/link';
+import { Category, ConsumableItem, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
+import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 
 interface ConsumableModalProps {
     isOpen: boolean;
@@ -161,7 +163,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         }
     };
 
-    const config = CATEGORY_CONFIGS[category];
+    const config = getCategoryConfig(category);
+    const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
+    const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
 
     useEffect(() => {
         if (readOnly || category !== 'music') {
@@ -581,9 +585,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
                                     className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4"
                                 >
-                                    {Object.values(CATEGORY_CONFIGS).map(c => (
-                                        <option key={c.id} value={c.id}>{c.shortLabel}</option>
-                                    ))}
+                                    {Array.from(new Set([category, ...DEFAULT_CATEGORIES])).map((cat) => {
+                                        const optionConfig = getCategoryConfig(cat);
+                                        return (
+                                            <option key={optionConfig.id} value={optionConfig.id}>
+                                                {optionConfig.shortLabel}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                                 <span className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-neutral-500">
                                     ▼
@@ -1138,6 +1147,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                     </div>
                     <div className="flex gap-3">
+                        {showItemPageLink && itemPageHref && (
+                            <Link
+                                href={itemPageHref}
+                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500"
+                            >
+                                Open Item Page
+                            </Link>
+                        )}
                         <button
                             onClick={onClose}
                             className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-1"

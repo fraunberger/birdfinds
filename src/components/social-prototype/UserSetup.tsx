@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useUserProfile, useHabits, ALL_CATEGORIES, CATEGORY_CONFIGS, Category } from '@/lib/social-prototype/store';
+import { useUserProfile, useHabits, DEFAULT_CATEGORIES, Category, CategoryConfigOverride, getCategoryConfig } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import Cropper, { Point, Area } from 'react-easy-crop';
 
@@ -19,9 +19,19 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
     const [isPrivate, setIsPrivate] = useState(false);
     const [newHabitName, setNewHabitName] = useState('');
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryShortLabel, setNewCategoryShortLabel] = useState('');
+    const [newCategoryTitleLabel, setNewCategoryTitleLabel] = useState('');
+    const [newCategorySubtitleLabel, setNewCategorySubtitleLabel] = useState('');
+    const [newCategoryRatingLabel, setNewCategoryRatingLabel] = useState('');
+    const [newCategoryNotesLabel, setNewCategoryNotesLabel] = useState('');
+    const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
     const [saving, setSaving] = useState(false);
+    const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const lastSavedSignatureRef = useRef<string>('');
+    const autoSaveTimerRef = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Cropping State
@@ -37,6 +47,14 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setAvatarUrl(profile.avatarUrl);
             setSelectedCategories(profile.categories || []);
             setIsPrivate(profile.isPrivate || false);
+            setCategoryConfigs(profile.categoryConfigs || {});
+            lastSavedSignatureRef.current = JSON.stringify({
+                username: profile.username || '',
+                avatarUrl: profile.avatarUrl || '',
+                categories: profile.categories || [],
+                isPrivate: profile.isPrivate || false,
+                categoryConfigs: profile.categoryConfigs || {},
+            });
         }
     }, [profile]);
 
@@ -83,13 +101,45 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         );
     };
 
+    const handleAddCustomCategory = () => {
+        const normalized = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
+        if (!normalized) return;
+        const baseLabel = newCategoryName.trim();
+        const shortLabel = (newCategoryShortLabel.trim() || normalized.replace(/[^a-z0-9]/g, '').slice(0, 8)).toUpperCase();
+        const titleLabel = newCategoryTitleLabel.trim() || `${baseLabel} Title`;
+        const subtitleLabel = newCategorySubtitleLabel.trim() || 'Details';
+        const ratingLabel = newCategoryRatingLabel.trim() || 'Rating';
+        const notesLabel = newCategoryNotesLabel.trim() || 'Notes';
+
+        setSelectedCategories((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
+        setCategoryConfigs((prev) => ({
+            ...prev,
+            [normalized]: {
+                label: baseLabel,
+                shortLabel,
+                titleLabel,
+                subtitleLabel,
+                subtitlePlaceholder: subtitleLabel,
+                ratingLabel,
+                notesLabel,
+                notesPlaceholder: `Add ${notesLabel.toLowerCase()}...`,
+            },
+        }));
+        setNewCategoryName('');
+        setNewCategoryShortLabel('');
+        setNewCategoryTitleLabel('');
+        setNewCategorySubtitleLabel('');
+        setNewCategoryRatingLabel('');
+        setNewCategoryNotesLabel('');
+    };
+
     const handleAddHabit = async () => {
         if (!newHabitName.trim()) return;
         await addHabit(newHabitName.trim());
         setNewHabitName('');
     };
 
-    const handleSave = async () => {
+    const persistProfile = async (afterSave?: () => void) => {
         if (!username.trim()) {
             setError('Username is required');
             return;
@@ -102,14 +152,61 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 avatarUrl,
                 categories: selectedCategories,
                 isPrivate,
+                categoryConfigs,
             });
-            onComplete();
+            lastSavedSignatureRef.current = JSON.stringify({
+                username: username.trim(),
+                avatarUrl: avatarUrl || '',
+                categories: selectedCategories,
+                isPrivate,
+                categoryConfigs,
+            });
+            afterSave?.();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to save profile');
+            setAutoSaveState('error');
         } finally {
             setSaving(false);
         }
     };
+
+    const handleSave = async () => {
+        await persistProfile(onComplete);
+    };
+
+    useEffect(() => {
+        if (!profile) return; // onboarding still uses explicit save
+        if (!username.trim()) return;
+        if (isCropping || avatarUploading) return;
+
+        const nextSignature = JSON.stringify({
+            username: username.trim(),
+            avatarUrl: avatarUrl || '',
+            categories: selectedCategories,
+            isPrivate,
+            categoryConfigs,
+        });
+
+        if (nextSignature === lastSavedSignatureRef.current) return;
+
+        if (autoSaveTimerRef.current) {
+            window.clearTimeout(autoSaveTimerRef.current);
+        }
+
+        autoSaveTimerRef.current = window.setTimeout(async () => {
+            setAutoSaveState('saving');
+            await persistProfile();
+            setAutoSaveState('saved');
+            window.setTimeout(() => setAutoSaveState('idle'), 1200);
+        }, 900);
+
+        return () => {
+            if (autoSaveTimerRef.current) {
+                window.clearTimeout(autoSaveTimerRef.current);
+                autoSaveTimerRef.current = null;
+            }
+        };
+    }, [profile, username, avatarUrl, selectedCategories, isPrivate, categoryConfigs, isCropping, avatarUploading]);
 
     const handleSignOut = async () => {
         await signOut();
@@ -223,8 +320,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     Categories to Track
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                    {ALL_CATEGORIES.map(cat => {
-                        const config = CATEGORY_CONFIGS[cat];
+                    {Array.from(new Set([...DEFAULT_CATEGORIES, ...selectedCategories])).map(cat => {
+                        const config = getCategoryConfig(cat);
                         const isActive = selectedCategories.includes(cat);
                         return (
                             <button
@@ -240,6 +337,58 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                             </button>
                         );
                     })}
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                    <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Custom category name"
+                        className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <input
+                        type="text"
+                        value={newCategoryShortLabel}
+                        onChange={(e) => setNewCategoryShortLabel(e.target.value.toUpperCase())}
+                        placeholder="Abbreviation (e.g. VG)"
+                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <input
+                        type="text"
+                        value={newCategoryTitleLabel}
+                        onChange={(e) => setNewCategoryTitleLabel(e.target.value)}
+                        placeholder="Primary box label"
+                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <input
+                        type="text"
+                        value={newCategorySubtitleLabel}
+                        onChange={(e) => setNewCategorySubtitleLabel(e.target.value)}
+                        placeholder="Secondary box label"
+                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <input
+                        type="text"
+                        value={newCategoryRatingLabel}
+                        onChange={(e) => setNewCategoryRatingLabel(e.target.value)}
+                        placeholder="Rating box label"
+                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <input
+                        type="text"
+                        value={newCategoryNotesLabel}
+                        onChange={(e) => setNewCategoryNotesLabel(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomCategory(); }}
+                        placeholder="Notes box label"
+                        className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
+                    />
+                    <button
+                        onClick={handleAddCustomCategory}
+                        disabled={!newCategoryName.trim()}
+                        className="col-span-2 px-4 py-2 bg-neutral-800 text-white text-xs uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-30"
+                    >
+                        Add Custom Category
+                    </button>
                 </div>
             </div>
 
@@ -313,13 +462,21 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             )}
 
             {/* Save */}
-            <button
-                onClick={handleSave}
-                disabled={saving || !username.trim()}
-                className="w-full bg-neutral-800 text-white py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-50 mb-6"
-            >
-                {saving ? 'Saving...' : (profile ? 'Save Changes' : 'Get Started')}
-            </button>
+            {!profile ? (
+                <button
+                    onClick={handleSave}
+                    disabled={saving || !username.trim()}
+                    className="w-full bg-neutral-800 text-white py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-50 mb-6"
+                >
+                    {saving ? 'Saving...' : 'Get Started'}
+                </button>
+            ) : (
+                <div className="mb-6 text-center text-[10px] uppercase tracking-widest text-neutral-400">
+                    {autoSaveState === 'saving' && 'Saving changes...'}
+                    {autoSaveState === 'saved' && 'Saved'}
+                    {(autoSaveState === 'idle' || autoSaveState === 'error') && 'Auto-save enabled'}
+                </div>
+            )}
 
             {/* Sign Out Button (Added) */}
             {profile && (

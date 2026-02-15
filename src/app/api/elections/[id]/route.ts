@@ -18,6 +18,7 @@ export async function GET(
 
     let status = election.state || 'nomination';
     let winner: string | null = election.winner || null;
+    const ballotVisibility = election.ballotVisibility || "secret";
 
     if (!election.state) {
         if (now >= election.voteStartTime) {
@@ -35,16 +36,38 @@ export async function GET(
         if (!winner) {
             winner = determineCondorcetWinner(election.nominations, election.votes);
         }
-        matrix = calculatePairwiseMatrix(election.nominations, election.votes);
+        if (ballotVisibility === "open") {
+            matrix = calculatePairwiseMatrix(election.nominations, election.votes);
+        }
     }
 
+    const shouldHideRankings = ballotVisibility === "secret" && status === "completed";
+    const safeVotes = shouldHideRankings
+        ? election.votes.map((vote) => ({ ...vote, rankings: [] }))
+        : election.votes;
+    const ballots = status === "completed" && ballotVisibility === "open"
+        ? election.votes.map((vote) => ({
+            voterName: vote.voterName,
+            rankings: vote.rankings.map((nominationId) => {
+                const nomination = election.nominations.find((item) => item.id === nominationId);
+                return {
+                    nominationId,
+                    restaurantName: nomination?.restaurantName || "Unknown",
+                };
+            }),
+        }))
+        : null;
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { groupCodeword: _pw, ...safeElection } = election;
+    const { groupCodeword: _pw, votes: _votes, ...safeElection } = election;
 
     return NextResponse.json({
         ...safeElection,
+        ballotVisibility,
+        votes: safeVotes,
         status,
         winner,
+        ballots,
         matrix,
         votingEndsAt
     });

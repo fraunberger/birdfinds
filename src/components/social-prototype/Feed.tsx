@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useSocialStore, Status, ConsumableItem, CATEGORY_CONFIGS, HIGHLIGHT_COLOR } from '@/lib/social-prototype/store';
+import { useSocialStore, Status, ConsumableItem, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 export function Feed() {
@@ -23,7 +23,7 @@ export function Feed() {
 
         status.items.forEach(item => {
             if (!item.title) return;
-            const config = CATEGORY_CONFIGS[item.category];
+            const config = getCategoryConfig(item.category);
             const color = config?.color || HIGHLIGHT_COLOR;
             const regex = new RegExp(`(${item.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
             html = html.replace(
@@ -86,7 +86,7 @@ export function Feed() {
                                     </thead>
                                     <tbody>
                                         {status.items.map(item => {
-                                            const config = CATEGORY_CONFIGS[item.category];
+                                            const config = getCategoryConfig(item.category);
                                             if (!config) return null;
                                             return (
                                                 <tr

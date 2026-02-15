@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useSocialStore, Category, ConsumableItem, CATEGORY_CONFIGS } from '@/lib/social-prototype/store';
+import { useSocialStore, Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategoryListProps {
@@ -25,7 +25,7 @@ export function CategoryList({ category, title }: CategoryListProps) {
         return b.createdAt - a.createdAt;
     });
 
-    const config = CATEGORY_CONFIGS[category];
+    const config = getCategoryConfig(category);
 
     return (
         <div className="font-mono">

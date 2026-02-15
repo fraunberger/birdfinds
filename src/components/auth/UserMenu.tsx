@@ -11,7 +11,7 @@ export function UserMenu() {
     if (loading || !user) return null;
 
     // Use profile username if available, fallback to email prefix
-    const displayName = profile?.username || user.email?.split('@')[0] || 'User';
+    const displayName = profile?.username || user.email?.split('@')[0] || user.username || 'User';
 
     return (
         <div className="flex items-center gap-3 font-mono">

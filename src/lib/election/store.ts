@@ -17,7 +17,15 @@ class ElectionStore {
         return this.adapter;
     }
 
+    private normalizeElection(election: Election): Election {
+        if (!election.ballotVisibility) {
+            election.ballotVisibility = "secret";
+        }
+        return election;
+    }
+
     async createElection(election: Election) {
+        this.normalizeElection(election);
         await this.getAdapter().saveElection(election);
         return election;
     }
@@ -36,14 +44,14 @@ class ElectionStore {
     async getElection(id: string): Promise<Election | undefined> {
         const election = await this.getAdapter().getElection(id);
         if (!election) return undefined;
-        return this.checkRetention(election);
+        return this.checkRetention(this.normalizeElection(election));
     }
 
     async getAllElections(): Promise<Election[]> {
         const elections = await this.getAdapter().getAllElections();
         const results: Election[] = [];
         for (const e of elections) {
-            const valid = await this.checkRetention(e);
+            const valid = await this.checkRetention(this.normalizeElection(e));
             if (valid) results.push(valid);
         }
         return results;
@@ -124,6 +132,8 @@ class ElectionStore {
         const adapter = this.getAdapter();
         const election = await adapter.getElection(electionId);
         if (!election) return null;
+        this.normalizeElection(election);
+        if (election.state === 'cancelled') return election;
         election.state = 'completed';
 
         try {
@@ -148,6 +158,22 @@ class ElectionStore {
         } catch (e) {
             console.error("Failed to calculate winner logic", e);
         }
+
+        await adapter.saveElection(election);
+        return election;
+    }
+
+    async cancelElection(electionId: string) {
+        const adapter = this.getAdapter();
+        const election = await adapter.getElection(electionId);
+        if (!election) return null;
+        this.normalizeElection(election);
+
+        election.state = 'cancelled';
+        election.winner = null;
+        election.winnerMethod = undefined;
+        election.tieBroken = false;
+        election.winnerVoteTime = undefined;
 
         await adapter.saveElection(election);
         return election;

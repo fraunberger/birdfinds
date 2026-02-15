@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase';
 // Types
 // ============================================================
 
-export type Category = 'movie' | 'tv' | 'music' | 'restaurant' | 'beer' | 'cooking' | 'podcast' | 'book';
+export type Category = string;
 
-export const ALL_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
+export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
+export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 
 export interface ConsumableItem {
     id: string;
@@ -46,6 +47,17 @@ export interface CategoryConfig {
     icon?: string;
 }
 
+export interface CategoryConfigOverride {
+    label?: string;
+    shortLabel?: string;
+    titleLabel?: string;
+    subtitleLabel?: string;
+    subtitlePlaceholder?: string;
+    ratingLabel?: string;
+    notesLabel?: string;
+    notesPlaceholder?: string;
+}
+
 export interface UserProfile {
     id: string;
     username: string;
@@ -54,6 +66,7 @@ export interface UserProfile {
     isPrivate?: boolean;
     createdAt?: string;
     muted_users?: string[];
+    categoryConfigs?: Record<string, CategoryConfigOverride>;
 }
 
 export interface Habit {
@@ -67,13 +80,6 @@ export interface Habit {
 export interface FollowData {
     following: string[]; // array of userIds you follow
     followers: string[]; // array of userIds following you
-}
-
-interface UserProfileDbUpdates {
-    username?: string;
-    avatar_url?: string;
-    categories?: Category[];
-    is_private?: boolean;
 }
 
 interface HabitLogRow {
@@ -95,9 +101,45 @@ interface FollowRow {
     following_id: string;
 }
 
+interface MeResponse {
+    clerkUserId: string | null;
+    linkedUserId: string | null;
+    profile: {
+        id: string;
+        username: string;
+        avatar_url?: string;
+        categories?: Category[];
+        is_private?: boolean;
+        created_at?: string;
+        muted_users?: string[];
+        category_configs?: Record<string, CategoryConfigOverride>;
+    } | null;
+}
+
+async function getLinkedMe(): Promise<MeResponse> {
+    const response = await fetch('/api/social/me', { cache: 'no-store' });
+    if (!response.ok) {
+        return { clerkUserId: null, linkedUserId: null, profile: null };
+    }
+    return response.json() as Promise<MeResponse>;
+}
+
+async function socialWrite(action: string, payload: Record<string, unknown> = {}) {
+    const response = await fetch('/api/social/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data?.error || `Write failed: ${action}`);
+    }
+    return data;
+}
+
 export const HIGHLIGHT_COLOR = '#fffb91';
 
-export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
+export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '' },
     tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '' },
     music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '' },
@@ -107,6 +149,51 @@ export const CATEGORY_CONFIGS: Record<Category, CategoryConfig> = {
     podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '' },
     book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '' },
 };
+
+let ACTIVE_CATEGORY_CONFIG_OVERRIDES: Record<string, CategoryConfigOverride> = {};
+
+export function setActiveCategoryConfigOverrides(overrides?: Record<string, CategoryConfigOverride>) {
+    ACTIVE_CATEGORY_CONFIG_OVERRIDES = overrides || {};
+}
+
+const toLabel = (value: string) => {
+    const normalized = value.replace(/[_-]+/g, ' ').trim();
+    if (!normalized) return 'Category';
+    return normalized
+        .split(/\s+/)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+};
+
+const toShortLabel = (value: string) => {
+    const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (!cleaned) return 'CAT';
+    return cleaned.slice(0, 8);
+};
+
+export function getCategoryConfig(category: Category): CategoryConfig {
+    const predefined = CATEGORY_CONFIGS[category];
+    const base: CategoryConfig = predefined || {
+        id: category,
+        label: toLabel(category),
+        shortLabel: toShortLabel(category),
+        titleLabel: `${toLabel(category)} Title`,
+        subtitleLabel: 'Details',
+        subtitlePlaceholder: 'Details',
+        ratingLabel: 'Rating',
+        color: '#d4d4d4',
+        icon: '',
+    };
+
+    const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
+    if (!override) return base;
+
+    return {
+        ...base,
+        ...override,
+        id: category,
+    };
+}
 
 // ============================================================
 // Store Implementation (Singleton with useSyncExternalStore)
@@ -181,7 +268,8 @@ class SocialStore {
 
     async fetchStatuses() {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const me = await getLinkedMe();
+            const linkedUserId = me.linkedUserId;
 
             // Fetch ALL statuses (public)
             const { data: statusData, error: statusError } = await supabase
@@ -220,15 +308,15 @@ class SocialStore {
             }));
 
             // Filter for current user (Journal view)
-            const userStatuses = user ? combined.filter(s => s.userId === user.id) : combined;
+            const userStatuses = linkedUserId ? combined.filter(s => s.userId === linkedUserId) : combined;
 
             // Fetch Current User's Muted List
             let mutedUsers: string[] = [];
-            if (user) {
+            if (linkedUserId) {
                 const { data: myProfile } = await supabase
                     .from('user_profiles')
                     .select('muted_users')
-                    .eq('id', user.id)
+                    .eq('id', linkedUserId)
                     .single();
                 if (myProfile?.muted_users) {
                     mutedUsers = myProfile.muted_users || [];
@@ -268,55 +356,11 @@ class SocialStore {
 
         // If we have a real status, return its ID
         if (existing && existing.id !== 'temp-optimistic') return existing.id;
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        // Check DB for existing status first (race condition safety)
-        const { data: dbExisting } = await supabase
-            .from('social_statuses')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('date', activeDate)
-            .limit(1);
-
-        if (dbExisting && dbExisting.length > 0) {
-            await this.fetchStatuses(); // Refresh safely
-            return dbExisting[0].id;
-        }
-
-        // Create new
-        const { data, error } = await supabase
-            .from('social_statuses')
-            .insert({ content: '', date: activeDate, user_id: user.id })
-            .select()
-            .single();
-
-        if (error) {
-            // Handle race condition: Duplicate key violation (unique_date)
-            // If another request created it while we were waiting, fetch it now.
-            if (error.code === '23505') {
-                console.log("Status race condition detected - fetching existing status");
-                const { data: retryData, error: retryError } = await supabase
-                    .from('social_statuses')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('date', activeDate)
-                    .limit(1);
-
-                const status = retryData?.[0];
-                if (retryError || !status) {
-                    throw retryError || new Error("Failed to recover from status race condition - status not found");
-                }
-
-                await this.fetchStatuses();
-                return status.id;
-            }
-            throw error;
-        }
-
+        const response = await socialWrite('social.status.upsert', { date: activeDate, content: '' });
+        const statusId = response?.statusId as string | undefined;
+        if (!statusId) throw new Error('Failed to ensure status');
         await this.fetchStatuses();
-        return data.id;
+        return statusId;
     }
 
     async updateActiveStatus(content: string): Promise<string | undefined> {
@@ -329,12 +373,7 @@ class SocialStore {
             }
 
             const id = await this.ensureActiveStatus();
-            const { error } = await supabase
-                .from('social_statuses')
-                .update({ content })
-                .eq('id', id);
-
-            if (error) throw error;
+            await socialWrite('social.status.upsert', { date: this.state.activeDate, content });
             return id;
         } catch (error) {
             console.error("Error updating status:", error);
@@ -345,19 +384,17 @@ class SocialStore {
     async addItemToActive(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
         try {
             const statusId = await this.ensureActiveStatus();
-            const { error } = await supabase
-                .from('social_items')
-                .insert({
+            await socialWrite('social.item.add', {
+                statusId,
+                item: {
                     category: item.category,
                     title: item.title,
                     subtitle: item.subtitle,
                     rating: item.rating,
                     notes: item.notes,
                     image: item.image,
-                    status_id: statusId
-                });
-
-            if (error) throw error;
+                }
+            });
             await this.fetchStatuses();
         } catch (error) {
             console.error("Error adding item:", error);
@@ -367,12 +404,7 @@ class SocialStore {
 
     async togglePublished(statusId: string, published: boolean) {
         try {
-            const { error } = await supabase
-                .from('social_statuses')
-                .update({ published })
-                .eq('id', statusId);
-
-            if (error) throw error;
+            await socialWrite('social.status.publish', { statusId, published });
             await this.fetchStatuses();
         } catch (error) {
             console.error('Error toggling published:', error);
@@ -381,11 +413,7 @@ class SocialStore {
 
     async deleteStatus(statusId: string) {
         try {
-            // Delete items first
-            await supabase.from('social_items').delete().eq('status_id', statusId);
-            // Then delete status
-            const { error } = await supabase.from('social_statuses').delete().eq('id', statusId);
-            if (error) throw error;
+            await socialWrite('social.status.delete', { statusId });
             await this.fetchStatuses();
         } catch (error) {
             console.error('Error deleting status:', error);
@@ -403,12 +431,7 @@ class SocialStore {
                 this.emit();
             }
 
-            const { error } = await supabase
-                .from('social_items')
-                .delete()
-                .eq('id', itemId);
-
-            if (error) throw error;
+            await socialWrite('social.item.delete', { itemId });
             await this.fetchStatuses();
         } catch (error) {
             console.error("Error removing item:", error);
@@ -431,9 +454,6 @@ class SocialStore {
     }
 
     async toggleMute(userId: string) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
         const currentMuted = this.state.mutedUsers || [];
         const isMuted = currentMuted.includes(userId);
         let newMuted: string[];
@@ -448,10 +468,7 @@ class SocialStore {
         this.state = { ...this.state, mutedUsers: newMuted };
         this.emit(); // IMPORTANT: emit change
 
-        await supabase
-            .from('user_profiles')
-            .update({ muted_users: newMuted })
-            .eq('id', user.id);
+        await socialWrite('social.mute.toggle', { targetUserId: userId });
 
         await this.fetchStatuses();
     }
@@ -463,6 +480,7 @@ export const socialStore = new SocialStore();
 export function useSocialStore() {
     const state = useSyncExternalStore(
         (cb) => socialStore.subscribe(cb),
+        () => socialStore.getState(),
         () => socialStore.getState()
     );
 
@@ -502,31 +520,36 @@ export function useUserProfile() {
 
     const fetchProfile = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
+            const me = await getLinkedMe();
+            const linkedUserId = me.linkedUserId;
+            if (!linkedUserId) {
                 setProfile(null);
                 return;
             }
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', linkedUserId)
                 .single();
 
             if (error && error.code !== 'PGRST116') throw error;
 
             if (data) {
-                setProfile({
+                const mappedProfile = {
                     id: data.id,
                     username: data.username,
                     avatarUrl: data.avatar_url,
                     categories: data.categories || [],
                     isPrivate: data.is_private || false,
                     createdAt: data.created_at,
-                    muted_users: data.muted_users || [] // Added
-                });
+                    muted_users: data.muted_users || [],
+                    categoryConfigs: data.category_configs || {},
+                };
+                setProfile(mappedProfile);
+                setActiveCategoryConfigOverrides(mappedProfile.categoryConfigs);
             } else {
                 setProfile(null);
+                setActiveCategoryConfigOverrides({});
             }
         } catch (error) {
             console.error("Error fetching profile:", error);
@@ -536,39 +559,25 @@ export function useUserProfile() {
     };
 
     const uploadAvatar = async (file: File) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-            .from('avatars')
-            .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        return data.publicUrl;
+        const form = new FormData();
+        form.append('file', file);
+        const response = await fetch('/api/social/avatar', {
+            method: 'POST',
+            body: form,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Failed to upload avatar');
+        return data.url as string;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const dbUpdates: UserProfileDbUpdates = {};
-        if (updates.username) dbUpdates.username = updates.username;
-        if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
-        if (updates.categories) dbUpdates.categories = updates.categories;
-        if (updates.isPrivate !== undefined) dbUpdates.is_private = updates.isPrivate;
-
-        // Upsert
-        const { error } = await supabase
-            .from('user_profiles')
-            .upsert({ id: user.id, ...dbUpdates });
-
-        if (error) throw error;
+        await socialWrite('social.profile.upsert', {
+            username: updates.username,
+            avatarUrl: updates.avatarUrl,
+            categories: updates.categories,
+            isPrivate: updates.isPrivate,
+            categoryConfigs: updates.categoryConfigs,
+        });
         await fetchProfile();
     };
 
@@ -596,9 +605,9 @@ export function useHabits(userId?: string) {
         // If userId provided, fetch for that user, otherwise current user
         let targetId = userId;
         if (!targetId) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            targetId = user.id;
+            const me = await getLinkedMe();
+            if (!me.linkedUserId) return;
+            targetId = me.linkedUserId;
         }
 
         const { data } = await supabase
@@ -627,41 +636,38 @@ export function useHabits(userId?: string) {
     };
 
     const addHabit = async (name: string, icon: string = '') => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        await supabase.from('user_habits').insert({
-            user_id: user.id,
-            name,
-            icon,
-            sort_order: habits.length
-        });
+        await socialWrite('social.habit.add', { name, icon });
         await fetchHabits();
     };
 
     const removeHabit = async (id: string) => {
-        await supabase.from('user_habits').delete().eq('id', id);
+        await socialWrite('social.habit.remove', { habitId: id });
         await fetchHabits();
     };
 
     const toggleHabitLog = async (habitId: string, date: string, completed: boolean, notes?: string) => {
-        // Optimistic
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const replaceLocalLog = (nextNotes: string) => {
+            setHabitLogs(prev => {
+                const filtered = prev.filter(l => !(l.habit_id === habitId && l.date === date));
+                return [...filtered, { habit_id: habitId, date, completed: true, notes: nextNotes }];
+            });
+        };
 
         if (completed) {
-            setHabitLogs(prev => [...prev, { habit_id: habitId, date, completed: true, notes: notes || '' }]);
-            await supabase.from('habit_logs').upsert({
-                habit_id: habitId,
-                user_id: user.id,
+            replaceLocalLog(notes || '');
+            await socialWrite('social.habit.log.toggle', {
+                habitId,
                 date,
                 completed: true,
-                notes: notes || ''
-            }, { onConflict: 'habit_id, date' });
+                notes: notes || '',
+            });
         } else {
             setHabitLogs(prev => prev.filter(l => !(l.habit_id === habitId && l.date === date)));
-            await supabase.from('habit_logs').delete()
-                .match({ habit_id: habitId, date });
+            await socialWrite('social.habit.log.toggle', {
+                habitId,
+                date,
+                completed: false,
+            });
         }
     };
 
@@ -688,32 +694,19 @@ export function useFollows() {
     const [following, setFollowing] = useState<string[]>([]);
 
     const fetchFollows = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const me = await getLinkedMe();
+        if (!me.linkedUserId) return;
 
         const { data } = await supabase
             .from('follows')
             .select('following_id')
-            .eq('follower_id', user.id);
+            .eq('follower_id', me.linkedUserId);
 
         setFollowing((data || []).map((f: FollowRow) => f.following_id));
     };
 
     const toggleFollow = async (targetUserId: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const isFollowing = following.includes(targetUserId);
-
-        if (isFollowing) {
-            await supabase.from('follows').delete()
-                .match({ follower_id: user.id, following_id: targetUserId });
-        } else {
-            await supabase.from('follows').insert({
-                follower_id: user.id,
-                following_id: targetUserId
-            });
-        }
+        await socialWrite('social.follow.toggle', { targetUserId });
         await fetchFollows();
     };
 
@@ -748,7 +741,8 @@ export function usePublicProfile(userId: string) {
                 username: data.username,
                 avatarUrl: data.avatar_url,
                 categories: data.categories || [],
-                createdAt: data.created_at
+                createdAt: data.created_at,
+                categoryConfigs: data.category_configs || {},
             });
         }
         setLoading(false);

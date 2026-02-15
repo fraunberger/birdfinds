@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useSocialStore, Category, CATEGORY_CONFIGS, ConsumableItem } from '@/lib/social-prototype/store';
-import { useAuth } from '@/lib/auth';
+import { useSocialStore, Category, CATEGORY_CONFIGS, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 export function UserStats() {
@@ -31,7 +30,7 @@ export function UserStats() {
 
         return {
             category: cat,
-            config: CATEGORY_CONFIGS[cat],
+            config: getCategoryConfig(cat),
             count: items.length,
             items: items,
         };

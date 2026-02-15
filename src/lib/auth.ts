@@ -1,82 +1,58 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { User, Session } from '@supabase/supabase-js';
+import { useCallback } from "react";
+import { useClerk, useUser } from "@clerk/nextjs";
+
+export interface AppUser {
+    id: string;
+    email?: string | null;
+    username?: string | null;
+}
 
 export interface AuthState {
-    user: User | null;
-    session: Session | null;
+    user: AppUser | null;
+    session: null;
     loading: boolean;
 }
 
 export function useAuth() {
-    const [state, setState] = useState<AuthState>({
-        user: null,
-        session: null,
-        loading: true,
-    });
+    const { isLoaded, user: clerkUser } = useUser();
+    const { signOut: clerkSignOut } = useClerk();
 
-    useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setState({
-                user: session?.user ?? null,
-                session,
-                loading: false,
-            });
-        });
+    const user: AppUser | null = clerkUser
+        ? {
+            id: clerkUser.id,
+            email:
+                clerkUser.primaryEmailAddress?.emailAddress
+                ?? clerkUser.emailAddresses?.[0]?.emailAddress
+                ?? null,
+            username: clerkUser.username ?? null,
+        }
+        : null;
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                setState({
-                    user: session?.user ?? null,
-                    session,
-                    loading: false,
-                });
-            }
-        );
-
-        return () => {
-            subscription.unsubscribe();
-        };
+    const signIn = useCallback(async (_email?: string, _password?: string) => {
+        return { error: new Error("Use Clerk Sign In button.") };
     }, []);
 
-    const signIn = useCallback(async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-        return { error };
-    }, []);
-
-    const signUp = useCallback(async (email: string, password: string) => {
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: `${window.location.origin}/cardinal`,
-            },
-        });
-        return { error };
+    const signUp = useCallback(async (_email?: string, _password?: string) => {
+        return { error: new Error("Use Clerk Sign Up button.") };
     }, []);
 
     const signOut = useCallback(async () => {
-        const { error } = await supabase.auth.signOut();
-        return { error };
-    }, []);
+        await clerkSignOut();
+        return { error: null };
+    }, [clerkSignOut]);
 
     return {
-        ...state,
+        user,
+        session: null,
+        loading: !isLoaded,
         signIn,
         signUp,
         signOut,
     };
 }
 
-// Hook to require auth - redirects don't apply in this case, just returns loading/user state
 export function useRequireAuth() {
-    const auth = useAuth();
-    return auth;
+    return useAuth();
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Status, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore } from '@/lib/social-prototype/store';
+import Link from "next/link";
+import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
+import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 
 interface StatusCardProps {
     status: Status;
@@ -57,7 +59,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
             .replace(/\n/g, '<br/>');
 
         status.items.forEach(item => {
-            const config = CATEGORY_CONFIGS[item.category];
+            const config = getCategoryConfig(item.category);
             const color = config?.color || HIGHLIGHT_COLOR;
             const terms = getItemHighlightTerms(item);
             terms.forEach((term) => {
@@ -159,25 +161,37 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                     {status.items.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
                             {status.items.map(item => {
-                                const config = CATEGORY_CONFIGS[item.category];
-                                if (!config) return null;
+                                const config = getCategoryConfig(item.category);
                                 return (
-                                    <button
+                                    <div
                                         key={item.id}
-                                        onClick={() => setSelectedItem(item)}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border cursor-pointer hover:opacity-80 transition-opacity"
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border"
                                         style={{
                                             backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
                                             borderColor: config.color || '#e5e5e5',
                                         }}
                                     >
-                                        <span className="font-medium text-neutral-800">{item.title}</span>
+                                        <button
+                                            onClick={() => setSelectedItem(item)}
+                                            className="font-medium text-neutral-800 hover:opacity-70 transition-opacity"
+                                        >
+                                            {item.title}
+                                        </button>
+                                        {hasItemAggregatePage(item.category) && (
+                                            <Link
+                                                href={buildItemPath(item)}
+                                                className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                                                title="Open item page"
+                                            >
+                                                page
+                                            </Link>
+                                        )}
                                         {item.rating ? (
                                             <span className="text-neutral-500 font-mono ml-1">
                                                 {item.rating}<span className="text-[9px]">/10</span>
                                             </span>
                                         ) : null}
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>

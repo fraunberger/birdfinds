@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSocialStore, useFollows, usePublicProfile, UserProfile, Status } from '@/lib/social-prototype/store';
+import { useSocialStore, useFollows, UserProfile, Status } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import { StatusCard } from './StatusCard';
 import { supabase } from '@/lib/supabase';
@@ -12,9 +12,9 @@ interface SocialFeedProps {
 
 export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { user } = useAuth();
-    const { allStatuses, statuses, activeDate, setActiveDate, isLoaded } = useSocialStore();
+    const { allStatuses, setActiveDate, isLoaded } = useSocialStore();
     const { following } = useFollows();
-    const [mode, setMode] = useState<'feed' | 'journal'>('feed');
+    const [mode, setMode] = useState<'all' | 'following'>('all');
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
 
     // Fetch profiles for all unique userIds in the feed
@@ -54,23 +54,17 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         return <div className="h-40 bg-neutral-100 mb-4 border border-neutral-300" />;
     }
 
-    // Build feed based on mode
-    let feedStatuses: Status[];
-    if (mode === 'journal') {
-        // Journal: show all own statuses (published + drafts)
-        feedStatuses = statuses;
-    } else {
-        // Feed: show only published posts from everyone, excluding private users
-        feedStatuses = allStatuses.filter(s => {
-            if (!s.published) return false;
-            // Always show own posts
-            if (s.userId === user?.id) return true;
-            // Hide posts from private users
-            const profile = s.userId ? profileCache[s.userId] : null;
-            if (profile?.isPrivate) return false;
-            return true;
-        });
-    }
+    const publishedStatuses = allStatuses.filter(s => {
+        if (!s.published) return false;
+        if (s.userId === user?.id) return true;
+        const profile = s.userId ? profileCache[s.userId] : null;
+        if (profile?.isPrivate) return false;
+        return true;
+    });
+
+    const feedStatuses: Status[] = mode === 'all'
+        ? publishedStatuses
+        : publishedStatuses.filter((s) => s.userId && (s.userId === user?.id || following.includes(s.userId)));
 
     // Sort by date descending
     feedStatuses.sort((a, b) => b.date.localeCompare(a.date));
@@ -80,26 +74,26 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
             {/* Header with toggle */}
             <div className="border-b border-neutral-300 pb-2 mb-6 flex items-center justify-between">
                 <h2 className="text-xs uppercase tracking-widest text-neutral-500">
-                    {mode === 'feed' ? 'Feed' : 'Journal'}
+                    {mode === 'all' ? 'Public Feed' : 'Following'}
                 </h2>
                 <div className="flex text-xs gap-0 border border-neutral-300">
                     <button
-                        onClick={() => setMode('feed')}
-                        className={`px-3 py-1 uppercase tracking-wider transition-colors ${mode === 'feed'
+                        onClick={() => setMode('all')}
+                        className={`px-3 py-1 uppercase tracking-wider transition-colors ${mode === 'all'
                             ? 'bg-neutral-800 text-white'
                             : 'text-neutral-500 hover:bg-neutral-100'
                             }`}
                     >
-                        Feed
+                        Public Feed
                     </button>
                     <button
-                        onClick={() => setMode('journal')}
-                        className={`px-3 py-1 uppercase tracking-wider transition-colors border-l border-neutral-300 ${mode === 'journal'
+                        onClick={() => setMode('following')}
+                        className={`px-3 py-1 uppercase tracking-wider transition-colors border-l border-neutral-300 ${mode === 'following'
                             ? 'bg-neutral-800 text-white'
                             : 'text-neutral-500 hover:bg-neutral-100'
                             }`}
                     >
-                        Journal
+                        Following
                     </button>
                 </div>
             </div>
@@ -108,7 +102,11 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
             <div className="space-y-4">
                 {feedStatuses.length === 0 && (
                     <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest">
-                        {mode === 'feed' ? 'No posts in your feed yet.' : 'No previous entries.'}
+                        {mode === 'all'
+                            ? 'No posts in the public feed yet.'
+                            : user
+                                ? 'No posts from accounts you follow yet.'
+                                : 'Sign in to use Following feed.'}
                     </div>
                 )}
 

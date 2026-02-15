@@ -1,4 +1,5 @@
-export type ElectionStatus = 'nomination' | 'voting' | 'completed';
+export type ElectionStatus = 'nomination' | 'voting' | 'completed' | 'cancelled';
+export type BallotVisibility = 'secret' | 'open';
 
 export interface Nomination {
     id: string;
@@ -33,6 +34,7 @@ export interface Election {
 
     // State
     state?: ElectionStatus; // Manual override status
+    ballotVisibility: BallotVisibility;
     participants: string[];
     nominations: Nomination[];
     votes: Vote[];

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR } from '@/lib/social-prototype/store';
+import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { HabitChecklist } from './HabitChecklist';
 
@@ -117,7 +117,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         ? userCategories
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
-    const activeCategoryConfigs = activeCategories.map(c => CATEGORY_CONFIGS[c]).filter(Boolean);
+    const activeCategoryConfigs = activeCategories.map(c => getCategoryConfig(c));
     const activeContentKey = activeStatus?.id ?? `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const effectiveQuickAddCategory = activeCategories.includes(quickAddCategory)
@@ -427,7 +427,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             .replace(/\n/g, '<br/>');
 
         items.forEach(item => {
-            const config = CATEGORY_CONFIGS[item.category];
+            const config = getCategoryConfig(item.category);
             const color = config?.color || HIGHLIGHT_COLOR;
             const terms = getItemHighlightTerms(item);
             terms.forEach((term) => {
@@ -628,7 +628,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     {showMentionPicker && mentionCategory && (
                         <div className="border border-neutral-300 bg-neutral-50 p-3 mb-2 animate-in fade-in zoom-in-95 duration-100">
                             <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 flex items-center justify-between">
-                                <span>{CATEGORY_CONFIGS[mentionCategory]?.icon} New {CATEGORY_CONFIGS[mentionCategory]?.label}</span>
+                                <span>{getCategoryConfig(mentionCategory).icon} New {getCategoryConfig(mentionCategory).label}</span>
                                 <button onClick={handleMentionCancel} className="text-neutral-400 hover:text-black p-2">x</button>
                             </div>
                             <div className="flex gap-2">
@@ -641,7 +641,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         if (e.key === 'Enter') handleMentionSubmit();
                                         if (e.key === 'Escape') handleMentionCancel();
                                     }}
-                                    placeholder={CATEGORY_CONFIGS[mentionCategory]?.titleLabel}
+                                    placeholder={getCategoryConfig(mentionCategory).titleLabel}
                                     className="flex-1 text-[16px] sm:text-xs font-mono border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500 bg-white shadow-sm"
                                     autoFocus
                                 />
@@ -698,8 +698,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             </thead>
                             <tbody>
                                 {items.map((item) => {
-                                    const config = CATEGORY_CONFIGS[item.category];
-                                    if (!config) return null;
+                                    const config = getCategoryConfig(item.category);
                                     return (
                                         <tr
                                             key={item.id}
