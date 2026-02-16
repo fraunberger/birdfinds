@@ -56,7 +56,7 @@ export async function GET(request: Request) {
             })
             .filter((ep) => ep.id && ep.label)
             .sort((a, b) => (Date.parse(b.stamp) || 0) - (Date.parse(a.stamp) || 0))
-            .slice(0, 30);
+            .slice(0, 500);
 
         return NextResponse.json(results);
     } catch (error) {

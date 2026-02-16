@@ -21,6 +21,7 @@ interface ModalDraft {
     subtitle: string;
     rating: number | undefined;
     notes: string;
+    image?: string;
 }
 
 interface MusicSearchResult {
@@ -102,6 +103,7 @@ function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableI
             subtitle: existingItem.subtitle || '',
             rating: existingItem.rating,
             notes: existingItem.notes || '',
+            image: existingItem.image,
         };
     }
     return {
@@ -110,8 +112,35 @@ function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableI
         subtitle: '',
         rating: undefined,
         notes: '',
+        image: undefined,
     };
 }
+
+const parseMetaImage = (raw?: string): string | undefined => {
+    if (!raw) return undefined;
+    if (!raw.startsWith('meta:')) return raw;
+    try {
+        const decoded = decodeURIComponent(raw.slice('meta:'.length));
+        const parsed = JSON.parse(decoded) as { imageUrl?: string };
+        return parsed.imageUrl;
+    } catch {
+        return undefined;
+    }
+};
+
+const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string): string | null => {
+    const imageRef = parseMetaImage(raw);
+    const normalized = imageRef?.startsWith('place:') ? imageRef.slice('place:'.length) : imageRef;
+    if (normalized?.startsWith('places/')) {
+        const placeId = normalized.slice('places/'.length);
+        if (placeId) {
+            return `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`;
+        }
+    }
+    const query = [title || '', subtitle || ''].join(' ').trim();
+    if (!query) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
 
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
@@ -142,6 +171,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [breweryResults, setBreweryResults] = useState<BrewerySearchResult[]>([]);
     const [isSearchingBreweries, setIsSearchingBreweries] = useState(false);
     const [showBreweryResults, setShowBreweryResults] = useState(false);
+    const [restaurantSearchToken, setRestaurantSearchToken] = useState(0);
+    const [brewerySearchToken, setBrewerySearchToken] = useState(0);
     const { category, title, subtitle, rating, notes } = draft;
 
     const handleSave = useCallback(() => {
@@ -152,6 +183,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             subtitle: draft.subtitle,
             rating: draft.rating,
             notes: draft.notes,
+            image: draft.image,
         });
         onClose();
     }, [draft, onClose, onSave]);
@@ -166,6 +198,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const config = getCategoryConfig(category);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
+    const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant')
+        ? toGoogleMapsLink(existingItem?.image || draft.image, title, subtitle)
+        : null;
 
     useEffect(() => {
         if (readOnly || category !== 'music') {
@@ -218,6 +253,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showBreweryResults) return;
         const query = subtitle.trim();
         if (query.length < 2) {
             setBreweryResults([]);
@@ -251,7 +287,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, subtitle]);
+    }, [category, readOnly, subtitle, showBreweryResults, brewerySearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'movie') {
@@ -468,6 +504,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showRestaurantResults) return;
         const query = title.trim();
         if (query.length < 2) {
             setRestaurantResults([]);
@@ -501,7 +538,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, title]);
+    }, [category, readOnly, title, showRestaurantResults, restaurantSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'book') {
@@ -583,7 +620,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 <select
                                     value={category}
                                     onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
-                                    className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4"
+                                    className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4 min-w-[130px]"
                                 >
                                     {Array.from(new Set([category, ...DEFAULT_CATEGORIES])).map((cat) => {
                                         const optionConfig = getCategoryConfig(cat);
@@ -645,9 +682,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             }
                                             setShowTvPicker(true);
                                         }
-                                        if (category === 'restaurant') {
-                                            setShowRestaurantResults(true);
-                                        }
                                         if (category === 'book') {
                                             setShowBookResults(true);
                                         }
@@ -665,15 +699,26 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         if (category === 'tv') {
                                             setShowTvPicker(true);
                                         }
-                                        if (category === 'restaurant') {
-                                            setShowRestaurantResults(true);
-                                        }
                                         if (category === 'book') {
                                             setShowBookResults(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
+                                {category === 'restaurant' && !readOnly && (
+                                    <div className="mt-2 flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowRestaurantResults(true);
+                                                setRestaurantSearchToken((prev) => prev + 1);
+                                            }}
+                                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+                                        >
+                                            Search Places
+                                        </button>
+                                    </div>
+                                )}
                                 {category === 'music' && !readOnly && showMusicResults && (
                                     <div className="mt-2 border border-neutral-300 bg-white max-h-44 overflow-y-auto">
                                         {isSearchingMusic && (
@@ -927,6 +972,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     setDraft((prev) => ({
                                                         ...prev,
                                                         title: place.name,
+                                                        subtitle: place.address || prev.subtitle,
+                                                        image: `place:${place.id}`,
                                                     }));
                                                     setShowRestaurantResults(false);
                                                 }}
@@ -996,18 +1043,24 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 if (category === 'tv') {
                                                     setShowTvPicker(true);
                                                 }
-                                                if (category === 'beer') {
-                                                    setShowBreweryResults(true);
-                                                }
-                                            }}
-                                            onFocus={() => {
-                                                if (category === 'beer') {
-                                                    setShowBreweryResults(true);
-                                                }
                                             }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
                                         />
+                                    )}
+                                    {category === 'beer' && !readOnly && (
+                                        <div className="mt-2 flex justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowBreweryResults(true);
+                                                    setBrewerySearchToken((prev) => prev + 1);
+                                                }}
+                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+                                            >
+                                                Search Breweries
+                                            </button>
+                                        </div>
                                     )}
                                     {category === 'beer' && !readOnly && showBreweryResults && (
                                         <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
@@ -1147,6 +1200,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                     </div>
                     <div className="flex gap-3">
+                        {restaurantMapHref && (
+                            <a
+                                href={restaurantMapHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500"
+                            >
+                                Open Google
+                            </a>
+                        )}
                         {showItemPageLink && itemPageHref && (
                             <Link
                                 href={itemPageHref}
