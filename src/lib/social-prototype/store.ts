@@ -117,11 +117,23 @@ interface CommentRow {
     user_id: string;
     content: string;
     created_at: string;
+    deleted_at?: string | null;
+}
+
+interface StatusRow {
+    id: string;
+    content: string;
+    date: string;
+    user_id: string;
+    published?: boolean;
+    created_at: string;
+    deleted_at?: string | null;
 }
 
 interface MeResponse {
     clerkUserId: string | null;
     linkedUserId: string | null;
+    isAdmin?: boolean;
     profile: {
         id: string;
         username: string;
@@ -322,7 +334,10 @@ class SocialStore {
                 );
             }
 
-            const combined: Status[] = (statusData || []).map(s => ({
+            const statusRows = ((statusData || []) as StatusRow[])
+                .filter((row) => !row.deleted_at);
+
+            const combined: Status[] = statusRows.map((s) => ({
                 id: s.id,
                 content: s.content,
                 date: s.date,
@@ -343,6 +358,7 @@ class SocialStore {
                     })),
                 comments: comments
                     .filter((comment) => comment.status_id === s.id)
+                    .filter((comment) => !comment.deleted_at)
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
                     .map((comment) => ({
                         id: comment.id,
@@ -506,6 +522,44 @@ class SocialStore {
         }
     }
 
+    async reportStatus(statusId: string, reason?: string) {
+        try {
+            await socialWrite('social.status.report', { statusId, reason: reason || '' });
+        } catch (error) {
+            console.error("Error reporting status:", error);
+            throw error;
+        }
+    }
+
+    async reportComment(commentId: string, reason?: string) {
+        try {
+            await socialWrite('social.comment.report', { commentId, reason: reason || '' });
+        } catch (error) {
+            console.error("Error reporting comment:", error);
+            throw error;
+        }
+    }
+
+    async softDeleteStatus(statusId: string, reason?: string) {
+        try {
+            await socialWrite('social.status.soft_delete', { statusId, reason: reason || '' });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error("Error soft deleting status:", error);
+            throw error;
+        }
+    }
+
+    async softDeleteComment(commentId: string, reason?: string) {
+        try {
+            await socialWrite('social.comment.soft_delete', { commentId, reason: reason || '' });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error("Error soft deleting comment:", error);
+            throw error;
+        }
+    }
+
     getAllItemsByCategory(category: Category): ConsumableItem[] {
         return this.state.statuses.flatMap(s => s.items).filter(i => i.category === category);
     }
@@ -560,6 +614,10 @@ export function useSocialStore() {
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
         addComment: (statusId: string, content: string) => socialStore.addComment(statusId, content),
         deleteComment: (commentId: string) => socialStore.deleteComment(commentId),
+        reportStatus: (statusId: string, reason?: string) => socialStore.reportStatus(statusId, reason),
+        reportComment: (commentId: string, reason?: string) => socialStore.reportComment(commentId, reason),
+        softDeleteStatus: (statusId: string, reason?: string) => socialStore.softDeleteStatus(statusId, reason),
+        softDeleteComment: (commentId: string, reason?: string) => socialStore.softDeleteComment(commentId, reason),
         togglePublished: (id: string, published: boolean) => socialStore.togglePublished(id, published),
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
@@ -586,6 +644,7 @@ function getTodayDateString() {
 
 export function useUserProfile() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const fetchProfile = async () => {
@@ -594,8 +653,10 @@ export function useUserProfile() {
             const linkedUserId = me.linkedUserId;
             if (!linkedUserId) {
                 setProfile(null);
+                setIsAdmin(Boolean(me.isAdmin));
                 return;
             }
+            setIsAdmin(Boolean(me.isAdmin));
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('*')
@@ -658,6 +719,7 @@ export function useUserProfile() {
 
     return {
         profile,
+        isAdmin,
         loading,
         updateProfile,
         saveProfile: updateProfile, // Alias for backward compat

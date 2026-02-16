@@ -27,6 +27,7 @@ export function SocialLayout() {
   const needsOnboarding = !!user && !profile?.username?.trim();
   const needsCategorySetup = !!user && !!profile?.username?.trim() && (!profile?.categories || profile.categories.length === 0);
   const needsFirstPost = !!user && !!profile?.username?.trim() && statuses.length === 0;
+  const showOnboardingChecklist = !!user && (needsOnboarding || needsCategorySetup || needsFirstPost);
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const syncAboutFromLocation = () => {
@@ -142,37 +143,37 @@ export function SocialLayout() {
             </div>
           )}
 
-          {user && needsOnboarding ? (
-            <div className="mb-4 border border-amber-200 bg-amber-50 p-3 text-[10px] uppercase tracking-widest text-amber-700">
-              <p className="font-bold">Welcome to Birdfinds</p>
-              <div className="mt-2 space-y-1 text-[10px]">
-                <p>1. Set username + avatar in <Link href="/settings" className="underline">settings</Link>.</p>
-                <p>2. Pick categories you want to track.</p>
-                <p>3. Post your first review to publish on the feed.</p>
-              </div>
-            </div>
-          ) : null}
-
-          {user && !needsOnboarding && (needsCategorySetup || needsFirstPost) ? (
-            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[10px] uppercase tracking-widest text-neutral-600">
-              <p className="font-bold text-neutral-700">Quick Start</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {needsCategorySetup && (
-                  <Link href="/settings" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100 text-neutral-700">
-                    Add Categories
+          {showOnboardingChecklist && (
+            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
+              <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
+              <ol className="mt-2 space-y-1 text-xs">
+                <li className={needsOnboarding ? "text-neutral-800" : "text-green-700"}>
+                  {needsOnboarding ? "□" : "✓"} 1. Set username and avatar
+                </li>
+                <li className={needsCategorySetup ? "text-neutral-800" : "text-green-700"}>
+                  {needsCategorySetup ? "□" : "✓"} 2. Choose categories to track
+                </li>
+                <li className={needsFirstPost ? "text-neutral-800" : "text-green-700"}>
+                  {needsFirstPost ? "□" : "✓"} 3. Publish your first post
+                </li>
+              </ol>
+              <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+                {(needsOnboarding || needsCategorySetup) && (
+                  <Link href="/settings" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+                    Open Settings
                   </Link>
                 )}
-                {needsFirstPost && (
+                {needsFirstPost && !needsOnboarding && !needsCategorySetup && (
                   <button
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                    className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100 text-neutral-700"
+                    className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
                   >
                     Write First Post
                   </button>
                 )}
               </div>
             </div>
-          ) : null}
+          )}
 
           {user && !needsOnboarding && (
             <StatusComposer userCategories={profile?.categories} />

@@ -9,6 +9,7 @@ import { buildItemPath, getCanonicalItemSlug, hasItemAggregatePage } from "@/lib
 interface UserHit {
   id: string;
   username: string;
+  score?: number;
 }
 
 interface RawItemHit {
@@ -24,6 +25,7 @@ interface ItemHit {
   title: string;
   subtitle?: string;
   count: number;
+  score?: number;
 }
 
 interface RawPostHit {
@@ -39,7 +41,55 @@ interface PostHit {
   username: string;
   content: string;
   createdAt: string;
+  score?: number;
 }
+
+const normalize = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const levenshtein = (a: string, b: string) => {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const matrix: number[][] = Array.from({ length: rows }, () => Array(cols).fill(0));
+  for (let r = 0; r < rows; r += 1) matrix[r][0] = r;
+  for (let c = 0; c < cols; c += 1) matrix[0][c] = c;
+  for (let r = 1; r < rows; r += 1) {
+    for (let c = 1; c < cols; c += 1) {
+      const cost = a[r - 1] === b[c - 1] ? 0 : 1;
+      matrix[r][c] = Math.min(
+        matrix[r - 1][c] + 1,
+        matrix[r][c - 1] + 1,
+        matrix[r - 1][c - 1] + cost
+      );
+    }
+  }
+  return matrix[a.length][b.length];
+};
+
+const fuzzyScore = (text: string, query: string) => {
+  const haystack = normalize(text);
+  const needle = normalize(query);
+  if (!haystack || !needle) return 0;
+  if (haystack === needle) return 120;
+  if (haystack.startsWith(needle)) return 100;
+  if (haystack.includes(needle)) return 80;
+
+  const tokens = haystack.split(" ").filter(Boolean);
+  if (tokens.some((token) => token.startsWith(needle))) return 70;
+
+  let best = 0;
+  for (const token of tokens) {
+    const distance = levenshtein(token, needle);
+    const maxLen = Math.max(token.length, needle.length) || 1;
+    const similarity = 1 - distance / maxLen;
+    if (similarity > best) best = similarity;
+  }
+  return best >= 0.72 ? Math.round(best * 60) : 0;
+};
 
 export function HeaderSearch() {
   const [open, setOpen] = useState(false);
@@ -93,24 +143,25 @@ export function HeaderSearch() {
         supabase
           .from("user_profiles")
           .select("id,username")
-          .ilike("username", `%${q}%`)
-          .limit(5),
+          .limit(120),
         supabase
           .from("social_items")
           .select("category,title,subtitle")
-          .ilike("title", `%${q}%`)
-          .limit(60),
+          .limit(300),
         supabase
           .from("social_statuses")
           .select("id,user_id,content,created_at")
           .eq("published", true)
-          .ilike("content", `%${q}%`)
-          .limit(12),
+          .limit(120),
       ]);
 
       if (cancelled) return;
 
-      const userHits = (userRes.data || []) as UserHit[];
+      const userHits = ((userRes.data || []) as UserHit[])
+        .map((candidate) => ({ ...candidate, score: fuzzyScore(candidate.username, q) }))
+        .filter((candidate) => (candidate.score || 0) >= 45)
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 8);
       const rawItems = (itemRes.data || []) as RawItemHit[];
       const rawPosts = (postRes.data || []) as RawPostHit[];
 
@@ -125,6 +176,13 @@ export function HeaderSearch() {
             existing.count += 1;
             return;
           }
+          const score = Math.max(
+            fuzzyScore(row.title || "", q),
+            fuzzyScore(row.subtitle || "", q),
+            fuzzyScore(`${row.title || ""} ${row.subtitle || ""}`.trim(), q)
+          );
+          if (score < 35) return;
+
           deduped.set(key, {
             key,
             category: row.category,
@@ -135,6 +193,7 @@ export function HeaderSearch() {
             title: row.title,
             subtitle: row.subtitle || undefined,
             count: 1,
+            score,
           });
         });
 
@@ -158,12 +217,25 @@ export function HeaderSearch() {
           username: userLookup.get(post.user_id) || "Unknown",
           content: post.content.trim(),
           createdAt: post.created_at,
+          score: Math.max(
+            fuzzyScore(post.content || "", q),
+            fuzzyScore(userLookup.get(post.user_id) || "", q)
+          ),
         }))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .filter((post) => (post.score || 0) >= 35)
+        .sort(
+          (a, b) =>
+            (b.score || 0) - (a.score || 0) ||
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
         .slice(0, 6);
 
       setUsers(userHits);
-      setItems(Array.from(deduped.values()).sort((a, b) => b.count - a.count).slice(0, 8));
+      setItems(
+        Array.from(deduped.values())
+          .sort((a, b) => (b.score || 0) - (a.score || 0) || b.count - a.count)
+          .slice(0, 8)
+      );
       setPosts(postHits);
       setLoading(false);
     }, 220);

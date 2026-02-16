@@ -7,12 +7,15 @@ import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
+import { pushToast } from '@/lib/social-prototype/toast';
 
 interface StatusCardProps {
     status: Status;
     profile?: UserProfile | null;
     onClickProfile?: (userId: string) => void;
     isOwn?: boolean;
+    isAdmin?: boolean;
+    currentUserId?: string | null;
     onEdit?: () => void;
 }
 
@@ -44,14 +47,14 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
 };
 
-export function StatusCard({ status, profile, onClickProfile, isOwn = false, onEdit }: StatusCardProps) {
+export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [commentDraft, setCommentDraft] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
     const { user } = useAuth();
-    const { deleteStatus, addComment, deleteComment } = useSocialStore();
+    const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment } = useSocialStore();
 
     // Render content with highlighted items
     const renderContent = () => {
@@ -147,11 +150,47 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                             Edit
                         </button>
                     )}
+                    {!isOwn && user && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const reason = window.prompt('Report reason (optional):') || '';
+                                    await reportStatus(status.id, reason);
+                                    pushToast({ message: 'Report submitted. Thanks.', tone: 'success' });
+                                } catch (error) {
+                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to report post', tone: 'error' });
+                                }
+                            }}
+                            className="text-[10px] uppercase tracking-widest border border-neutral-200 px-2 py-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+                        >
+                            Report
+                        </button>
+                    )}
+                    {isAdmin && !isOwn && (
+                        <button
+                            onClick={async () => {
+                                if (!confirm('Hide this post from public feed?')) return;
+                                try {
+                                    await softDeleteStatus(status.id, 'Hidden by admin');
+                                    pushToast({ message: 'Post hidden.', tone: 'success' });
+                                } catch (error) {
+                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to hide post', tone: 'error' });
+                                }
+                            }}
+                            className="text-[10px] uppercase tracking-widest border border-red-200 px-2 py-1 text-red-500 hover:bg-red-50"
+                        >
+                            Hide
+                        </button>
+                    )}
                     {isOwn && (
                         <button
-                            onClick={() => {
+                            onClick={async () => {
                                 if (confirm('Delete this post and all its items?')) {
-                                    deleteStatus(status.id);
+                                    try {
+                                        await deleteStatus(status.id);
+                                    } catch (error) {
+                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to delete post', tone: 'error' });
+                                    }
                                 }
                             }}
                             className="text-[10px] text-neutral-400 hover:text-red-500 uppercase tracking-widest"
@@ -264,7 +303,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                                         <span className="text-[10px] text-neutral-300">
                                             {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                         </span>
-                                        {user && (user.id === comment.userId || isOwn) && (
+                                        {user && (currentUserId === comment.userId || isOwn) && (
                                             <button
                                                 onClick={async () => {
                                                     await deleteComment(comment.id);
@@ -272,6 +311,38 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                                                 className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-500"
                                             >
                                                 Del
+                                            </button>
+                                        )}
+                                        {user && currentUserId !== comment.userId && (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const reason = window.prompt('Report reason (optional):') || '';
+                                                        await reportComment(comment.id, reason);
+                                                        pushToast({ message: 'Comment reported.', tone: 'success' });
+                                                    } catch (error) {
+                                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to report comment', tone: 'error' });
+                                                    }
+                                                }}
+                                                className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-neutral-700"
+                                            >
+                                                Report
+                                            </button>
+                                        )}
+                                        {isAdmin && user && currentUserId !== comment.userId && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm('Hide this comment?')) return;
+                                                    try {
+                                                        await softDeleteComment(comment.id, 'Hidden by admin');
+                                                        pushToast({ message: 'Comment hidden.', tone: 'success' });
+                                                    } catch (error) {
+                                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to hide comment', tone: 'error' });
+                                                    }
+                                                }}
+                                                className="text-[10px] uppercase tracking-widest text-red-300 hover:text-red-500"
+                                            >
+                                                Hide
                                             </button>
                                         )}
                                     </div>
@@ -289,6 +360,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                                     try {
                                         await addComment(status.id, commentDraft.trim());
                                         setCommentDraft('');
+                                    } catch (error) {
+                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to post comment', tone: 'error' });
                                     } finally {
                                         setCommentSubmitting(false);
                                     }

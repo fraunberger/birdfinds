@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { HabitChecklist } from './HabitChecklist';
+import { pushToast } from '@/lib/social-prototype/toast';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -164,6 +165,23 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         const timer = window.setTimeout(() => setDraftStatus('idle'), 1200);
         return () => window.clearTimeout(timer);
     }, [draftStatus]);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        if (activeStatus?.published) return;
+        if (content.trim() === (activeStatus?.content || '').trim()) return;
+
+        const timer = window.setTimeout(async () => {
+            try {
+                await updateActiveStatus(content);
+                setDraftStatus('saved');
+            } catch (error) {
+                pushToast({ message: error instanceof Error ? error.message : 'Draft sync failed', tone: 'error' });
+            }
+        }, 1200);
+
+        return () => window.clearTimeout(timer);
+    }, [isExpanded, activeStatus?.published, activeStatus?.content, content, updateActiveStatus]);
 
     const adjustTextareaHeight = () => {
         const el = textareaRef.current;
@@ -345,7 +363,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             setContentForActive(newContent);
             updateActiveStatus(newContent);
         } catch (error: unknown) {
-            alert(`Failed to add item: ${getErrorMessage(error)}`);
+            pushToast({ message: `Failed to add item: ${getErrorMessage(error)}`, tone: 'error' });
         }
 
         // Reset
@@ -398,7 +416,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             updateActiveStatus(newContent);
             clearTaggingState();
         } catch (error: unknown) {
-            alert(`Failed to add item: ${getErrorMessage(error)}`);
+            pushToast({ message: `Failed to add item: ${getErrorMessage(error)}`, tone: 'error' });
         }
     };
 
@@ -414,7 +432,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             });
             setQuickAddTitle('');
         } catch (error: unknown) {
-            alert(`Failed to quick add: ${getErrorMessage(error)}`);
+            pushToast({ message: `Failed to quick add: ${getErrorMessage(error)}`, tone: 'error' });
         }
     };
 
@@ -438,7 +456,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             await addItemToActive({ ...item, image: nextImage });
             setExistingItem(undefined);
         } catch (error: unknown) {
-            alert(`Failed to save item: ${getErrorMessage(error)}`);
+            pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
         }
     };
 
@@ -787,18 +805,22 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </div>
                         <button
                             onClick={async () => {
-                                let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                if (content) {
-                                    statusId = await updateActiveStatus(content) || statusId;
-                                }
-                                if (statusId) {
-                                    await togglePublished(statusId, true);
-                                    setContentDrafts((prev) => {
-                                        const next = { ...prev };
-                                        delete next[activeContentKey];
-                                        return next;
-                                    });
-                                    setIsExpanded(false);
+                                try {
+                                    let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
+                                    if (content) {
+                                        statusId = await updateActiveStatus(content) || statusId;
+                                    }
+                                    if (statusId) {
+                                        await togglePublished(statusId, true);
+                                        setContentDrafts((prev) => {
+                                            const next = { ...prev };
+                                            delete next[activeContentKey];
+                                            return next;
+                                        });
+                                        setIsExpanded(false);
+                                    }
+                                } catch (error) {
+                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to post update', tone: 'error' });
                                 }
                             }}
                             disabled={!!activeStatus?.published && !hasDraftChanges}
@@ -855,7 +877,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                                         try {
                                                             await linkExistingItemToPost(item);
                                                         } catch (error: unknown) {
-                                                            alert(`Failed to link item: ${getErrorMessage(error)}`);
+                                                            pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' });
                                                         }
                                                     }}
                                                     className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"

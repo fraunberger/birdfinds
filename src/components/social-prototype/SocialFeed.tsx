@@ -13,7 +13,7 @@ interface SocialFeedProps {
 
 export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { user } = useAuth();
-    const { profile } = useUserProfile();
+    const { profile, isAdmin } = useUserProfile();
     const { allStatuses, setActiveDate, isLoaded } = useSocialStore();
     const { following, follow } = useFollows();
     const [mode, setMode] = useState<'all' | 'following'>('all');
@@ -183,6 +183,8 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                             profile={status.userId ? profileCache[status.userId] : null}
                             onClickProfile={onClickProfile}
                             isOwn={isOwn}
+                            isAdmin={isAdmin}
+                            currentUserId={linkedUserId}
                             onEdit={isOwn ? () => {
                                 setActiveDate(status.date);
                                 window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));

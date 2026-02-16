@@ -8,10 +8,14 @@ type WriteAction =
   | "social.status.upsert"
   | "social.status.publish"
   | "social.status.delete"
+  | "social.status.soft_delete"
+  | "social.status.report"
   | "social.item.add"
   | "social.item.delete"
   | "social.comment.add"
   | "social.comment.delete"
+  | "social.comment.soft_delete"
+  | "social.comment.report"
   | "social.profile.upsert"
   | "social.follow.toggle"
   | "social.mute.toggle"
@@ -58,6 +62,18 @@ const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string
   }
 };
 
+const getAdminList = (envValue?: string) =>
+  (envValue || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
+  const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
+  const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
+  return adminClerkIds.includes(clerkUserId) || adminLinkedIds.includes(linkedUserId);
+};
+
 export async function POST(req: NextRequest) {
   const supabaseAdmin = getSupabaseAdmin();
   const { userId: clerkUserId } = await auth();
@@ -73,6 +89,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json()) as WriteBody;
   const action = body.action;
   const payload = body.payload || {};
+  const admin = isSocialAdmin(clerkUserId, linkedUserId);
 
   try {
     if (action === "social.status.upsert") {
@@ -179,6 +196,68 @@ export async function POST(req: NextRequest) {
       if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
       await ensureOwnComment(supabaseAdmin, commentId, linkedUserId);
       const { error } = await supabaseAdmin.from("social_comments").delete().eq("id", commentId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.report") {
+      const statusId = String(payload.statusId || "").trim();
+      const reason = String(payload.reason || "").trim();
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      const { error } = await supabaseAdmin.from("social_reports").insert({
+        reporter_id: linkedUserId,
+        target_type: "status",
+        target_id: statusId,
+        reason: reason || null,
+      });
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.comment.report") {
+      const commentId = String(payload.commentId || "").trim();
+      const reason = String(payload.reason || "").trim();
+      if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
+      const { error } = await supabaseAdmin.from("social_reports").insert({
+        reporter_id: linkedUserId,
+        target_type: "comment",
+        target_id: commentId,
+        reason: reason || null,
+      });
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.soft_delete") {
+      if (!admin) return NextResponse.json({ error: "Admin only" }, { status: 403 });
+      const statusId = String(payload.statusId || "").trim();
+      const reason = String(payload.reason || "").trim();
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: linkedUserId,
+          delete_reason: reason || "Hidden by admin",
+        })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.comment.soft_delete") {
+      if (!admin) return NextResponse.json({ error: "Admin only" }, { status: 403 });
+      const commentId = String(payload.commentId || "").trim();
+      const reason = String(payload.reason || "").trim();
+      if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
+      const { error } = await supabaseAdmin
+        .from("social_comments")
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: linkedUserId,
+          delete_reason: reason || "Hidden by admin",
+        })
+        .eq("id", commentId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }

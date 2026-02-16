@@ -3,16 +3,28 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
 
+const getAdminList = (envValue?: string) =>
+  (envValue || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
 export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ clerkUserId: null, linkedUserId: null, profile: null });
+      return NextResponse.json({ clerkUserId: null, linkedUserId: null, profile: null, isAdmin: false });
     }
 
     const linkedUserId = await getOrCreateLinkedSupabaseUser();
     if (!linkedUserId) {
-      return NextResponse.json({ clerkUserId: userId, linkedUserId: null, profile: null });
+      const adminIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
+      return NextResponse.json({
+        clerkUserId: userId,
+        linkedUserId: null,
+        profile: null,
+        isAdmin: adminIds.includes(userId),
+      });
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -22,10 +34,15 @@ export async function GET() {
       .eq("id", linkedUserId)
       .maybeSingle();
 
+    const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
+    const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
+    const isAdmin = adminClerkIds.includes(userId) || adminLinkedIds.includes(linkedUserId);
+
     return NextResponse.json({
       clerkUserId: userId,
       linkedUserId,
       profile: profile || null,
+      isAdmin,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

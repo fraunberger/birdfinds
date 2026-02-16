@@ -24,7 +24,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
-    const { profile: myProfile } = useUserProfile();
+    const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
     const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
@@ -291,6 +291,8 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             profile={profile}
                                             onClickProfile={onClickProfile}
                                             isOwn={isOwnProfile}
+                                            isAdmin={isAdmin}
+                                            currentUserId={myProfile?.id}
                                         />
                                     ))
                                 )}
