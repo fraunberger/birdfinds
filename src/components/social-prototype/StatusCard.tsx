@@ -79,13 +79,35 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
         return (
             <p
                 onClick={(e) => {
-                    const node = e.target as Node;
-                    const baseEl = node instanceof HTMLElement ? node : node.parentElement;
-                    const mark = baseEl?.closest('mark[data-item-id]') as HTMLElement | null;
+                    const target = e.target as EventTarget | null;
+                    const element = target instanceof Element ? target : null;
+                    const mark = element?.closest('mark[data-item-id], mark') as HTMLElement | null;
                     if (!mark) return;
+
                     const id = mark.getAttribute('data-item-id');
-                    const item = status.items.find(i => i.id === id);
-                    if (item) setSelectedItem(item);
+                    const byId = id ? status.items.find((item) => item.id === id) : undefined;
+                    if (byId) {
+                        setSelectedItem(byId);
+                        return;
+                    }
+
+                    const clickedText = (mark.textContent || '').trim().toLowerCase();
+                    if (clickedText) {
+                        const byTerm = status.items.find((item) =>
+                            getItemHighlightTerms(item).some((term) => {
+                                const normalized = term.trim().toLowerCase();
+                                return normalized === clickedText || normalized.includes(clickedText) || clickedText.includes(normalized);
+                            })
+                        );
+                        if (byTerm) {
+                            setSelectedItem(byTerm);
+                            return;
+                        }
+                    }
+
+                    if (status.items.length === 1) {
+                        setSelectedItem(status.items[0]);
+                    }
                 }}
                 className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default"
                 dangerouslySetInnerHTML={{ __html: html }}
