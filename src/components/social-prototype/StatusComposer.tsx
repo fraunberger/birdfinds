@@ -110,6 +110,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
     const [isMobileTagging, setIsMobileTagging] = useState(false);
     const [mobilePickerBottom, setMobilePickerBottom] = useState(12);
+    const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -455,6 +456,29 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
+    const linkExistingItemToPost = (item: ConsumableItem) => {
+        const currentContent = content || '';
+        const rawInsertPos = lastCursorPosition ?? currentContent.length;
+        const insertPos = Math.max(0, Math.min(rawInsertPos, currentContent.length));
+        const before = currentContent.slice(0, insertPos);
+        const after = currentContent.slice(insertPos);
+        const needsLeadingSpace = before.length > 0 && !/\s$/.test(before);
+        const needsTrailingSpace = after.length > 0 && !/^\s/.test(after);
+        const insertion = `${needsLeadingSpace ? ' ' : ''}${item.title}${needsTrailingSpace ? ' ' : ''}`;
+        const nextContent = `${before}${insertion}${after}`;
+
+        setContentForActive(nextContent);
+        setIsExpanded(true);
+        setTimeout(() => {
+            const target = textareaRef.current;
+            if (!target) return;
+            target.focus();
+            const nextCursor = before.length + insertion.length;
+            target.setSelectionRange(nextCursor, nextCursor);
+            setLastCursorPosition(nextCursor);
+        }, 30);
+    };
+
     const handleTextSelection = (target: HTMLTextAreaElement) => {
         const start = target.selectionStart;
         const end = target.selectionEnd;
@@ -630,21 +654,25 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             onSelect={(e) => {
                                 if (isMobileTagging) return;
                                 const target = e.target as HTMLTextAreaElement;
+                                setLastCursorPosition(target.selectionStart);
                                 handleTextSelection(target);
                             }}
                             onTouchEnd={(e) => {
                                 if (isMobileTagging) return;
                                 const target = e.target as HTMLTextAreaElement;
+                                setLastCursorPosition(target.selectionStart);
                                 window.setTimeout(() => handleTextSelection(target), 0);
                             }}
                             onPointerUp={(e) => {
                                 if (isMobileTagging) return;
                                 const target = e.target as HTMLTextAreaElement;
+                                setLastCursorPosition(target.selectionStart);
                                 window.setTimeout(() => handleTextSelection(target), 0);
                             }}
                             onClick={(e) => {
                                 const target = e.target as HTMLTextAreaElement;
                                 const cursor = target.selectionStart;
+                                setLastCursorPosition(cursor);
 
                                 // Check if cursor is inside an existing item
                                 // We reconstruct where items are located
@@ -790,6 +818,16 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                                 {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                             </td>
                                             <td className="px-2 py-1 border-b border-neutral-200 text-center">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        linkExistingItemToPost(item);
+                                                    }}
+                                                    className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
+                                                    title="Insert into post text"
+                                                >
+                                                    link
+                                                </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
                                                     className="text-neutral-400 hover:text-neutral-600 p-1"
