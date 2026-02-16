@@ -80,11 +80,11 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
             <p
                 onClick={(e) => {
                     const target = e.target as HTMLElement;
-                    if (target.tagName === 'MARK') {
-                        const id = target.getAttribute('data-item-id');
-                        const item = status.items.find(i => i.id === id);
-                        if (item) setSelectedItem(item);
-                    }
+                    const mark = target.closest('mark[data-item-id]') as HTMLElement | null;
+                    if (!mark) return;
+                    const id = mark.getAttribute('data-item-id');
+                    const item = status.items.find(i => i.id === id);
+                    if (item) setSelectedItem(item);
                 }}
                 className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default"
                 dangerouslySetInnerHTML={{ __html: html }}
@@ -185,10 +185,11 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
                                         {hasItemAggregatePage(item.category) && (
                                             <Link
                                                 href={buildItemPath(item)}
-                                                className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
-                                                title="Open item page"
+                                                className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                title="Open item details"
+                                                aria-label="Open item details"
                                             >
-                                                page
+                                                ↗
                                             </Link>
                                         )}
                                         {item.rating ? (
