@@ -529,7 +529,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             return;
         }
 
-        setSelectedPlainText('');
         if (triggerLength !== 1) clearTaggingState();
     };
 
