@@ -19,7 +19,7 @@ export default function PilePage({
   void _params;
   const router = useRouter();
   const { user } = useAuth();
-  const { profile } = useUserProfile();
+  const { profile, isAdmin } = useUserProfile();
   const routeParams = useParams<{ user: string }>();
   const routeUser = decodeURIComponent(routeParams?.user || "");
   const [resolvedUser, setResolvedUser] = useState<string | null>(null);
@@ -116,6 +116,7 @@ export default function PilePage({
                 pileHref={`/pile/${encodeURIComponent(profile?.username || user.id)}`}
                 username={profile?.username || user.username || user.email?.split("@")[0] || "Account"}
                 avatarUrl={profile?.avatarUrl}
+                isAdmin={isAdmin}
               />
             )}
           </div>

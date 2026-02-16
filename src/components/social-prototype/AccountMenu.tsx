@@ -9,9 +9,10 @@ interface AccountMenuProps {
   pileHref: string;
   username: string;
   avatarUrl?: string;
+  isAdmin?: boolean;
 }
 
-export function AccountMenu({ pileHref, username, avatarUrl }: AccountMenuProps) {
+export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false }: AccountMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -59,6 +60,15 @@ export function AccountMenu({ pileHref, username, avatarUrl }: AccountMenuProps)
           >
             Settings
           </Link>
+          {isAdmin && (
+            <Link
+              href="/moderation"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            >
+              Moderation
+            </Link>
+          )}
           <button
             onClick={() => {
               setOpen(false);

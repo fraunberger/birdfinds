@@ -22,7 +22,7 @@ export function SocialLayout() {
   const router = useRouter();
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading } = useUserProfile();
+  const { profile, loading: profileLoading, isAdmin } = useUserProfile();
   const { setActiveDate, statuses } = useSocialStore();
   const needsOnboarding = !!user && !profile?.username?.trim();
   const needsCategorySetup = !!user && !!profile?.username?.trim() && (!profile?.categories || profile.categories.length === 0);
@@ -92,6 +92,7 @@ export function SocialLayout() {
                 pileHref={`/pile/${encodeURIComponent(profile?.username || user.id)}`}
                 username={userDisplay}
                 avatarUrl={profile?.avatarUrl}
+                isAdmin={isAdmin}
               />
             )}
             {clerkEnabled ? (
