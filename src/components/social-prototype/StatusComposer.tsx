@@ -111,6 +111,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [isMobileTagging, setIsMobileTagging] = useState(false);
     const [mobilePickerBottom, setMobilePickerBottom] = useState(12);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
+    const [selectedPlainText, setSelectedPlainText] = useState<string>('');
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -456,7 +457,35 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const items = activeStatus?.items || [];
 
-    const linkExistingItemToPost = (item: ConsumableItem) => {
+    const linkExistingItemToPost = async (item: ConsumableItem) => {
+        const phrase = selectedPlainText.trim();
+
+        // Natural-language link: map selected phrase to this table item via alias.
+        if (phrase) {
+            const lowerPhrase = phrase.toLowerCase();
+            const alreadyLinked = getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === lowerPhrase);
+            if (!alreadyLinked) {
+                const meta = parseItemMeta(item.image);
+                const aliases = new Set((meta.aliases || []).map((value) => value.trim()).filter(Boolean));
+                aliases.add(phrase);
+                const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
+
+                await removeItemFromActive(item.id);
+                await addItemToActive({
+                    category: item.category,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    rating: item.rating,
+                    notes: item.notes,
+                    image: nextImage,
+                });
+            }
+
+            setSelectedPlainText('');
+            return;
+        }
+
+        // Fallback: insert item title at cursor.
         const currentContent = content || '';
         const rawInsertPos = lastCursorPosition ?? currentContent.length;
         const insertPos = Math.max(0, Math.min(rawInsertPos, currentContent.length));
@@ -486,6 +515,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         if (start !== end) {
             const selectedText = target.value.substring(start, end);
             if (!selectedText.trim()) return;
+            setSelectedPlainText(selectedText.trim());
 
             const existing = items.find((i) =>
                 getItemHighlightTerms(i).some((term) => term.toLowerCase() === selectedText.toLowerCase())
@@ -499,6 +529,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             return;
         }
 
+        setSelectedPlainText('');
         if (triggerLength !== 1) clearTaggingState();
     };
 
@@ -819,12 +850,16 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                             </td>
                                             <td className="px-2 py-1 border-b border-neutral-200 text-center">
                                                 <button
-                                                    onClick={(e) => {
+                                                    onClick={async (e) => {
                                                         e.stopPropagation();
-                                                        linkExistingItemToPost(item);
+                                                        try {
+                                                            await linkExistingItemToPost(item);
+                                                        } catch (error: unknown) {
+                                                            alert(`Failed to link item: ${getErrorMessage(error)}`);
+                                                        }
                                                     }}
                                                     className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
-                                                    title="Insert into post text"
+                                                    title={selectedPlainText.trim() ? `Link "${selectedPlainText.trim()}" to this item` : "Insert into post text"}
                                                 >
                                                     link
                                                 </button>
