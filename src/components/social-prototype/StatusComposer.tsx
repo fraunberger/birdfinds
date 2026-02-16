@@ -318,16 +318,22 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         if (!mentionTitle.trim() || !mentionCategory) return;
 
         const title = mentionTitle.trim();
+        const existing = items.find((item) =>
+            item.category === mentionCategory
+            && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
+        );
 
         try {
-            // Add the item
-            await addItemToActive({
-                category: mentionCategory,
-                title,
-                rating: undefined,
-                subtitle: '',
-                notes: ''
-            });
+            // Reuse matching table item instead of creating duplicates.
+            if (!existing) {
+                await addItemToActive({
+                    category: mentionCategory,
+                    title,
+                    rating: undefined,
+                    subtitle: '',
+                    notes: ''
+                });
+            }
 
             // Replace text
             const before = content.substring(0, atPosition);
@@ -361,13 +367,21 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         }
 
         try {
-            await addItemToActive({
-                category,
-                title: mentionTitle.trim(),
-                rating: undefined,
-                subtitle: '',
-                notes: ''
-            });
+            const normalizedTitle = mentionTitle.trim();
+            const existing = items.find((item) =>
+                item.category === category
+                && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === normalizedTitle.toLowerCase())
+            );
+
+            if (!existing) {
+                await addItemToActive({
+                    category,
+                    title: normalizedTitle,
+                    rating: undefined,
+                    subtitle: '',
+                    notes: ''
+                });
+            }
 
             let start = selectionRange ? selectionRange.start : atPosition;
             let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1));
@@ -377,7 +391,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
             const before = content.substring(0, start);
             const after = content.substring(end);
-            const newContent = before + mentionTitle.trim() + after;
+            const newContent = before + normalizedTitle + after;
             setContentForActive(newContent);
             updateActiveStatus(newContent);
             clearTaggingState();
