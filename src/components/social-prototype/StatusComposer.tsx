@@ -640,8 +640,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
                                     bottom: isMobileTagging ? `${mobilePickerBottom}px` : undefined,
-                                    top: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.top ?? 0) + 24}px, calc(100% - 140px))`,
-                                    left: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.left ?? 0) + 16}px, calc(100% - 132px))`,
+                                    // Keep the bar below the selection and center it so it doesn't cover highlighted text.
+                                    top: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.top ?? 0) + (selectionRange?.height ?? 16) + 10}px, calc(100% - 140px))`,
+                                    left: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.left ?? 0) - 62}px, calc(100% - 132px))`,
                                     width: isMobileTagging ? undefined : '124px',
                                     maxHeight: isMobileTagging ? '40vh' : '45vh',
                                 }}
