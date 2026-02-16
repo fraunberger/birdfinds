@@ -56,65 +56,93 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const { user } = useAuth();
     const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment } = useSocialStore();
 
-    // Render content with highlighted items
-    const renderContent = () => {
-        if (!status.content) return null;
+    type HighlightMatch = {
+        start: number;
+        end: number;
+        itemId: string;
+        color: string;
+    };
 
-        let html = status.content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br/>');
+    const findMatches = (source: string): HighlightMatch[] => {
+        const matches: HighlightMatch[] = [];
 
-        status.items.forEach(item => {
+        status.items.forEach((item) => {
             const config = getCategoryConfig(item.category);
             const color = config?.color || HIGHLIGHT_COLOR;
             const terms = getItemHighlightTerms(item);
             terms.forEach((term) => {
-                const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                html = html.replace(
-                    regex,
-                    `<mark data-item-id="${item.id}" style="background-color: ${color}; padding: 0 1px; cursor: pointer;">$1</mark>`
-                );
+                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(escaped, 'gi');
+                let found: RegExpExecArray | null;
+                while ((found = regex.exec(source)) !== null) {
+                    matches.push({
+                        start: found.index,
+                        end: found.index + found[0].length,
+                        itemId: item.id,
+                        color,
+                    });
+                }
             });
         });
 
+        // Prefer longer matches first, then earlier position, then stable item id order.
+        matches.sort((a, b) => {
+            const lenDiff = (b.end - b.start) - (a.end - a.start);
+            if (lenDiff !== 0) return lenDiff;
+            if (a.start !== b.start) return a.start - b.start;
+            return a.itemId.localeCompare(b.itemId);
+        });
+
+        const chosen: HighlightMatch[] = [];
+        matches.forEach((candidate) => {
+            const overlaps = chosen.some(
+                (existing) => !(candidate.end <= existing.start || candidate.start >= existing.end)
+            );
+            if (!overlaps) chosen.push(candidate);
+        });
+
+        return chosen.sort((a, b) => a.start - b.start);
+    };
+
+    // Render content with robust clickable highlights
+    const renderContent = () => {
+        if (!status.content) return null;
+
+        const text = status.content;
+        const matches = findMatches(text);
+        const parts: React.ReactNode[] = [];
+        let cursor = 0;
+
+        matches.forEach((match, index) => {
+            if (match.start > cursor) {
+                parts.push(text.slice(cursor, match.start));
+            }
+            const label = text.slice(match.start, match.end);
+            const item = status.items.find((entry) => entry.id === match.itemId);
+            parts.push(
+                <button
+                    key={`${match.itemId}:${match.start}:${index}`}
+                    type="button"
+                    onClick={() => item && setSelectedItem(item)}
+                    className="inline px-[1px] cursor-pointer"
+                    style={{ backgroundColor: match.color }}
+                >
+                    {label}
+                </button>
+            );
+            cursor = match.end;
+        });
+
+        if (cursor < text.length) {
+            parts.push(text.slice(cursor));
+        }
+
         return (
             <p
-                onClick={(e) => {
-                    const target = e.target as EventTarget | null;
-                    const element = target instanceof Element ? target : null;
-                    const mark = element?.closest('mark[data-item-id], mark') as HTMLElement | null;
-                    if (!mark) return;
-
-                    const id = mark.getAttribute('data-item-id');
-                    const byId = id ? status.items.find((item) => item.id === id) : undefined;
-                    if (byId) {
-                        setSelectedItem(byId);
-                        return;
-                    }
-
-                    const clickedText = (mark.textContent || '').trim().toLowerCase();
-                    if (clickedText) {
-                        const byTerm = status.items.find((item) =>
-                            getItemHighlightTerms(item).some((term) => {
-                                const normalized = term.trim().toLowerCase();
-                                return normalized === clickedText || normalized.includes(clickedText) || clickedText.includes(normalized);
-                            })
-                        );
-                        if (byTerm) {
-                            setSelectedItem(byTerm);
-                            return;
-                        }
-                    }
-
-                    if (status.items.length === 1) {
-                        setSelectedItem(status.items[0]);
-                    }
-                }}
                 className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default"
-                dangerouslySetInnerHTML={{ __html: html }}
-            />
+            >
+                {parts}
+            </p>
         );
     };
 
