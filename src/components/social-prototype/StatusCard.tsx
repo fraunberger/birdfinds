@@ -79,8 +79,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, onE
         return (
             <p
                 onClick={(e) => {
-                    const target = e.target as HTMLElement;
-                    const mark = target.closest('mark[data-item-id]') as HTMLElement | null;
+                    const node = e.target as Node;
+                    const baseEl = node instanceof HTMLElement ? node : node.parentElement;
+                    const mark = baseEl?.closest('mark[data-item-id]') as HTMLElement | null;
                     if (!mark) return;
                     const id = mark.getAttribute('data-item-id');
                     const item = status.items.find(i => i.id === id);
