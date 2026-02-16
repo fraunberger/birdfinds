@@ -171,6 +171,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [breweryResults, setBreweryResults] = useState<BrewerySearchResult[]>([]);
     const [isSearchingBreweries, setIsSearchingBreweries] = useState(false);
     const [showBreweryResults, setShowBreweryResults] = useState(false);
+    const [musicSearchToken, setMusicSearchToken] = useState(0);
+    const [movieSearchToken, setMovieSearchToken] = useState(0);
+    const [podcastShowSearchToken, setPodcastShowSearchToken] = useState(0);
+    const [podcastEpisodeSearchToken, setPodcastEpisodeSearchToken] = useState(0);
+    const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
+    const [tvEpisodeSearchToken, setTvEpisodeSearchToken] = useState(0);
+    const [bookSearchToken, setBookSearchToken] = useState(0);
     const [restaurantSearchToken, setRestaurantSearchToken] = useState(0);
     const [brewerySearchToken, setBrewerySearchToken] = useState(0);
     const { category, title, subtitle, rating, notes } = draft;
@@ -210,6 +217,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showMusicResults) return;
         const query = title.trim();
         if (query.length < 2) {
             setMusicResults([]);
@@ -243,7 +251,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, title]);
+    }, [category, readOnly, showMusicResults, musicSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'beer') {
@@ -287,7 +295,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, subtitle, showBreweryResults, brewerySearchToken]);
+    }, [category, readOnly, showBreweryResults, brewerySearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'movie') {
@@ -297,6 +305,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showMovieResults) return;
         const query = title.trim();
         if (query.length < 2) {
             setMovieResults([]);
@@ -330,7 +339,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, title]);
+    }, [category, readOnly, showMovieResults, movieSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'podcast') {
@@ -343,6 +352,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showPodcastPicker) return;
         if (selectedPodcast) return;
 
         const query = title.trim();
@@ -378,7 +388,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, selectedPodcast, title]);
+    }, [category, readOnly, selectedPodcast, showPodcastPicker, podcastShowSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'podcast' || !selectedPodcast?.feedUrl) {
@@ -386,6 +396,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (podcastEpisodeSearchToken === 0) return;
         const controller = new AbortController();
         const timeoutId = window.setTimeout(async () => {
             try {
@@ -412,7 +423,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, selectedPodcast]);
+    }, [category, readOnly, selectedPodcast, podcastEpisodeSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'tv') {
@@ -425,6 +436,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showTvPicker) return;
         if (selectedTvShow) return;
 
         const query = title.trim();
@@ -460,7 +472,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, selectedTvShow, title]);
+    }, [category, readOnly, selectedTvShow, showTvPicker, tvShowSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -468,6 +480,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (tvEpisodeSearchToken === 0) return;
         const controller = new AbortController();
         const timeoutId = window.setTimeout(async () => {
             try {
@@ -494,7 +507,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, selectedTvShow]);
+    }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'restaurant') {
@@ -538,7 +551,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, title, showRestaurantResults, restaurantSearchToken]);
+    }, [category, readOnly, showRestaurantResults, restaurantSearchToken]);
 
     useEffect(() => {
         if (readOnly || category !== 'book') {
@@ -548,6 +561,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return;
         }
 
+        if (!showBookResults) return;
         const query = title.trim();
         if (query.length < 2) {
             setBookResults([]);
@@ -581,7 +595,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, title]);
+    }, [category, readOnly, showBookResults, bookSearchToken]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -662,60 +676,66 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     value={title}
                                     onChange={(e) => {
                                         setDraft((prev) => ({ ...prev, title: e.target.value }));
-                                        if (category === 'music') {
-                                            setShowMusicResults(true);
-                                        }
-                                        if (category === 'movie') {
-                                            setShowMovieResults(true);
-                                        }
                                         if (category === 'podcast') {
                                             if (selectedPodcast) {
                                                 setSelectedPodcast(null);
                                                 setPodcastEpisodes([]);
                                             }
-                                            setShowPodcastPicker(true);
                                         }
                                         if (category === 'tv') {
                                             if (selectedTvShow) {
                                                 setSelectedTvShow(null);
                                                 setTvEpisodes([]);
                                             }
-                                            setShowTvPicker(true);
-                                        }
-                                        if (category === 'book') {
-                                            setShowBookResults(true);
-                                        }
-                                    }}
-                                    onFocus={() => {
-                                        if (category === 'music') {
-                                            setShowMusicResults(true);
-                                        }
-                                        if (category === 'movie') {
-                                            setShowMovieResults(true);
-                                        }
-                                        if (category === 'podcast') {
-                                            setShowPodcastPicker(true);
-                                        }
-                                        if (category === 'tv') {
-                                            setShowTvPicker(true);
-                                        }
-                                        if (category === 'book') {
-                                            setShowBookResults(true);
                                         }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
-                                {category === 'restaurant' && !readOnly && (
+                                {!readOnly && (category === 'music' || category === 'movie' || category === 'podcast' || category === 'tv' || category === 'restaurant' || category === 'book') && (
                                     <div className="mt-2 flex justify-end">
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setShowRestaurantResults(true);
-                                                setRestaurantSearchToken((prev) => prev + 1);
+                                                if (category === 'music') {
+                                                    setShowMusicResults(true);
+                                                    setMusicSearchToken((prev) => prev + 1);
+                                                }
+                                                if (category === 'movie') {
+                                                    setShowMovieResults(true);
+                                                    setMovieSearchToken((prev) => prev + 1);
+                                                }
+                                                if (category === 'podcast') {
+                                                    setShowPodcastPicker(true);
+                                                    setSelectedPodcast(null);
+                                                    setPodcastEpisodes([]);
+                                                    setPodcastShowSearchToken((prev) => prev + 1);
+                                                }
+                                                if (category === 'tv') {
+                                                    setShowTvPicker(true);
+                                                    setSelectedTvShow(null);
+                                                    setTvEpisodes([]);
+                                                    setTvShowSearchToken((prev) => prev + 1);
+                                                }
+                                                if (category === 'restaurant') {
+                                                    setShowRestaurantResults(true);
+                                                    setRestaurantSearchToken((prev) => prev + 1);
+                                                }
+                                                if (category === 'book') {
+                                                    setShowBookResults(true);
+                                                    setBookSearchToken((prev) => prev + 1);
+                                                }
                                             }}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
                                         >
-                                            Search Places
+                                            {category === 'restaurant'
+                                                ? 'Search Places'
+                                                : category === 'podcast'
+                                                    ? 'Search Shows'
+                                                    : category === 'tv'
+                                                        ? 'Search Shows'
+                                                        : category === 'book'
+                                                            ? 'Search Books'
+                                                            : 'Search'}
                                         </button>
                                     </div>
                                 )}
@@ -802,6 +822,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 onClick={() => {
                                                     setSelectedPodcast(show);
                                                     setPodcastEpisodes([]);
+                                                    setPodcastEpisodeSearchToken(0);
                                                     setDraft((prev) => ({
                                                         ...prev,
                                                         title: '',
@@ -823,24 +844,39 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
                                                         <div className="text-xs text-neutral-800 truncate">{selectedPodcast.name}</div>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedPodcast(null);
-                                                            setPodcastEpisodes([]);
-                                                            setDraft((prev) => ({ ...prev, title: '' }));
-                                                        }}
-                                                        className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
-                                                    >
-                                                        Change
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPodcastEpisodeSearchToken((prev) => prev + 1)}
+                                                            className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+                                                        >
+                                                            Load Episodes
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedPodcast(null);
+                                                                setPodcastEpisodes([]);
+                                                                setPodcastEpisodeSearchToken(0);
+                                                                setDraft((prev) => ({ ...prev, title: '' }));
+                                                            }}
+                                                            className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                                        >
+                                                            Change
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 {isLoadingEpisodes && (
                                                     <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
                                                         Loading episodes...
                                                     </div>
                                                 )}
-                                                {!isLoadingEpisodes && podcastEpisodes.length === 0 && (
+                                                {!isLoadingEpisodes && podcastEpisodeSearchToken === 0 && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        Click load episodes
+                                                    </div>
+                                                )}
+                                                {!isLoadingEpisodes && podcastEpisodeSearchToken > 0 && podcastEpisodes.length === 0 && (
                                                     <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
                                                         No episodes
                                                     </div>
@@ -886,6 +922,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 onClick={() => {
                                                     setSelectedTvShow(show);
                                                     setTvEpisodes([]);
+                                                    setTvEpisodeSearchToken(0);
                                                     setDraft((prev) => ({
                                                         ...prev,
                                                         title: show.name,
@@ -908,24 +945,39 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
                                                         <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedTvShow(null);
-                                                            setTvEpisodes([]);
-                                                            setDraft((prev) => ({ ...prev, title: '', subtitle: '' }));
-                                                        }}
-                                                        className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
-                                                    >
-                                                        Change
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setTvEpisodeSearchToken((prev) => prev + 1)}
+                                                            className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+                                                        >
+                                                            Load Episodes
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedTvShow(null);
+                                                                setTvEpisodes([]);
+                                                                setTvEpisodeSearchToken(0);
+                                                                setDraft((prev) => ({ ...prev, title: '', subtitle: '' }));
+                                                            }}
+                                                            className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                                        >
+                                                            Change
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 {isLoadingTvEpisodes && (
                                                     <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
                                                         Loading episodes...
                                                     </div>
                                                 )}
-                                                {!isLoadingTvEpisodes && tvEpisodes.length === 0 && (
+                                                {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && (
+                                                    <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
+                                                        Click load episodes
+                                                    </div>
+                                                )}
+                                                {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && (
                                                     <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">
                                                         No episodes
                                                     </div>
