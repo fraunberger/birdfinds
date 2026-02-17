@@ -17,6 +17,7 @@ interface StatusCardProps {
     isAdmin?: boolean;
     currentUserId?: string | null;
     onEdit?: () => void;
+    showPostReportButton?: boolean;
 }
 
 interface ItemMeta {
@@ -47,7 +48,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
 };
 
-export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit }: StatusCardProps) {
+export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
     const [showComments, setShowComments] = useState(false);
@@ -178,7 +179,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                             Edit
                         </button>
                     )}
-                    {!isOwn && user && (
+                    {showPostReportButton && !isOwn && user && (
                         <button
                             onClick={async () => {
                                 try {

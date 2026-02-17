@@ -185,6 +185,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                             isOwn={isOwn}
                             isAdmin={isAdmin}
                             currentUserId={linkedUserId}
+                            showPostReportButton={false}
                             onEdit={isOwn ? () => {
                                 setActiveDate(status.date);
                                 window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));
