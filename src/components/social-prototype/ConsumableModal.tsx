@@ -128,6 +128,39 @@ const parseMetaImage = (raw?: string): string | undefined => {
     }
 };
 
+interface ItemMetaData {
+    imageUrl?: string;
+    recipeUrl?: string;
+    aliases?: string[];
+}
+
+const parseItemMeta = (raw?: string): ItemMetaData => {
+    if (!raw) return {};
+    if (!raw.startsWith('meta:')) return { imageUrl: raw };
+    try {
+        const decoded = decodeURIComponent(raw.slice('meta:'.length));
+        const parsed = JSON.parse(decoded) as ItemMetaData;
+        return {
+            imageUrl: parsed.imageUrl,
+            recipeUrl: parsed.recipeUrl,
+            aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
+        };
+    } catch {
+        return {};
+    }
+};
+
+const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
+    const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
+    if (!meta.imageUrl && !meta.recipeUrl && aliases.length === 0) return undefined;
+    if (!meta.recipeUrl && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
+    return `meta:${encodeURIComponent(JSON.stringify({
+        imageUrl: meta.imageUrl,
+        recipeUrl: meta.recipeUrl,
+        aliases,
+    }))}`;
+};
+
 const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string): string | null => {
     const imageRef = parseMetaImage(raw);
     const normalized = imageRef?.startsWith('place:') ? imageRef.slice('place:'.length) : imageRef;
@@ -181,6 +214,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [restaurantSearchToken, setRestaurantSearchToken] = useState(0);
     const [brewerySearchToken, setBrewerySearchToken] = useState(0);
     const { category, title, subtitle, rating, notes } = draft;
+    const recipeUrl = parseItemMeta(draft.image).recipeUrl || '';
 
     const handleSave = useCallback(() => {
         if (!draft.title.trim()) return;
@@ -1179,6 +1213,45 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {category === 'cooking' ? (
                         /* Recipe Split View: Ingredients left, Instructions right */
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    Recipe URL
+                                </label>
+                                {readOnly ? (
+                                    recipeUrl ? (
+                                        <a
+                                            href={recipeUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xs text-neutral-700 underline hover:text-neutral-900 break-all"
+                                        >
+                                            {recipeUrl}
+                                        </a>
+                                    ) : (
+                                        <div className="text-sm font-mono text-neutral-300">No URL</div>
+                                    )
+                                ) : (
+                                    <input
+                                        type="url"
+                                        value={recipeUrl}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setDraft((prev) => {
+                                                const meta = parseItemMeta(prev.image);
+                                                return {
+                                                    ...prev,
+                                                    image: serializeItemMeta({
+                                                        ...meta,
+                                                        recipeUrl: next.trim() || undefined,
+                                                    }),
+                                                };
+                                            });
+                                        }}
+                                        placeholder="https://..."
+                                        className="w-full text-xs font-mono outline-none border border-neutral-300 focus:border-neutral-500 p-2 bg-white"
+                                    />
+                                )}
+                            </div>
                             <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.subtitleLabel}

@@ -15,6 +15,7 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 interface ItemMeta {
     imageUrl?: string;
     aliases?: string[];
+    recipeUrl?: string;
 }
 
 const META_PREFIX = 'meta:';
@@ -28,6 +29,7 @@ const parseItemMeta = (raw?: string): ItemMeta => {
         return {
             imageUrl: parsed.imageUrl,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
+            recipeUrl: typeof parsed.recipeUrl === 'string' ? parsed.recipeUrl : undefined,
         };
     } catch {
         return {};
@@ -37,8 +39,8 @@ const parseItemMeta = (raw?: string): ItemMeta => {
 const serializeItemMeta = (meta: ItemMeta): string | undefined => {
     const aliases = (meta.aliases || []).map((v) => v.trim()).filter(Boolean);
     if (!meta.imageUrl && aliases.length === 0) return undefined;
-    if (aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
-    return `${META_PREFIX}${encodeURIComponent(JSON.stringify({ imageUrl: meta.imageUrl, aliases }))}`;
+    if (aliases.length === 0 && meta.imageUrl && !meta.recipeUrl) return meta.imageUrl;
+    return `${META_PREFIX}${encodeURIComponent(JSON.stringify({ imageUrl: meta.imageUrl, aliases, recipeUrl: meta.recipeUrl }))}`;
 };
 
 const getItemHighlightTerms = (item: ConsumableItem): string[] => {
@@ -550,47 +552,79 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         if (triggerLength !== 1) clearTaggingState();
     };
 
-    // Highlight rendering — font size must match the textarea exactly
-    const renderHighlights = () => {
-        if (!content) return null;
+    type HighlightMatch = {
+        start: number;
+        end: number;
+        color: string;
+    };
 
-        let highlightedHtml = content
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br/>');
-
-        items.forEach(item => {
+    const findHighlightMatches = (source: string): HighlightMatch[] => {
+        const all: HighlightMatch[] = [];
+        items.forEach((item) => {
             const config = getCategoryConfig(item.category);
             const color = config?.color || HIGHLIGHT_COLOR;
             const terms = getItemHighlightTerms(item);
             terms.forEach((term) => {
-                const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                highlightedHtml = highlightedHtml.replace(
-                    regex,
-                    `<mark style="background-color: ${color}; padding: 0; color: transparent;">$1</mark>`
-                );
+                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(escaped, 'gi');
+                let found: RegExpExecArray | null;
+                while ((found = regex.exec(source)) !== null) {
+                    all.push({
+                        start: found.index,
+                        end: found.index + found[0].length,
+                        color,
+                    });
+                }
             });
         });
 
-        // Live inline gray hint for currently open @token (before closing @).
-        if (isMobileTagging && !showMentionPicker && mentionTitle.trim()) {
-            highlightedHtml = highlightedHtml.replace(
-                /@([^@\n]+)$/g,
-                '@<mark style="background-color: rgba(161,161,170,0.28); color: transparent; text-decoration: underline; text-decoration-style: dashed; text-decoration-color: #52525b; text-decoration-thickness: 2px; text-underline-offset: 2px; padding: 0 1px;">$1</mark>'
-            );
-        }
+        all.sort((a, b) => {
+            const lenDiff = (b.end - b.start) - (a.end - a.start);
+            if (lenDiff !== 0) return lenDiff;
+            return a.start - b.start;
+        });
 
-        if (content.endsWith('\n')) {
-            highlightedHtml += '<br/>';
+        const chosen: HighlightMatch[] = [];
+        all.forEach((candidate) => {
+            const overlaps = chosen.some((existing) => !(candidate.end <= existing.start || candidate.start >= existing.end));
+            if (!overlaps) chosen.push(candidate);
+        });
+
+        return chosen.sort((a, b) => a.start - b.start);
+    };
+
+    // Highlight rendering — font size must match the textarea exactly
+    const renderHighlights = () => {
+        if (!content) return null;
+        const matches = findHighlightMatches(content);
+        const parts: React.ReactNode[] = [];
+        let cursor = 0;
+
+        matches.forEach((match, index) => {
+            if (match.start > cursor) {
+                parts.push(content.slice(cursor, match.start));
+            }
+            parts.push(
+                <mark
+                    key={`${match.start}:${match.end}:${index}`}
+                    style={{ backgroundColor: match.color, padding: 0, color: 'transparent' }}
+                >
+                    {content.slice(match.start, match.end)}
+                </mark>
+            );
+            cursor = match.end;
+        });
+        if (cursor < content.length) {
+            parts.push(content.slice(cursor));
         }
 
         return (
             <div
                 className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
                 aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-            />
+            >
+                {parts}
+            </div>
         );
     };
 
@@ -658,10 +692,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
                                     bottom: isMobileTagging ? `${mobilePickerBottom}px` : undefined,
-                                    // Keep the bar below the selection and center it so it doesn't cover highlighted text.
-                                    top: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.top ?? 0) + (selectionRange?.height ?? 16) + 10}px, calc(100% - 140px))`,
-                                    left: isMobileTagging ? undefined : `clamp(8px, ${(selectionRange?.left ?? 0) - 62}px, calc(100% - 132px))`,
-                                    width: isMobileTagging ? undefined : '124px',
+                                    // Desktop: anchor above editor so selected text is always visible.
+                                    top: isMobileTagging ? undefined : '-44px',
+                                    left: isMobileTagging ? undefined : '50%',
+                                    transform: isMobileTagging ? undefined : 'translateX(-50%)',
+                                    width: isMobileTagging ? undefined : 'min(320px, calc(100% - 16px))',
                                     maxHeight: isMobileTagging ? '40vh' : '45vh',
                                 }}
                             >
