@@ -548,7 +548,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         try {
             let nextImage = item.image;
             if (existingItem) {
-                const meta = parseItemMeta(existingItem.image);
+                const previousMeta = parseItemMeta(existingItem.image);
+                const incomingMeta = parseItemMeta(item.image);
+                const meta: ItemMeta = {
+                    ...previousMeta,
+                    ...incomingMeta,
+                    // Keep aliases unioned across old + new when editing.
+                    aliases: Array.from(
+                        new Set([
+                            ...(previousMeta.aliases || []).map((value) => value.trim()).filter(Boolean),
+                            ...(incomingMeta.aliases || []).map((value) => value.trim()).filter(Boolean),
+                        ])
+                    ),
+                };
                 const oldTitle = existingItem.title.trim();
                 const newTitle = item.title.trim();
                 if (oldTitle && newTitle && oldTitle.toLowerCase() !== newTitle.toLowerCase()) {
