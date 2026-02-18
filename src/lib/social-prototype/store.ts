@@ -708,9 +708,16 @@ export function useUserProfile() {
             method: 'POST',
             body: form,
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || 'Failed to upload avatar');
-        return data.url as string;
+        const raw = await response.text();
+        let data: { error?: string; url?: string } = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch {
+            data = {};
+        }
+        if (!response.ok) throw new Error(data?.error || raw || 'Failed to upload avatar');
+        if (!data?.url) throw new Error('Avatar upload succeeded but no URL returned');
+        return data.url;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {

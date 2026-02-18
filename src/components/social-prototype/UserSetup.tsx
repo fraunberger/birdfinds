@@ -104,6 +104,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setCrop({ x: 0, y: 0 });
         } catch (e: unknown) {
             console.error(e);
+            const primaryError = getErrorMessage(e);
             // Fallback: if crop/export fails, upload original selected file.
             if (pendingAvatarFile) {
                 try {
@@ -116,11 +117,14 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     setZoom(1);
                     setCrop({ x: 0, y: 0 });
                     return;
-                } catch {
+                } catch (fallbackError: unknown) {
+                    const fallbackMessage = getErrorMessage(fallbackError);
+                    setError(fallbackMessage || primaryError || 'Failed to upload image');
+                    return;
                     // Continue to surface error below.
                 }
             }
-            setError('Failed to upload image');
+            setError(primaryError || 'Failed to upload image');
         } finally {
             setAvatarUploading(false);
         }
@@ -718,4 +722,10 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: stri
             resolve(blob);
         }, outputType);
     });
+}
+
+function getErrorMessage(error: unknown) {
+    if (error instanceof Error && error.message) return error.message;
+    if (typeof error === 'string') return error;
+    return 'Failed to upload image';
 }

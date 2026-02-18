@@ -16,12 +16,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }
 
-  const contentType = typeof fileLike.type === "string" && fileLike.type ? fileLike.type : "application/octet-stream";
-  if (!contentType.startsWith("image/")) {
-    return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
-  }
-
   const originalName = typeof (fileLike as { name?: string }).name === "string" ? (fileLike as { name?: string }).name! : "";
+  const contentTypeRaw = typeof fileLike.type === "string" ? fileLike.type.trim() : "";
+  const extFromName = originalName.includes(".") ? (originalName.split(".").pop() || "").toLowerCase() : "";
   const mimeExtMap: Record<string, string> = {
     "image/jpeg": "jpg",
     "image/png": "png",
@@ -30,8 +27,22 @@ export async function POST(req: Request) {
     "image/svg+xml": "svg",
     "image/avif": "avif",
   };
+  const extMimeMap: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+    avif: "image/avif",
+  };
+  const inferredContentType = extMimeMap[extFromName] || "";
+  const contentType = contentTypeRaw.startsWith("image/") ? contentTypeRaw : inferredContentType;
+  if (!contentType.startsWith("image/")) {
+    return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
+  }
   const inferredExt = mimeExtMap[contentType] || "jpg";
-  const fileExt = originalName.includes(".") ? (originalName.split(".").pop() || inferredExt) : inferredExt;
+  const fileExt = extFromName || inferredExt;
   const fileName = `${Date.now()}.${fileExt}`;
   const filePath = `${linkedUserId}/${fileName}`;
   const buffer = Buffer.from(await fileLike.arrayBuffer());
