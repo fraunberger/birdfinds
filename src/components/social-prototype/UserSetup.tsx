@@ -677,18 +677,18 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
     });
 
 async function getOptimizedAvatarBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> {
-    let maxDimension = 1400;
-    let quality = 0.86;
-    const maxBytes = 3_500_000;
+    let maxDimension = 900;
+    let quality = 0.82;
+    const maxBytes = 900_000;
 
     for (let attempt = 0; attempt < 6; attempt += 1) {
         const blob = await getCroppedImg(imageSrc, pixelCrop, 'image/jpeg', quality, maxDimension);
         if (blob.size <= maxBytes) return blob;
-        maxDimension = Math.max(420, Math.round(maxDimension * 0.82));
-        quality = Math.max(0.55, quality - 0.08);
+        maxDimension = Math.max(360, Math.round(maxDimension * 0.8));
+        quality = Math.max(0.5, quality - 0.1);
     }
 
-    return getCroppedImg(imageSrc, pixelCrop, 'image/jpeg', 0.52, 420);
+    return getCroppedImg(imageSrc, pixelCrop, 'image/jpeg', 0.48, 320);
 }
 
 // Helper to get cropped image blob

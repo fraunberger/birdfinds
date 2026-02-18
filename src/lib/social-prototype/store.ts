@@ -715,7 +715,10 @@ export function useUserProfile() {
         } catch {
             data = {};
         }
-        if (!response.ok) throw new Error(data?.error || raw || 'Failed to upload avatar');
+        if (!response.ok) {
+            const detail = data?.error || raw || `${response.status} ${response.statusText}`;
+            throw new Error(`Failed to upload avatar (${response.status}): ${detail}`);
+        }
         if (!data?.url) throw new Error('Avatar upload succeeded but no URL returned');
         return data.url;
     };
