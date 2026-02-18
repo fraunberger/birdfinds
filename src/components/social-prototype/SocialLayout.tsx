@@ -23,11 +23,11 @@ export function SocialLayout() {
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
-  const { setActiveDate, statuses } = useSocialStore();
+  const { setActiveDate, statuses, isLoaded: socialLoaded } = useSocialStore();
   const needsOnboarding = !!user && !profile?.username?.trim();
   const needsCategorySetup = !!user && !!profile?.username?.trim() && (!profile?.categories || profile.categories.length === 0);
   const needsFirstPost = !!user && !!profile?.username?.trim() && statuses.length === 0;
-  const showOnboardingChecklist = !!user && (needsOnboarding || needsCategorySetup || needsFirstPost);
+  const showOnboardingChecklist = !!user && socialLoaded && (needsOnboarding || needsCategorySetup || needsFirstPost);
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const syncAboutFromLocation = () => {
