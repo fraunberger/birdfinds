@@ -317,6 +317,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         const val = e.target.value;
         setContentForActive(val);
         adjustTextareaHeight();
+
+        // Desktop tagging is selection-based only.
+        if (!isMobileTagging) {
+            if (!showMentionPicker && triggerLength === 1 && atPosition >= 0) {
+                clearTaggingState();
+            }
+            return;
+        }
+
         const cursorPos = e.target.selectionStart || 0;
         const justTypedAt = cursorPos > 0 && val[cursorPos - 1] === '@';
 
@@ -732,9 +741,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
                                     bottom: isMobileTagging ? `${mobilePickerBottom}px` : undefined,
-                                    // Desktop: anchor above editor so selected text is always visible.
-                                    top: isMobileTagging ? undefined : '-44px',
-                                    left: isMobileTagging ? undefined : '50%',
+                                    // Desktop: anchor near selection, not fixed center.
+                                    top: isMobileTagging ? undefined : `${Math.max(6, (selectionRange?.top ?? 46) - 44)}px`,
+                                    left: isMobileTagging ? undefined : `${selectionRange?.left ?? 120}px`,
                                     transform: isMobileTagging ? undefined : 'translateX(-50%)',
                                     width: isMobileTagging ? undefined : 'min(320px, calc(100% - 16px))',
                                     maxHeight: isMobileTagging ? '40vh' : '45vh',
