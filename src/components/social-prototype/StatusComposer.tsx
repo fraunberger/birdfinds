@@ -54,7 +54,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
 export function StatusComposer({ userCategories }: StatusComposerProps) {
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
-    const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
@@ -160,7 +160,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     };
 
     const setContentForActive = (value: string) => {
-        setDraftStatus('saving');
+        if (draftStatus === 'error') setDraftStatus('saved');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
     };
 
@@ -183,19 +183,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         const timer = window.setTimeout(() => {
             try {
                 window.localStorage.setItem('birdfinds:composer:drafts:v1', JSON.stringify(contentDrafts));
-                if (draftStatus === 'saving') setDraftStatus('saved');
             } catch {
                 // Ignore storage errors.
             }
         }, 220);
         return () => window.clearTimeout(timer);
-    }, [contentDrafts, draftStatus]);
-
-    useEffect(() => {
-        if (draftStatus !== 'saved') return;
-        const timer = window.setTimeout(() => setDraftStatus('idle'), 1200);
-        return () => window.clearTimeout(timer);
-    }, [draftStatus]);
+    }, [contentDrafts]);
 
     useEffect(() => {
         if (!isExpanded) return;
@@ -207,6 +200,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 await updateActiveStatus(content);
                 setDraftStatus('saved');
             } catch (error) {
+                setDraftStatus('error');
                 pushToast({ message: error instanceof Error ? error.message : 'Draft sync failed', tone: 'error' });
             }
         }, 1200);
@@ -631,8 +625,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             ?
                         </button>
                     )}
-                    <span className={`text-[10px] uppercase tracking-widest ${draftStatus === 'saved' ? 'text-green-700' : draftStatus === 'saving' ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                        {draftStatus === 'saved' ? 'Draft Saved' : draftStatus === 'saving' ? 'Saving Draft...' : 'Draft'}
+                    <span
+                        className={`text-[10px] uppercase tracking-widest ${activeStatus?.published
+                            ? 'text-neutral-500'
+                            : draftStatus === 'error'
+                                ? 'text-red-600'
+                                : 'text-green-700'
+                            }`}
+                    >
+                        {activeStatus?.published ? 'Posted' : draftStatus === 'error' ? 'Draft Error' : 'Draft Saved'}
                     </span>
                     <input
                         type="date"
