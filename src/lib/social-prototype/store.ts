@@ -152,11 +152,20 @@ interface MeResponse {
 }
 
 async function getLinkedMe(): Promise<MeResponse> {
-    const response = await fetch('/api/social/me', { cache: 'no-store' });
-    if (!response.ok) {
+    try {
+        const response = await fetch('/api/social/me', { cache: 'no-store' });
+        const raw = await response.text();
+        if (!response.ok || !raw) {
+            return { clerkUserId: null, linkedUserId: null, profile: null };
+        }
+        try {
+            return JSON.parse(raw) as MeResponse;
+        } catch {
+            return { clerkUserId: null, linkedUserId: null, profile: null };
+        }
+    } catch {
         return { clerkUserId: null, linkedUserId: null, profile: null };
     }
-    return response.json() as Promise<MeResponse>;
 }
 
 async function socialWrite(action: string, payload: Record<string, unknown> = {}) {
@@ -165,7 +174,15 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, payload }),
     });
-    const data = await response.json();
+    const raw = await response.text();
+    let data: { error?: string; [key: string]: unknown } = {};
+    if (raw) {
+        try {
+            data = JSON.parse(raw) as { error?: string; [key: string]: unknown };
+        } catch {
+            data = { error: raw };
+        }
+    }
     if (!response.ok) {
         throw new Error(data?.error || `Write failed: ${action}`);
     }
