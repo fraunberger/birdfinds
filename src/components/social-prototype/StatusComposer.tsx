@@ -1,16 +1,34 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { HabitChecklist } from './HabitChecklist';
 import { pushToast } from '@/lib/social-prototype/toast';
+import { decorationsEqual, getHighlightParseDelay, parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
 
 interface StatusComposerProps {
     userCategories?: Category[];
 }
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+
+type ComposerDecoration = {
+    id: string;
+    entityType: string;
+    entityId: string;
+    start: number;
+    end: number;
+    displayText: string;
+    source: string;
+    color?: string;
+};
+
+type HighlightTraceEvent = {
+    at: string;
+    type: string;
+    details?: Record<string, unknown>;
+};
 
 interface ItemMeta {
     imageUrl?: string;
@@ -56,6 +74,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
+    const [decorations, setDecorations] = useState<ComposerDecoration[]>([]);
+    const [showHighlightDebug, setShowHighlightDebug] = useState(false);
+    const traceRef = useRef<HighlightTraceEvent[]>([]);
+    const parseRunRef = useRef(0);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -127,13 +149,38 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const activeCategoryConfigs = activeCategories.map(c => getCategoryConfig(c));
     const activeContentKey = activeStatus?.id ?? `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
+    const items = activeStatus?.items || [];
     const effectiveQuickAddCategory = activeCategories.includes(quickAddCategory)
         ? quickAddCategory
         : (activeCategories[0] ?? 'movie');
 
     const setContentForActive = (value: string) => {
+        logHighlightEvent('content.set', { key: activeContentKey, length: value.length });
         setDraftStatus('saving');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
+    };
+
+    const logHighlightEvent = (type: string, details?: Record<string, unknown>) => {
+        const entry: HighlightTraceEvent = {
+            at: new Date().toISOString(),
+            type,
+            details,
+        };
+        traceRef.current = [...traceRef.current.slice(-599), entry];
+    };
+
+    const exportHighlightTrace = () => {
+        if (typeof window === 'undefined') return;
+        const payload = JSON.stringify(traceRef.current, null, 2);
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `birdfinds-highlight-trace-${Date.now()}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
     };
 
     useEffect(() => {
@@ -148,6 +195,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         } catch {
             // Ignore malformed local draft cache.
         }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        (window as Window & { __birdfindsHighlightTrace?: () => HighlightTraceEvent[] }).__birdfindsHighlightTrace = () => [...traceRef.current];
     }, []);
 
     useEffect(() => {
@@ -268,8 +320,68 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         };
     }, [isMobileTagging]);
 
+    const highlightEntities = useMemo(
+        () =>
+            items.map((item) => ({
+                id: item.id,
+                entityType: item.category,
+                entityId: item.id,
+                terms: getItemHighlightTerms(item),
+                displayText: item.title,
+                source: 'item',
+                color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
+                priority: 1,
+            })),
+        [items]
+    );
+
+    const parseDependency = useMemo(
+        () =>
+            highlightEntities
+                .map((entity) => `${entity.id}:${entity.terms.join('|')}`)
+                .join('||'),
+        [highlightEntities]
+    );
+
+    useEffect(() => {
+        const runId = parseRunRef.current + 1;
+        parseRunRef.current = runId;
+        const delayMs = getHighlightParseDelay();
+        logHighlightEvent('parse.scheduled', {
+            runId,
+            delayMs,
+            textLength: content.length,
+            entities: highlightEntities.length,
+        });
+
+        const timer = window.setTimeout(() => {
+            const nextDecorations = parseHighlights(content, highlightEntities) as ComposerDecoration[];
+            if (decorationsEqual(decorations, nextDecorations)) {
+                logHighlightEvent('parse.skipped', { runId, reason: 'no_change', count: nextDecorations.length });
+                return;
+            }
+            setDecorations(nextDecorations);
+            logHighlightEvent('parse.applied', { runId, count: nextDecorations.length });
+        }, delayMs);
+
+        return () => window.clearTimeout(timer);
+    }, [content, decorations, parseDependency]);
+
+    const documentModel = useMemo(
+        () => ({
+            rawText: content,
+            decorations,
+        }),
+        [content, decorations]
+    );
+
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
+        const nativeType = e.nativeEvent instanceof InputEvent ? e.nativeEvent.inputType : 'unknown';
+        logHighlightEvent('input.change', {
+            inputType: nativeType,
+            length: val.length,
+        });
         setContentForActive(val);
         adjustTextareaHeight();
 
@@ -476,8 +588,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         setIsModalOpen(true);
     };
 
-    const items = activeStatus?.items || [];
-
     const linkExistingItemToPost = async (item: ConsumableItem) => {
         const phrase = selectedPlainText.trim();
 
@@ -553,71 +663,27 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         if (triggerLength !== 1) clearTaggingState();
     };
 
-    type HighlightMatch = {
-        start: number;
-        end: number;
-        color: string;
-    };
-
-    const findHighlightMatches = (source: string): HighlightMatch[] => {
-        const all: HighlightMatch[] = [];
-        items.forEach((item) => {
-            const config = getCategoryConfig(item.category);
-            const color = config?.color || HIGHLIGHT_COLOR;
-            const terms = getItemHighlightTerms(item);
-            terms.forEach((term) => {
-                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(escaped, 'gi');
-                let found: RegExpExecArray | null;
-                while ((found = regex.exec(source)) !== null) {
-                    all.push({
-                        start: found.index,
-                        end: found.index + found[0].length,
-                        color,
-                    });
-                }
-            });
-        });
-
-        all.sort((a, b) => {
-            const lenDiff = (b.end - b.start) - (a.end - a.start);
-            if (lenDiff !== 0) return lenDiff;
-            return a.start - b.start;
-        });
-
-        const chosen: HighlightMatch[] = [];
-        all.forEach((candidate) => {
-            const overlaps = chosen.some((existing) => !(candidate.end <= existing.start || candidate.start >= existing.end));
-            if (!overlaps) chosen.push(candidate);
-        });
-
-        return chosen.sort((a, b) => a.start - b.start);
-    };
-
     // Highlight rendering — font size must match the textarea exactly
     const renderHighlights = () => {
-        if (!content) return null;
-        const matches = findHighlightMatches(content);
-        const parts: React.ReactNode[] = [];
-        let cursor = 0;
-
-        matches.forEach((match, index) => {
-            if (match.start > cursor) {
-                parts.push(content.slice(cursor, match.start));
-            }
-            parts.push(
+        if (!documentModel.rawText) return null;
+        const segments = segmentText(documentModel.rawText, documentModel.decorations) as Array<{
+            type: 'text' | 'highlight';
+            text: string;
+            start: number;
+            end: number;
+            decoration?: ComposerDecoration;
+        }>;
+        const parts: React.ReactNode[] = segments.map((segment, index) => {
+            if (segment.type === 'text') return <React.Fragment key={`t:${segment.start}:${index}`}>{segment.text}</React.Fragment>;
+            return (
                 <mark
-                    key={`${match.start}:${match.end}:${index}`}
-                    style={{ backgroundColor: match.color, padding: 0, color: 'transparent' }}
+                    key={`h:${segment.start}:${segment.end}:${segment.decoration?.entityId || index}`}
+                    style={{ backgroundColor: segment.decoration?.color || HIGHLIGHT_COLOR, padding: 0, color: 'transparent' }}
                 >
-                    {content.slice(match.start, match.end)}
+                    {segment.text}
                 </mark>
             );
-            cursor = match.end;
         });
-        if (cursor < content.length) {
-            parts.push(content.slice(cursor));
-        }
 
         return (
             <div
@@ -666,6 +732,14 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     >
                         ?
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowHighlightDebug((prev) => !prev)}
+                        className="h-5 px-1.5 inline-flex items-center justify-center border border-neutral-300 text-[9px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                        title="Highlight trace tools"
+                    >
+                        Trace
+                    </button>
                     <span className={`text-[10px] uppercase tracking-widest ${draftStatus === 'saved' ? 'text-green-700' : draftStatus === 'saving' ? 'text-neutral-500' : 'text-neutral-300'}`}>
                         {draftStatus === 'saved' ? 'Draft Saved' : draftStatus === 'saving' ? 'Saving Draft...' : 'Draft'}
                     </span>
@@ -692,6 +766,32 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Collapsible Content */}
             {isExpanded && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    {showHighlightDebug && (
+                        <div className="mb-2 border border-neutral-300 bg-neutral-50 px-3 py-2 text-[10px] text-neutral-700">
+                            <p className="uppercase tracking-widest font-bold mb-1">Highlight Trace</p>
+                            <p className="mb-2">Events: {traceRef.current.length} | Decorations: {documentModel.decorations.length}</p>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={exportHighlightTrace}
+                                    className="border border-neutral-300 px-2 py-1 uppercase tracking-widest hover:bg-neutral-100"
+                                >
+                                    Export JSON
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        traceRef.current = [];
+                                        logHighlightEvent('trace.cleared');
+                                        setShowHighlightDebug(false);
+                                    }}
+                                    className="border border-neutral-300 px-2 py-1 uppercase tracking-widest hover:bg-neutral-100"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {showTagHelp && (
                         <div className="mb-2 border border-neutral-300 bg-neutral-50 px-3 py-2 text-[10px] text-neutral-700">
                             <p className="uppercase tracking-widest font-bold mb-1">Tagging Help</p>
@@ -740,6 +840,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             ref={textareaRef}
                             value={content}
                             onChange={handleContentChange}
+                            onPaste={() => logHighlightEvent('input.paste', { length: content.length })}
+                            onKeyDown={(event) => {
+                                if ((event.metaKey || event.ctrlKey) && (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) {
+                                    logHighlightEvent('input.undo_redo', { key: event.key.toLowerCase() });
+                                }
+                            }}
                             onFocus={() => {
                                 adjustTextareaHeight();
                                 // Auto-expand slightly on focus if small

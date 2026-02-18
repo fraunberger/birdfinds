@@ -74,3 +74,50 @@ Run these SQL files in Supabase SQL Editor:
 - `npm run build` - Production build
 - `npm run start` - Run production build
 - `npm run lint` - Run ESLint
+- `npm run test:highlight` - Run highlight parser + segmentation unit tests
+
+## Highlighting Model (Composer)
+
+The composer highlighting pipeline uses a deterministic document model:
+
+- `rawText`: the textarea value (authoritative, updated immediately on `onChange`)
+- `decorations`: parsed highlight ranges:
+  - `{ id, entityType, entityId, start, end, displayText, source, color }`
+
+### Pipeline
+
+1. `onChange` updates `rawText` immediately.
+2. Debounced parsing (`parseHighlights`) runs from `rawText` + current entities.
+3. Overlaps are resolved deterministically.
+4. `decorations` state is only updated when deep-equality differs (`decorationsEqual`).
+5. Rendering uses `segmentText(rawText, decorations)` and never does string replace in render.
+
+### Overlap Rule
+
+When overlaps occur:
+
+1. higher entity priority wins
+2. if tied, longer match wins
+3. if tied, earlier start wins
+
+Output decorations are always non-overlapping and ordered by `start` ascending.
+
+### Prior Failure Modes (fixed)
+
+- Highlight duplication from render-time string replacements
+- Highlight drift/offset after rapid edits, paste, or alias linking
+- Non-deterministic placement when multiple entities shared substrings
+
+### Reproduction Scenario (before vs after)
+
+1. Type: `Watched Dune then Dune: Part Two`
+2. Tag/link `Dune` and `Dune: Part Two`
+3. Rapidly paste/delete around both matches
+
+Before: duplicated/misplaced highlights could appear.
+After: decorations re-parse deterministically and segment rendering stays stable.
+
+### Developer Trace
+
+The composer has a small `Trace` toggle that records highlight pipeline events.
+Use `Export JSON` to download logs for LLM/Mermaid flow diagramming.
