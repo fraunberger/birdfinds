@@ -29,6 +29,8 @@ export async function POST(req: Request) {
       "image/gif": "gif",
       "image/svg+xml": "svg",
       "image/avif": "avif",
+      "image/heic": "heic",
+      "image/heif": "heif",
     };
     const extMimeMap: Record<string, string> = {
       jpg: "image/jpeg",
@@ -38,17 +40,31 @@ export async function POST(req: Request) {
       gif: "image/gif",
       svg: "image/svg+xml",
       avif: "image/avif",
+      heic: "image/heic",
+      heif: "image/heif",
     };
     const inferredContentType = extMimeMap[extFromName] || "";
     const contentType = contentTypeRaw.startsWith("image/") ? contentTypeRaw : inferredContentType;
     if (!contentType.startsWith("image/")) {
       return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
     }
+
+    const maxUploadBytes = 6 * 1024 * 1024;
+    const bytes = new Uint8Array(await fileLike.arrayBuffer());
+    if (bytes.byteLength === 0) {
+      return NextResponse.json({ error: "Uploaded image was empty" }, { status: 400 });
+    }
+    if (bytes.byteLength > maxUploadBytes) {
+      return NextResponse.json(
+        { error: "Image is too large. Please upload an image under 6MB." },
+        { status: 413 }
+      );
+    }
+
     const inferredExt = mimeExtMap[contentType] || "jpg";
     const fileExt = extFromName || inferredExt;
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${linkedUserId}/${fileName}`;
-    const bytes = new Uint8Array(await fileLike.arrayBuffer());
     const supabaseAdmin = getSupabaseAdmin();
 
     const { error } = await supabaseAdmin.storage

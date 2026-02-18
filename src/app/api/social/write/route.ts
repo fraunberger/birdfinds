@@ -263,25 +263,46 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "social.profile.upsert") {
+      const username = payload.username ? String(payload.username).trim() : "";
+      if (!username) {
+        return NextResponse.json({ error: "Username is required" }, { status: 400 });
+      }
+      if (username.length < 2 || username.length > 32) {
+        return NextResponse.json({ error: "Username must be between 2 and 32 characters" }, { status: 400 });
+      }
+      if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+        return NextResponse.json(
+          { error: "Username can only include letters, numbers, dots, dashes, and underscores" },
+          { status: 400 }
+        );
+      }
+
       const visibilityRaw = String(payload.visibility || "").trim();
       const visibility =
         visibilityRaw === "public" || visibilityRaw === "accounts" || visibilityRaw === "private"
           ? visibilityRaw
           : undefined;
       const isPrivate = visibility ? visibility === "private" : typeof payload.isPrivate === "boolean" ? payload.isPrivate : undefined;
+      const categories = Array.isArray(payload.categories)
+        ? payload.categories.map((value) => String(value).trim()).filter(Boolean)
+        : undefined;
+      const categoryConfigs = payload.categoryConfigs && typeof payload.categoryConfigs === "object"
+        ? payload.categoryConfigs
+        : undefined;
+      const avatarUrl = payload.avatarUrl == null || payload.avatarUrl === ""
+        ? null
+        : String(payload.avatarUrl);
+
       const { error } = await supabaseAdmin
         .from("user_profiles")
         .upsert({
           id: linkedUserId,
-          username: payload.username ? String(payload.username) : undefined,
-          avatar_url: payload.avatarUrl ? String(payload.avatarUrl) : undefined,
-          categories: Array.isArray(payload.categories) ? payload.categories : undefined,
+          username,
+          avatar_url: avatarUrl,
+          categories,
           is_private: isPrivate,
           visibility,
-          category_configs:
-            payload.categoryConfigs && typeof payload.categoryConfigs === "object"
-              ? payload.categoryConfigs
-              : undefined,
+          category_configs: categoryConfigs,
         });
       if (error) throw error;
       return NextResponse.json({ ok: true });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, useState } from 'react';
+import { useEffect, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
@@ -184,7 +184,8 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
         }
     }
     if (!response.ok) {
-        throw new Error(data?.error || `Write failed: ${action}`);
+        const detail = data?.error || raw || `${response.status} ${response.statusText}`;
+        throw new Error(`Write failed (${action}): ${detail}`);
     }
     return data;
 }
@@ -714,11 +715,28 @@ export function useUserProfile() {
                 return;
             }
             setIsAdmin(Boolean(me.isAdmin));
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', linkedUserId)
-                .single();
+
+            const fromMe = me.profile
+                ? {
+                    id: me.profile.id,
+                    username: me.profile.username,
+                    avatar_url: me.profile.avatar_url,
+                    categories: me.profile.categories || [],
+                    visibility: me.profile.visibility,
+                    is_private: me.profile.is_private,
+                    created_at: me.profile.created_at,
+                    muted_users: me.profile.muted_users || [],
+                    category_configs: me.profile.category_configs || {},
+                }
+                : null;
+
+            const { data, error } = fromMe
+                ? { data: fromMe, error: null }
+                : await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', linkedUserId)
+                    .single();
 
             if (error && error.code !== 'PGRST116') throw error;
 
@@ -785,8 +803,9 @@ export function useUserProfile() {
 
 
 
-    // Initial fetch
-    useState(() => { fetchProfile(); });
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
     return {
         profile,
