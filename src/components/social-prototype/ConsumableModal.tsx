@@ -80,6 +80,7 @@ interface RestaurantSearchResult {
     rating?: number;
     reviewCount?: number;
     priceLevel?: string;
+    googleMapsUri?: string;
 }
 
 interface BookSearchResult {
@@ -163,6 +164,16 @@ const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
 
 const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string): string | null => {
     const imageRef = parseMetaImage(raw);
+    if (imageRef?.startsWith('mapsurl:')) {
+        const encoded = imageRef.slice('mapsurl:'.length);
+        if (encoded) {
+            try {
+                return decodeURIComponent(encoded);
+            } catch {
+                return encoded;
+            }
+        }
+    }
     const normalized = imageRef?.startsWith('place:') ? imageRef.slice('place:'.length) : imageRef;
     if (normalized?.startsWith('places/')) {
         const placeId = normalized.slice('places/'.length);
@@ -1059,7 +1070,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         ...prev,
                                                         title: place.name,
                                                         subtitle: place.address || prev.subtitle,
-                                                        image: `place:${place.id}`,
+                                                        image: place.googleMapsUri
+                                                            ? `mapsurl:${encodeURIComponent(place.googleMapsUri)}`
+                                                            : `place:${place.id}`,
                                                     }));
                                                     setShowRestaurantResults(false);
                                                 }}

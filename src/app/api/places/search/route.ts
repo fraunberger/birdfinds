@@ -11,6 +11,7 @@ interface GooglePlace {
     displayName?: {
         text?: string;
     };
+    googleMapsUri?: string;
 }
 
 interface GooglePlacesResponse {
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
                 'Content-Type': 'application/json',
                 'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
                 // Asking for specific fields to save money/bandwidth
-                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.photos,places.name'
+                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.priceLevel,places.photos,places.name,places.googleMapsUri'
             },
             body: JSON.stringify({
                 textQuery: query
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
             rating: place.rating,
             reviewCount: place.userRatingCount,
             priceLevel: place.priceLevel, // PRICE_LEVEL_UNSPECIFIED, PRICE_LEVEL_INEXPENSIVE, etc.
+            googleMapsUri: place.googleMapsUri,
             // photo: place.photos?.[0] ? ... : undefined, // We don't have a way to show photos yet without more API calls
             id: place.name // Resource name "places/ChIJ..." acts as ID
         }));
