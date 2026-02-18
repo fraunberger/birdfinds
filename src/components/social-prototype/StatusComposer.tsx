@@ -415,8 +415,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
         );
 
+        const titleForInsert = title;
+        const mentionStart = atPosition;
+        const mentionLen = triggerLength;
         mentionInFlightRef.current = true;
         setMentionBusy(true);
+        clearTaggingState();
         try {
             // Reuse matching table item instead of creating duplicates.
             if (!existing) {
@@ -430,10 +434,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             }
 
             // Replace text
-            const before = content.substring(0, atPosition);
+            const before = content.substring(0, mentionStart);
             // Dynamic length replacement
-            const after = content.substring(atPosition + triggerLength);
-            const newContent = before + title + after;
+            const after = content.substring(mentionStart + mentionLen);
+            const newContent = before + titleForInsert + after;
             setContentForActive(newContent);
             updateActiveStatus(newContent);
             recentMentionKeyRef.current = { key: mentionKey, at: Date.now() };
@@ -443,12 +447,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             mentionInFlightRef.current = false;
             setMentionBusy(false);
         }
-
-        // Reset
-        setShowMentionPicker(false);
-        setMentionCategory(null);
-        setMentionTitle('');
-        setAtPosition(-1);
 
         setTimeout(() => textareaRef.current?.focus(), 50);
     };
@@ -467,6 +465,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
         try {
             const normalizedTitle = mentionTitle.trim();
+            const mentionStart = selectionRange ? selectionRange.start : atPosition;
+            const mentionEnd = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1));
             const mentionKey = `${category}:${normalizedTitle.toLowerCase()}`;
             const now = Date.now();
             if (recentMentionKeyRef.current && recentMentionKeyRef.current.key === mentionKey && (now - recentMentionKeyRef.current.at) < 2500) {
@@ -480,6 +480,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
             mentionInFlightRef.current = true;
             setMentionBusy(true);
+            clearTaggingState();
             if (!existing) {
                 await addItemToActive({
                     category,
@@ -490,8 +491,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 });
             }
 
-            let start = selectionRange ? selectionRange.start : atPosition;
-            let end = selectionRange ? selectionRange.end : (atPosition + (mentionTitle.length + 1));
+            let start = mentionStart;
+            let end = mentionEnd;
 
             if (start < 0) start = 0;
             if (end > content.length) end = content.length;
@@ -501,7 +502,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             const newContent = before + normalizedTitle + after;
             setContentForActive(newContent);
             updateActiveStatus(newContent);
-            clearTaggingState();
             recentMentionKeyRef.current = { key: mentionKey, at: Date.now() };
         } catch (error: unknown) {
             pushToast({ message: `Failed to add item: ${getErrorMessage(error)}`, tone: 'error' });
