@@ -59,6 +59,50 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const { user } = useAuth();
     const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment } = useSocialStore();
 
+    const defer = (fn: () => void | Promise<void>) => {
+        window.setTimeout(() => {
+            void fn();
+        }, 0);
+    };
+
+    const handleReportPost = () => {
+        setShowMenu(false);
+        defer(async () => {
+            try {
+                const reason = window.prompt('Report reason (optional):') || '';
+                await reportStatus(status.id, reason);
+                pushToast({ message: 'Report submitted. Thanks.', tone: 'success' });
+            } catch (error) {
+                pushToast({ message: error instanceof Error ? error.message : 'Failed to report post', tone: 'error' });
+            }
+        });
+    };
+
+    const handleDeletePost = () => {
+        setShowMenu(false);
+        defer(async () => {
+            if (!window.confirm('Delete this post and all its items?')) return;
+            try {
+                await deleteStatus(status.id);
+            } catch (error) {
+                pushToast({ message: error instanceof Error ? error.message : 'Failed to delete post', tone: 'error' });
+            }
+        });
+    };
+
+    const handleHidePost = () => {
+        setShowMenu(false);
+        defer(async () => {
+            if (!window.confirm('Hide this post from public feed?')) return;
+            try {
+                await softDeleteStatus(status.id, 'Hidden by admin');
+                pushToast({ message: 'Post hidden.', tone: 'success' });
+            } catch (error) {
+                pushToast({ message: error instanceof Error ? error.message : 'Failed to hide post', tone: 'error' });
+            }
+        });
+    };
+
     useEffect(() => {
         if (!showMenu) return;
         const onPointerDown = (event: MouseEvent) => {
@@ -219,17 +263,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     )}
                                     {showPostReportButton && !isOwn && user && (
                                         <button
-                                            onClick={async () => {
-                                                try {
-                                                    const reason = window.prompt('Report reason (optional):') || '';
-                                                    await reportStatus(status.id, reason);
-                                                    pushToast({ message: 'Report submitted. Thanks.', tone: 'success' });
-                                                } catch (error) {
-                                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to report post', tone: 'error' });
-                                                } finally {
-                                                    setShowMenu(false);
-                                                }
-                                            }}
+                                            onClick={handleReportPost}
                                             className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
                                         >
                                             Report
@@ -237,16 +271,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     )}
                                     {isOwn && (
                                         <button
-                                            onClick={async () => {
-                                                if (confirm('Delete this post and all its items?')) {
-                                                    try {
-                                                        await deleteStatus(status.id);
-                                                    } catch (error) {
-                                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to delete post', tone: 'error' });
-                                                    }
-                                                }
-                                                setShowMenu(false);
-                                            }}
+                                            onClick={handleDeletePost}
                                             className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
                                         >
                                             Delete
@@ -254,17 +279,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     )}
                                     {isAdmin && !isOwn && (
                                         <button
-                                            onClick={async () => {
-                                                if (!confirm('Hide this post from public feed?')) return;
-                                                try {
-                                                    await softDeleteStatus(status.id, 'Hidden by admin');
-                                                    pushToast({ message: 'Post hidden.', tone: 'success' });
-                                                } catch (error) {
-                                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to hide post', tone: 'error' });
-                                                } finally {
-                                                    setShowMenu(false);
-                                                }
-                                            }}
+                                            onClick={handleHidePost}
                                             className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
                                         >
                                             Hide
