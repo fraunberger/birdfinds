@@ -80,6 +80,13 @@ export function SocialLayout() {
   };
 
   const userDisplay = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
+  const pileHref = user
+    ? (profile?.username
+      ? `/pile/${encodeURIComponent(profile.username)}`
+      : profile?.id
+        ? `/pile/${encodeURIComponent(profile.id)}`
+        : "/settings")
+    : "/";
 
   return (
     <div className="min-h-screen bg-white font-mono text-neutral-900">
@@ -95,7 +102,7 @@ export function SocialLayout() {
             <HeaderSearch />
             {user && (
               <AccountMenu
-                pileHref={`/pile/${encodeURIComponent(profile?.username || user.id)}`}
+                pileHref={pileHref}
                 username={userDisplay}
                 avatarUrl={profile?.avatarUrl}
                 isAdmin={isAdmin}
@@ -232,7 +239,7 @@ export function SocialLayout() {
       <nav className="fixed bottom-0 inset-x-0 border-t border-neutral-300 bg-white/95 backdrop-blur sm:hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-3">
           <Link href="/" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Feed</Link>
-          <Link href={user ? `/pile/${encodeURIComponent(profile?.username || user.id)}` : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href={pileHref} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
             My Pile
           </Link>
           <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">

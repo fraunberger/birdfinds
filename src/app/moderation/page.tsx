@@ -122,6 +122,11 @@ export default function ModerationPage() {
   }
 
   const username = profile?.username || user.username || user.email?.split("@")[0] || "Account";
+  const pileHref = profile?.username
+    ? `/pile/${encodeURIComponent(profile.username)}`
+    : profile?.id
+      ? `/pile/${encodeURIComponent(profile.id)}`
+      : "/settings";
 
   return (
     <div className="min-h-screen bg-white font-mono text-neutral-900">
@@ -133,7 +138,7 @@ export default function ModerationPage() {
           <div className="flex items-center gap-3">
             <HeaderSearch />
             <AccountMenu
-              pileHref={`/pile/${encodeURIComponent(profile?.username || user.id)}`}
+              pileHref={pileHref}
               username={username}
               avatarUrl={profile?.avatarUrl}
               isAdmin

@@ -22,6 +22,13 @@ export default function PilePage({
   const { profile, isAdmin } = useUserProfile();
   const routeParams = useParams<{ user: string }>();
   const routeUser = decodeURIComponent(routeParams?.user || "");
+  const pileHref = user
+    ? (profile?.username
+      ? `/pile/${encodeURIComponent(profile.username)}`
+      : profile?.id
+        ? `/pile/${encodeURIComponent(profile.id)}`
+        : "/settings")
+    : "/";
   const [resolvedUser, setResolvedUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -33,12 +40,18 @@ export default function PilePage({
       setLoading(true);
       setNotFound(false);
       setResolvedUser(null);
-      const user = routeUser;
+      const routeValue = routeUser;
+
+      if (routeValue === user?.id && profile?.id) {
+        setResolvedUser(profile.id);
+        setLoading(false);
+        return;
+      }
 
       const byId = await supabase
         .from("user_profiles")
         .select("id, username")
-        .eq("id", user)
+        .eq("id", routeValue)
         .limit(1);
       if (mounted && byId.data && byId.data.length > 0) {
         setResolvedUser(byId.data[0].id);
@@ -49,7 +62,7 @@ export default function PilePage({
       const byName = await supabase
         .from("user_profiles")
         .select("id, username")
-        .ilike("username", user)
+        .ilike("username", routeValue)
         .limit(1);
       if (mounted && byName.data && byName.data.length > 0) {
         setResolvedUser(byName.data[0].id);
@@ -66,7 +79,7 @@ export default function PilePage({
     return () => {
       mounted = false;
     };
-  }, [routeUser]);
+  }, [routeUser, user?.id, profile?.id]);
 
   const handleClickProfile = async (userId: string) => {
     const { data } = await supabase
@@ -113,7 +126,7 @@ export default function PilePage({
             <HeaderSearch />
             {user && (
               <AccountMenu
-                pileHref={`/pile/${encodeURIComponent(profile?.username || user.id)}`}
+                pileHref={pileHref}
                 username={profile?.username || user.username || user.email?.split("@")[0] || "Account"}
                 avatarUrl={profile?.avatarUrl}
                 isAdmin={isAdmin}
@@ -134,7 +147,7 @@ export default function PilePage({
       <nav className="fixed bottom-0 inset-x-0 border-t border-neutral-300 bg-white/95 backdrop-blur sm:hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-3">
           <Link href="/" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Feed</Link>
-          <Link href={user ? `/pile/${encodeURIComponent(profile?.username || user.id)}` : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href={pileHref} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
             My Pile
           </Link>
           <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
