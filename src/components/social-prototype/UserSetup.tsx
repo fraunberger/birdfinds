@@ -246,6 +246,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         );
     }
 
+    const editingConfig = editingCategory ? buildEditableConfig(editingCategory) : null;
+
     return (
         <div className="font-mono max-w-md mx-auto relative">
             {/* Cropping Modal Overlay */}
@@ -296,110 +298,130 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 {profile ? 'Settings' : 'Set Up Your Profile'}
             </h2>
 
-            {editingCategory && (
-                <div className="fixed inset-0 z-40 bg-black/70 p-4 flex items-center justify-center">
-                    <div className="w-full max-w-xl bg-[#f6f6ef] border border-neutral-700 p-4 max-h-[85vh] overflow-y-auto">
-                        {(() => {
-                            const config = buildEditableConfig(editingCategory);
-                            return (
-                                <>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-800">
-                                            Edit {config.label} Card
-                                        </h3>
-                                        <button
-                                            onClick={() => setEditingCategory(null)}
-                                            className="text-[10px] uppercase tracking-widest text-neutral-600 hover:text-neutral-900"
-                                        >
-                                            Done
-                                        </button>
-                                    </div>
+            {editingCategory && editingConfig && (
+                <div
+                    className="fixed inset-0 bg-white/95 z-50 flex items-start sm:items-center justify-center pt-4 sm:pt-0 p-3"
+                    onClick={() => setEditingCategory(null)}
+                >
+                    <div
+                        className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono flex flex-col"
+                        style={{ maxHeight: '90vh' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            className="flex items-center justify-between px-4 py-3 border-b border-neutral-300"
+                            style={{ backgroundColor: `${editingConfig.color || '#d4d4d4'}40` }}
+                        >
+                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">
+                                {editingConfig.shortLabel || 'CAT'}
+                            </span>
+                            <button
+                                onClick={() => setEditingCategory(null)}
+                                className="text-neutral-500 hover:text-neutral-800 text-2xl leading-none w-8 h-8 flex items-center justify-center -mr-2"
+                            >
+                                ×
+                            </button>
+                        </div>
 
-                                    <div className="border border-neutral-700 bg-white p-3 mb-4">
-                                        <div className="border border-neutral-700">
-                                            <div className="px-2 py-1 text-[10px] uppercase tracking-[0.2em] border-b border-neutral-700 bg-neutral-100 font-bold">
-                                                {config.shortLabel || 'CAT'}
+                        <div className="p-4 space-y-6 overflow-y-auto flex-1">
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-500">Live Card Preview</div>
+                            <div className="border border-neutral-300 p-3">
+                                <div className="flex gap-4">
+                                    <div className="flex-1 space-y-4">
+                                        <div>
+                                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                                {editingConfig.titleLabel}
+                                            </label>
+                                            <div className="w-full text-base font-mono border-b border-neutral-200 py-1 text-neutral-700">
+                                                Example Item
                                             </div>
-                                            <div className="grid grid-cols-[8rem_1fr] border-b border-neutral-700 text-xs">
-                                                <div className="px-2 py-1 border-r border-neutral-700 uppercase tracking-wider font-bold bg-neutral-50">
-                                                    {config.titleLabel}
-                                                </div>
-                                                <div className="px-2 py-1">Example Item</div>
-                                            </div>
-                                            <div className="grid grid-cols-[8rem_1fr] border-b border-neutral-700 text-xs">
-                                                <div className="px-2 py-1 border-r border-neutral-700 uppercase tracking-wider font-bold bg-neutral-50">
-                                                    {config.subtitleLabel}
-                                                </div>
-                                                <div className="px-2 py-1">Example Detail</div>
-                                            </div>
-                                            <div className="grid grid-cols-[8rem_1fr] border-b border-neutral-700 text-xs">
-                                                <div className="px-2 py-1 border-r border-neutral-700 uppercase tracking-wider font-bold bg-neutral-50">
-                                                    {config.ratingLabel}
-                                                </div>
-                                                <div className="px-2 py-1">8.5</div>
-                                            </div>
-                                            <div className="grid grid-cols-[8rem_1fr] text-xs">
-                                                <div className="px-2 py-1 border-r border-neutral-700 uppercase tracking-wider font-bold bg-neutral-50">
-                                                    {config.notesLabel || 'Notes'}
-                                                </div>
-                                                <div className="px-2 py-1">Short annotation</div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                                {editingConfig.subtitleLabel}
+                                            </label>
+                                            <div className="w-full text-sm font-mono border border-neutral-300 p-2 text-neutral-700">
+                                                Example Detail
                                             </div>
                                         </div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <input
-                                            type="text"
-                                            value={config.label}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, { label: e.target.value })}
-                                            placeholder="Category display name"
-                                            className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={config.shortLabel}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, { shortLabel: e.target.value.toUpperCase() })}
-                                            placeholder="Abbreviation"
-                                            className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={config.titleLabel}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, { titleLabel: e.target.value })}
-                                            placeholder="Primary box label"
-                                            className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={config.subtitleLabel}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, {
-                                                subtitleLabel: e.target.value,
-                                                subtitlePlaceholder: e.target.value,
-                                            })}
-                                            placeholder="Secondary box label"
-                                            className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={config.ratingLabel}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
-                                            placeholder="Rating box label"
-                                            className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={config.notesLabel || ''}
-                                            onChange={(e) => updateCategoryConfig(editingCategory, {
-                                                notesLabel: e.target.value,
-                                                notesPlaceholder: e.target.value ? `Add ${e.target.value.toLowerCase()}...` : 'Add notes...',
-                                            })}
-                                            placeholder="Notes box label"
-                                            className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-white font-mono"
-                                        />
+                                    <div className="flex-shrink-0 pt-6">
+                                        <div className="w-16 h-16 border-2 border-neutral-300 flex flex-col items-center justify-center bg-white">
+                                            <span className="text-2xl font-bold text-neutral-800 leading-none">8.5</span>
+                                            <span className="text-[9px] text-neutral-400 mt-0.5">/ 10</span>
+                                        </div>
                                     </div>
-                                </>
-                            );
-                        })()}
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                        {editingConfig.notesLabel || 'Notes'}
+                                    </label>
+                                    <div className="w-full text-sm font-mono border border-neutral-300 p-3 text-neutral-700 min-h-[88px]">
+                                        Short annotation
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    value={editingConfig.label}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, { label: e.target.value })}
+                                    placeholder="Category display name"
+                                    className="col-span-2 w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                                <input
+                                    type="text"
+                                    value={editingConfig.shortLabel}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, { shortLabel: e.target.value.toUpperCase() })}
+                                    placeholder="Abbreviation"
+                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                                <input
+                                    type="text"
+                                    value={editingConfig.titleLabel}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, { titleLabel: e.target.value })}
+                                    placeholder="Primary box label"
+                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                                <input
+                                    type="text"
+                                    value={editingConfig.subtitleLabel}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, {
+                                        subtitleLabel: e.target.value,
+                                        subtitlePlaceholder: e.target.value,
+                                    })}
+                                    placeholder="Secondary box label"
+                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                                <input
+                                    type="text"
+                                    value={editingConfig.ratingLabel}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
+                                    placeholder="Rating box label"
+                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                                <input
+                                    type="text"
+                                    value={editingConfig.notesLabel || ''}
+                                    onChange={(e) => updateCategoryConfig(editingCategory, {
+                                        notesLabel: e.target.value,
+                                        notesPlaceholder: e.target.value ? `Add ${e.target.value.toLowerCase()}...` : 'Add notes...',
+                                    })}
+                                    placeholder="Notes box label"
+                                    className="col-span-2 w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end px-4 py-3 border-t border-neutral-300 bg-neutral-50">
+                            <button
+                                onClick={() => setEditingCategory(null)}
+                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500"
+                            >
+                                Done
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
