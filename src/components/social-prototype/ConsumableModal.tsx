@@ -240,7 +240,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant')
-        ? toGoogleMapsLink(existingItem?.image || draft.image, title, subtitle)
+        ? toGoogleMapsLink(draft.image || existingItem?.image, title, subtitle)
         : null;
 
     useEffect(() => {
