@@ -701,27 +701,40 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>
                         {draftBadgeText}
                     </span>
-                    <div className="relative w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors">
-                        <span className="block text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
-                            {activeDate}
-                        </span>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const input = dateInputRef.current;
+                                if (!input) return;
+                                try {
+                                    if (typeof input.showPicker === 'function') {
+                                        input.showPicker();
+                                        return;
+                                    }
+                                } catch {
+                                    // fall through
+                                }
+                                input.focus();
+                                input.click();
+                            }}
+                            className="flex items-center gap-1 w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors"
+                            aria-label="Open calendar"
+                            title="Open calendar"
+                        >
+                            <span className="text-[12px] sm:text-[10px] text-neutral-400" aria-hidden="true">📅</span>
+                            <span className="block text-right flex-1 font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
+                                {activeDate}
+                            </span>
+                        </button>
                         <input
                             ref={dateInputRef}
                             type="date"
                             value={activeDate}
                             onChange={(e) => setActiveDate(e.target.value)}
-                            onClick={(e) => {
-                                try {
-                                    const target = e.target as HTMLInputElement;
-                                    if (typeof target.showPicker === 'function') {
-                                        target.showPicker();
-                                    }
-                                } catch {
-                                    // Fall back to native click behavior.
-                                }
-                            }}
-                            aria-label="Select date"
-                            className="absolute inset-0 z-10 opacity-0 cursor-pointer"
+                            tabIndex={-1}
+                            aria-hidden="true"
+                            className="absolute -left-[9999px] w-px h-px opacity-0 pointer-events-none"
                         />
                     </div>
                 </div>
