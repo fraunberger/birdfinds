@@ -115,7 +115,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
     const [isMobileTagging, setIsMobileTagging] = useState(false);
-    const [isTyping, setIsTyping] = useState(false);
     const [previewText, setPreviewText] = useState('');
     const [previewDecorations, setPreviewDecorations] = useState<Array<{
         id: string;
@@ -156,7 +155,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
             priority: 1,
         }));
-        setPreviewText(textValue);
         setPreviewDecorations(parseHighlights(textValue, entities) as typeof previewDecorations);
     };
 
@@ -298,9 +296,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     }, [isMobileTagging]);
 
     useEffect(() => {
-        if (isTyping) return;
-        rebuildPreviewHighlights(content, items);
-    }, [content, items, isTyping]);
+        setPreviewText(content);
+        const timer = window.setTimeout(() => {
+            rebuildPreviewHighlights(content, items);
+        }, 180);
+        return () => window.clearTimeout(timer);
+    }, [content, items]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -691,7 +692,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 </button>
                             </div>
                         )}
-                        {!isTyping && previewText && (
+                        {previewText && (
                             <div
                                 className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
                                 aria-hidden="true"
@@ -721,7 +722,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             value={content}
                             onChange={handleContentChange}
                             onFocus={() => {
-                                setIsTyping(true);
                                 adjustTextareaHeight();
                                 // Auto-expand slightly on focus if small
                                 if (textareaRef.current) {
@@ -730,7 +730,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             }}
                             onBlur={(e) => {
                                 handleBlur();
-                                setIsTyping(false);
                                 rebuildPreviewHighlights(e.target.value, items);
                                 if (textareaRef.current && !content) {
                                     textareaRef.current.style.minHeight = isMobileTagging ? '170px' : '100px';
