@@ -155,6 +155,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
             priority: 1,
         }));
+        setPreviewText(textValue);
         setPreviewDecorations(parseHighlights(textValue, entities) as typeof previewDecorations);
     };
 
@@ -296,7 +297,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     }, [isMobileTagging]);
 
     useEffect(() => {
-        setPreviewText(content);
         const timer = window.setTimeout(() => {
             rebuildPreviewHighlights(content, items);
         }, 180);
