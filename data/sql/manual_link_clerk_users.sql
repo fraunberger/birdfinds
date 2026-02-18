@@ -8,9 +8,13 @@ begin;
 
 insert into public.clerk_user_links (clerk_user_id, supabase_user_id)
 values
-  -- ('user_abc123', '11111111-1111-1111-1111-111111111111'),
-  -- ('user_def456', '22222222-2222-2222-2222-222222222222')
-  -- Add one row per user, then remove this trailing comment line.
+  -- ('user_39qqGVzSGFu95gpSZzqsb2Pugeq', 'fc8a034f-88c8-44ff-8a24-48405b1306d8'),
+  -- ('user_39pBYdplp2DjN4WS0rvmZ7036ds', '12b02076-a13e-4c77-b274-1c97a1fec78d')
+  -- ('user_39pB6aedXS0oAJ0KVb5fmjh7bwK', '550ee38d-8667-4c3e-8732-f7d7ec0b3db7')
+  -- ('user_39pAeIiMki4b8nOJiF7V4VfbfLX', '63c2e13d-4726-4368-a112-0419b227de64')
+  -- ('user_39p2CM2Wxo9Xd5eD2JDRniIVpuz', 'b4442c53-dc9a-4732-8153-df407b379c23')
+  -- ('user_39nm8YLbkPMqmzIKy6clkDMzAHH', '1d72c8b0-83bf-4d8b-9e18-d6a9ac7422cd')
+  -- ('user_39gjOnCtGAyfpArznqYfyW8E1ki', 'dfa86b08-72b1-4443-94c3-9fd516cfa778')
 on conflict (clerk_user_id) do update
 set supabase_user_id = excluded.supabase_user_id;
 

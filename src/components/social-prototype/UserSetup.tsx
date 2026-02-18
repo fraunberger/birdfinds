@@ -128,6 +128,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 ? 'Image is too large to upload. Try a smaller image.'
                 : primaryError;
             setError(`Avatar upload failed: ${normalized || 'unknown error'}`);
+            resetAvatarCropState();
         } finally {
             setAvatarUploading(false);
         }
@@ -312,12 +313,14 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             {/* Cropping Modal Overlay */}
             {isCropping && cropImageSrc && (
                 <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4">
-                    <div className="relative w-full h-64 bg-neutral-900 mb-4 rounded overflow-hidden">
+                    <div className="relative w-72 h-72 bg-neutral-900 mb-4 rounded-full overflow-hidden border border-neutral-700">
                         <Cropper
                             image={cropImageSrc}
                             crop={crop}
                             zoom={zoom}
                             aspect={1}
+                            cropShape="round"
+                            showGrid={false}
                             onCropChange={setCrop}
                             onCropComplete={onCropComplete}
                             onZoomChange={setZoom}
