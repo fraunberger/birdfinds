@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { HabitChecklist } from './HabitChecklist';
 import { pushToast } from '@/lib/social-prototype/toast';
+import { parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -114,6 +115,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>('movie');
     const [isMobileTagging, setIsMobileTagging] = useState(false);
+    const [isTyping, setIsTyping] = useState(false);
+    const [previewText, setPreviewText] = useState('');
+    const [previewDecorations, setPreviewDecorations] = useState<Array<{
+        id: string;
+        entityType: string;
+        entityId: string;
+        start: number;
+        end: number;
+        displayText: string;
+        source: string;
+        color?: string;
+    }>>([]);
     const [mobilePickerBottom, setMobilePickerBottom] = useState(12);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
@@ -132,6 +145,20 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const effectiveQuickAddCategory = activeCategories.includes(quickAddCategory)
         ? quickAddCategory
         : (activeCategories[0] ?? 'movie');
+
+    const rebuildPreviewHighlights = (textValue: string, itemList: ConsumableItem[]) => {
+        const entities = itemList.map((item) => ({
+            id: item.id,
+            entityType: item.category,
+            entityId: item.id,
+            terms: getItemHighlightTerms(item),
+            source: 'item',
+            color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
+            priority: 1,
+        }));
+        setPreviewText(textValue);
+        setPreviewDecorations(parseHighlights(textValue, entities) as typeof previewDecorations);
+    };
 
     const setContentForActive = (value: string) => {
         setDraftStatus('saving');
@@ -269,6 +296,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             window.visualViewport?.removeEventListener('scroll', updateBottomOffset);
         };
     }, [isMobileTagging]);
+
+    useEffect(() => {
+        if (isTyping) return;
+        rebuildPreviewHighlights(content, items);
+    }, [content, items, isTyping]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -559,11 +591,11 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         <div className="mb-6 font-mono">
             {/* Inline style to sync highlight + textarea font sizes */}
             <style>{`
-                .composer-text {
+                .composer-text, .highlight-layer {
                     font-size: 14px;
                 }
                 @media (min-width: 640px) {
-                    .composer-text {
+                    .composer-text, .highlight-layer {
                         font-size: 12px;
                     }
                 }
@@ -659,11 +691,37 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 </button>
                             </div>
                         )}
+                        {!isTyping && previewText && (
+                            <div
+                                className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden"
+                                aria-hidden="true"
+                            >
+                                {(segmentText(previewText, previewDecorations) as Array<{
+                                    type: 'text' | 'highlight';
+                                    text: string;
+                                    start: number;
+                                    end: number;
+                                    decoration?: { color?: string; entityId?: string };
+                                }>).map((segment, index) =>
+                                    segment.type === 'text' ? (
+                                        <React.Fragment key={`t:${segment.start}:${index}`}>{segment.text}</React.Fragment>
+                                    ) : (
+                                        <mark
+                                            key={`h:${segment.start}:${segment.end}:${segment.decoration?.entityId || index}`}
+                                            style={{ backgroundColor: segment.decoration?.color || HIGHLIGHT_COLOR, padding: 0, color: 'transparent' }}
+                                        >
+                                            {segment.text}
+                                        </mark>
+                                    )
+                                )}
+                            </div>
+                        )}
                         <textarea
                             ref={textareaRef}
                             value={content}
                             onChange={handleContentChange}
                             onFocus={() => {
+                                setIsTyping(true);
                                 adjustTextareaHeight();
                                 // Auto-expand slightly on focus if small
                                 if (textareaRef.current) {
@@ -672,6 +730,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             }}
                             onBlur={(e) => {
                                 handleBlur();
+                                setIsTyping(false);
+                                rebuildPreviewHighlights(e.target.value, items);
                                 if (textareaRef.current && !content) {
                                     textareaRef.current.style.minHeight = isMobileTagging ? '170px' : '100px';
                                 }
