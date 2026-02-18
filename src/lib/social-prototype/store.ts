@@ -12,6 +12,8 @@ export type ProfileVisibility = 'public' | 'accounts' | 'private';
 
 export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
+export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
+export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';
 
 export interface ConsumableItem {
     id: string;
@@ -476,6 +478,33 @@ class SocialStore {
         }
     }
 
+    async addItemToPileCategory(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
+        try {
+            const response = await socialWrite('social.status.upsert', {
+                date: PILE_CATEGORY_STATUS_DATE,
+                content: PILE_CATEGORY_STATUS_CONTENT,
+            });
+            const statusId = response?.statusId as string | undefined;
+            if (!statusId) throw new Error('Failed to ensure pile category status');
+
+            await socialWrite('social.item.add', {
+                statusId,
+                item: {
+                    category: item.category,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    rating: item.rating,
+                    notes: item.notes,
+                    image: item.image,
+                }
+            });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error('Error adding item to pile category:', error);
+            throw error;
+        }
+    }
+
     async togglePublished(statusId: string, published: boolean) {
         try {
             await socialWrite('social.status.publish', { statusId, published });
@@ -621,6 +650,7 @@ export function useSocialStore() {
         setActiveDate: (d: string) => socialStore.setActiveDate(d),
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
+        addItemToPileCategory: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToPileCategory(i),
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
         addComment: (statusId: string, content: string) => socialStore.addComment(statusId, content),
         deleteComment: (commentId: string) => socialStore.deleteComment(commentId),
