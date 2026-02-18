@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
-import { HabitChecklist } from './HabitChecklist';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
 
@@ -842,11 +841,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                         </div>
                     )}
 
-                    {/* Habit Checklist + Post Action Row */}
-                    <div className="mt-2 flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                            <HabitChecklist date={activeDate} />
-                        </div>
+                    {/* Post Action Row */}
+                    <div className="mt-2 flex items-start justify-end gap-3">
                         <button
                             onClick={async () => {
                                 try {

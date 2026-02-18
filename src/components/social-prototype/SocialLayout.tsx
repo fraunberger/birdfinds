@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { useSocialStore, useUserProfile } from "@/lib/social-prototype/store";
 import { SocialFeed } from "./SocialFeed";
 import { StatusComposer } from "./StatusComposer";
+import { HabitChecklist } from "./HabitChecklist";
 import { AccountMenu } from "./AccountMenu";
 import { HeaderSearch } from "./HeaderSearch";
 
@@ -23,7 +24,7 @@ export function SocialLayout() {
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
-  const { setActiveDate, statuses, isLoaded: socialLoaded } = useSocialStore();
+  const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded } = useSocialStore();
   const hasUsername = !!profile?.username?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
   const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
@@ -217,7 +218,12 @@ export function SocialLayout() {
           )}
 
           {user && !needsOnboarding && (
-            <StatusComposer userCategories={profile?.categories} />
+            <>
+              <StatusComposer userCategories={profile?.categories} />
+              <div className="mt-3 mb-1">
+                <HabitChecklist date={activeDate} />
+              </div>
+            </>
           )}
 
           <SocialFeed onClickProfile={openPile} />

@@ -22,19 +22,15 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false }: 
     <div className="relative">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+        aria-label="Open account menu"
+        title="Menu"
+        className="w-8 h-8 border border-neutral-300 rounded-full flex items-center justify-center text-neutral-700 hover:bg-neutral-100 transition-colors"
       >
-        <div className="w-6 h-6 rounded-full bg-neutral-200 overflow-hidden">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-[10px] font-bold">
-              {username[0]?.toUpperCase()}
-            </div>
-          )}
+        <div className="flex items-center gap-0.5">
+          <span className="w-1 h-1 rounded-full bg-current" />
+          <span className="w-1 h-1 rounded-full bg-current" />
+          <span className="w-1 h-1 rounded-full bg-current" />
         </div>
-        <span className="text-xs uppercase tracking-widest text-neutral-500">{username}</span>
-        <span className="text-[10px] text-neutral-400">▾</span>
       </button>
 
       {open && (

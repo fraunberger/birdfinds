@@ -124,6 +124,16 @@ async function findSupabaseAuthUserIdByEmail(email: string) {
   return null;
 }
 
+const isSupabaseLinkUniqueConflict = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String((error as { code?: unknown }).code || "") : "";
+  const message = "message" in error ? String((error as { message?: unknown }).message || "") : "";
+  return (
+    code === "23505"
+    && (message.includes("clerk_user_links_supabase_user_id_key") || message.includes("duplicate key value"))
+  );
+};
+
 export async function getOrCreateLinkedSupabaseUser() {
   const supabaseAdmin = getSupabaseAdmin();
   const { userId: clerkUserId } = await auth();
@@ -191,7 +201,14 @@ export async function getOrCreateLinkedSupabaseUser() {
       clerk_user_id: clerkUserId,
       supabase_user_id: supabaseUserId,
     });
-  if (linkError) throw linkError;
+  if (linkError) {
+    if (!isSupabaseLinkUniqueConflict(linkError)) throw linkError;
+    const { error: relinkError } = await supabaseAdmin
+      .from("clerk_user_links")
+      .update({ clerk_user_id: clerkUserId })
+      .eq("supabase_user_id", supabaseUserId);
+    if (relinkError) throw relinkError;
+  }
 
   return supabaseUserId;
 }
