@@ -20,11 +20,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [isPrivate, setIsPrivate] = useState(false);
     const [newHabitName, setNewHabitName] = useState('');
     const [newCategoryName, setNewCategoryName] = useState('');
-    const [newCategoryShortLabel, setNewCategoryShortLabel] = useState('');
-    const [newCategoryTitleLabel, setNewCategoryTitleLabel] = useState('');
-    const [newCategorySubtitleLabel, setNewCategorySubtitleLabel] = useState('');
-    const [newCategoryRatingLabel, setNewCategoryRatingLabel] = useState('');
-    const [newCategoryNotesLabel, setNewCategoryNotesLabel] = useState('');
     const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [saving, setSaving] = useState(false);
@@ -106,11 +101,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         const normalized = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
         if (!normalized) return;
         const baseLabel = newCategoryName.trim();
-        const shortLabel = (newCategoryShortLabel.trim() || normalized.replace(/[^a-z0-9]/g, '').slice(0, 8)).toUpperCase();
-        const titleLabel = newCategoryTitleLabel.trim() || `${baseLabel} Title`;
-        const subtitleLabel = newCategorySubtitleLabel.trim() || 'Details';
-        const ratingLabel = newCategoryRatingLabel.trim() || 'Rating';
-        const notesLabel = newCategoryNotesLabel.trim() || 'Notes';
+        const shortLabel = normalized.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase() || 'CAT';
 
         setSelectedCategories((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
         setCategoryConfigs((prev) => ({
@@ -118,20 +109,15 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             [normalized]: {
                 label: baseLabel,
                 shortLabel,
-                titleLabel,
-                subtitleLabel,
-                subtitlePlaceholder: subtitleLabel,
-                ratingLabel,
-                notesLabel,
-                notesPlaceholder: `Add ${notesLabel.toLowerCase()}...`,
+                titleLabel: '',
+                subtitleLabel: '',
+                subtitlePlaceholder: '',
+                ratingLabel: '',
+                notesLabel: '',
+                notesPlaceholder: '',
             },
         }));
         setNewCategoryName('');
-        setNewCategoryShortLabel('');
-        setNewCategoryTitleLabel('');
-        setNewCategorySubtitleLabel('');
-        setNewCategoryRatingLabel('');
-        setNewCategoryNotesLabel('');
         setEditingCategory(normalized);
     };
 
@@ -312,9 +298,13 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                             className="flex items-center justify-between px-4 py-3 border-b border-neutral-300"
                             style={{ backgroundColor: `${editingConfig.color || '#d4d4d4'}40` }}
                         >
-                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">
-                                {editingConfig.shortLabel || 'CAT'}
-                            </span>
+                                            <input
+                                                type="text"
+                                                value={editingConfig.shortLabel}
+                                                onChange={(e) => updateCategoryConfig(editingCategory, { shortLabel: e.target.value.toUpperCase() })}
+                                                placeholder="SHORT"
+                                                className="bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none w-24"
+                                            />
                             <button
                                 onClick={() => setEditingCategory(null)}
                                 className="text-neutral-500 hover:text-neutral-800 text-2xl leading-none w-8 h-8 flex items-center justify-center -mr-2"
@@ -329,17 +319,28 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                 <div className="flex gap-4">
                                     <div className="flex-1 space-y-4">
                                         <div>
-                                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                                {editingConfig.titleLabel}
-                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editingConfig.titleLabel}
+                                                onChange={(e) => updateCategoryConfig(editingCategory, { titleLabel: e.target.value })}
+                                                placeholder="Primary label"
+                                                className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                            />
                                             <div className="w-full text-base font-mono border-b border-neutral-200 py-1 text-neutral-700">
                                                 Example Item
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                                {editingConfig.subtitleLabel}
-                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editingConfig.subtitleLabel}
+                                                onChange={(e) => updateCategoryConfig(editingCategory, {
+                                                    subtitleLabel: e.target.value,
+                                                    subtitlePlaceholder: e.target.value,
+                                                })}
+                                                placeholder="Secondary label"
+                                                className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                            />
                                             <div className="w-full text-sm font-mono border border-neutral-300 p-2 text-neutral-700">
                                                 Example Detail
                                             </div>
@@ -348,69 +349,31 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                     <div className="flex-shrink-0 pt-6">
                                         <div className="w-16 h-16 border-2 border-neutral-300 flex flex-col items-center justify-center bg-white">
                                             <span className="text-2xl font-bold text-neutral-800 leading-none">8.5</span>
-                                            <span className="text-[9px] text-neutral-400 mt-0.5">/ 10</span>
+                                            <input
+                                                type="text"
+                                                value={editingConfig.ratingLabel}
+                                                onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
+                                                placeholder="Rating"
+                                                className="text-[9px] text-neutral-400 mt-0.5 w-full text-center bg-transparent outline-none"
+                                            />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="mt-4">
-                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                        {editingConfig.notesLabel || 'Notes'}
-                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingConfig.notesLabel || ''}
+                                        onChange={(e) => updateCategoryConfig(editingCategory, {
+                                            notesLabel: e.target.value,
+                                            notesPlaceholder: e.target.value ? `Add ${e.target.value.toLowerCase()}...` : '',
+                                        })}
+                                        placeholder="Notes label"
+                                        className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                    />
                                     <div className="w-full text-sm font-mono border border-neutral-300 p-3 text-neutral-700 min-h-[88px]">
                                         Short annotation
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <input
-                                    type="text"
-                                    value={editingConfig.label}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, { label: e.target.value })}
-                                    placeholder="Category display name"
-                                    className="col-span-2 w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
-                                <input
-                                    type="text"
-                                    value={editingConfig.shortLabel}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, { shortLabel: e.target.value.toUpperCase() })}
-                                    placeholder="Abbreviation"
-                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
-                                <input
-                                    type="text"
-                                    value={editingConfig.titleLabel}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, { titleLabel: e.target.value })}
-                                    placeholder="Primary box label"
-                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
-                                <input
-                                    type="text"
-                                    value={editingConfig.subtitleLabel}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, {
-                                        subtitleLabel: e.target.value,
-                                        subtitlePlaceholder: e.target.value,
-                                    })}
-                                    placeholder="Secondary box label"
-                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
-                                <input
-                                    type="text"
-                                    value={editingConfig.ratingLabel}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
-                                    placeholder="Rating box label"
-                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
-                                <input
-                                    type="text"
-                                    value={editingConfig.notesLabel || ''}
-                                    onChange={(e) => updateCategoryConfig(editingCategory, {
-                                        notesLabel: e.target.value,
-                                        notesPlaceholder: e.target.value ? `Add ${e.target.value.toLowerCase()}...` : 'Add notes...',
-                                    })}
-                                    placeholder="Notes box label"
-                                    className="col-span-2 w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                />
                             </div>
                         </div>
 
@@ -501,48 +464,12 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                         placeholder="Custom category name"
                         className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
                     />
-                    <input
-                        type="text"
-                        value={newCategoryShortLabel}
-                        onChange={(e) => setNewCategoryShortLabel(e.target.value.toUpperCase())}
-                        placeholder="Abbreviation (e.g. VG)"
-                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
-                    />
-                    <input
-                        type="text"
-                        value={newCategoryTitleLabel}
-                        onChange={(e) => setNewCategoryTitleLabel(e.target.value)}
-                        placeholder="Primary box label"
-                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
-                    />
-                    <input
-                        type="text"
-                        value={newCategorySubtitleLabel}
-                        onChange={(e) => setNewCategorySubtitleLabel(e.target.value)}
-                        placeholder="Secondary box label"
-                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
-                    />
-                    <input
-                        type="text"
-                        value={newCategoryRatingLabel}
-                        onChange={(e) => setNewCategoryRatingLabel(e.target.value)}
-                        placeholder="Rating box label"
-                        className="px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
-                    />
-                    <input
-                        type="text"
-                        value={newCategoryNotesLabel}
-                        onChange={(e) => setNewCategoryNotesLabel(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomCategory(); }}
-                        placeholder="Notes box label"
-                        className="col-span-2 px-3 py-2 border border-neutral-300 text-sm outline-none focus:border-neutral-500 bg-transparent font-mono"
-                    />
                     <button
                         onClick={handleAddCustomCategory}
                         disabled={!newCategoryName.trim()}
                         className="col-span-2 px-4 py-2 bg-neutral-800 text-white text-xs uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-30"
                     >
-                        Add Custom Category
+                        New Category
                     </button>
                 </div>
                 {selectedCategories.filter((cat) => !DEFAULT_CATEGORIES.includes(cat)).length > 0 && (
