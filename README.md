@@ -67,6 +67,29 @@ Run these SQL files in Supabase SQL Editor:
 1. `data/sql/create_clerk_user_links.sql`
 2. `data/sql/add_user_profile_category_configs.sql`
 3. `data/sql/transfer_birdfinds_mike_to_michael_fraunberger.sql` (if migrating existing posts)
+4. `data/sql/add_profile_visibility.sql`
+
+## Clerk Production Cutover + User Migration
+
+1. In Clerk Dashboard, switch to **Production** instance and copy production keys.
+2. In Vercel project env vars, set:
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+3. In Vercel env vars, confirm backend keys are set:
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. In Supabase SQL Editor, run:
+   - `data/sql/create_clerk_user_links.sql`
+   - `data/sql/migrate_clerk_users_to_existing_profiles.sql`
+5. For step 4 migration script:
+   - Export users from Clerk as CSV.
+   - Paste rows into the `insert into tmp_clerk_users ...` block in that SQL file.
+   - Run script and review unmatched rows query at the end.
+6. Deploy and verify:
+   - Existing users can sign in with Clerk and still see old posts/items/habits.
+   - `/api/social/me` returns both `clerkUserId` and `linkedUserId`.
+   - Creating/updating posts works for migrated and new users.
 
 ## Scripts
 
