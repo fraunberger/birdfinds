@@ -605,7 +605,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Header: now minimal with Date and Expand toggle */}
             <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300">
                 <button
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={() => {
+                        const next = !isExpanded;
+                        setIsExpanded(next);
+                        if (!next) {
+                            setShowTagHelp(false);
+                        }
+                    }}
                     className="flex items-center gap-2 p-2 -ml-2 hover:bg-neutral-100 rounded transition-colors"
                 >
                     <span className={`text-[10px] transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
@@ -614,15 +620,17 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     </h2>
                 </button>
                 <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={() => setShowTagHelp((prev) => !prev)}
-                        className="h-5 w-5 inline-flex items-center justify-center border border-neutral-300 text-[10px] text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                        title="How tagging works"
-                        aria-label="How tagging works"
-                    >
-                        ?
-                    </button>
+                    {isExpanded && (
+                        <button
+                            type="button"
+                            onClick={() => setShowTagHelp((prev) => !prev)}
+                            className="h-5 w-5 inline-flex items-center justify-center border border-neutral-300 text-[10px] text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                            title="How tagging works"
+                            aria-label="How tagging works"
+                        >
+                            ?
+                        </button>
+                    )}
                     <span className={`text-[10px] uppercase tracking-widest ${draftStatus === 'saved' ? 'text-green-700' : draftStatus === 'saving' ? 'text-neutral-500' : 'text-neutral-300'}`}>
                         {draftStatus === 'saved' ? 'Draft Saved' : draftStatus === 'saving' ? 'Saving Draft...' : 'Draft'}
                     </span>
