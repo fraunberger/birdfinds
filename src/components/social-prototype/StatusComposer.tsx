@@ -135,6 +135,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const recentMentionKeyRef = useRef<{ key: string; at: number } | null>(null);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const dateInputRef = useRef<HTMLInputElement>(null);
 
     // Active categories
     const activeCategories = userCategories && userCategories.length > 0
@@ -700,23 +701,29 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>
                         {draftBadgeText}
                     </span>
-                    <input
-                        type="date"
-                        value={activeDate}
-                        onChange={(e) => setActiveDate(e.target.value)}
-                        // Try to open the picker on click for better UX
-                        onClick={(e) => {
-                            try {
-                                const target = e.target as HTMLInputElement;
-                                if (typeof target.showPicker === 'function') {
-                                    target.showPicker();
+                    <div className="relative w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors">
+                        <span className="block text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
+                            {activeDate}
+                        </span>
+                        <input
+                            ref={dateInputRef}
+                            type="date"
+                            value={activeDate}
+                            onChange={(e) => setActiveDate(e.target.value)}
+                            onClick={(e) => {
+                                try {
+                                    const target = e.target as HTMLInputElement;
+                                    if (typeof target.showPicker === 'function') {
+                                        target.showPicker();
+                                    }
+                                } catch {
+                                    // Fall back to native click behavior.
                                 }
-                            } catch (err) {
-                                // Fallback or ignore
-                            }
-                        }}
-                        className="bg-transparent text-right font-mono text-[16px] sm:text-[10px] text-neutral-500 cursor-pointer outline-none border-b border-transparent hover:border-neutral-300 transition-colors w-[130px] sm:w-[100px] p-1 appearance-none"
-                    />
+                            }}
+                            aria-label="Select date"
+                            className="absolute inset-0 z-10 opacity-0 cursor-pointer"
+                        />
+                    </div>
                 </div>
             </header>
 
