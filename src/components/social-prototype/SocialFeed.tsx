@@ -202,6 +202,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                             isAdmin={isAdmin}
                             currentUserId={linkedUserId}
                             showPostReportButton={true}
+                            disableItemEditing={true}
                             onEdit={isOwn ? () => {
                                 setActiveDate(status.date);
                                 window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));

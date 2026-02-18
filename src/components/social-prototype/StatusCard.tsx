@@ -18,6 +18,7 @@ interface StatusCardProps {
     currentUserId?: string | null;
     onEdit?: () => void;
     showPostReportButton?: boolean;
+    disableItemEditing?: boolean;
 }
 
 interface ItemMeta {
@@ -48,7 +49,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
 };
 
-export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true }: StatusCardProps) {
+export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true, disableItemEditing = false }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
     const [showComments, setShowComments] = useState(false);
@@ -485,15 +486,15 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                 onClose={() => setSelectedItem(null)}
                 existingItem={selectedItem || undefined}
                 initialCategory={selectedItem?.category || 'movie'}
-                readOnly={!isOwn}
-                onSave={isOwn ? async (item) => {
+                readOnly={!isOwn || disableItemEditing}
+                onSave={isOwn && !disableItemEditing ? async (item) => {
                     if (selectedItem) {
                         await removeItemFromActive(selectedItem.id);
                     }
                     await addItemToStatus(status.id, item);
                     setSelectedItem(null);
                 } : undefined}
-                onDelete={isOwn ? async () => {
+                onDelete={isOwn && !disableItemEditing ? async () => {
                     if (selectedItem) {
                         await removeItemFromActive(selectedItem.id);
                     }
