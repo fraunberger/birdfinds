@@ -84,7 +84,9 @@ Run these SQL files in Supabase SQL Editor:
    - `data/sql/migrate_clerk_users_to_existing_profiles.sql`
 5. For step 4 migration script:
    - Export users from Clerk as CSV.
-   - Paste rows into the `insert into tmp_clerk_users ...` block in that SQL file.
+   - Generate SQL values block from CSV:
+     - `npm run clerk:csv-to-sql -- path/to/clerk-users.csv`
+   - Copy output and paste it into the `insert into tmp_clerk_users ...` block in `data/sql/migrate_clerk_users_to_existing_profiles.sql`.
    - Run script and review unmatched rows query at the end.
 6. Deploy and verify:
    - Existing users can sign in with Clerk and still see old posts/items/habits.
@@ -98,6 +100,7 @@ Run these SQL files in Supabase SQL Editor:
 - `npm run start` - Run production build
 - `npm run lint` - Run ESLint
 - `npm run test:highlight` - Run highlight parser + segmentation unit tests
+- `npm run clerk:csv-to-sql -- <csv-path>` - Convert Clerk CSV export to SQL `INSERT` rows for user migration
 
 ## Highlighting Model (Composer)
 

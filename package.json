@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:highlight": "node --test src/lib/social-prototype/highlighting.test.mjs"
+    "test:highlight": "node --test src/lib/social-prototype/highlighting.test.mjs",
+    "clerk:csv-to-sql": "node scripts/clerk-csv-to-sql.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.4",
