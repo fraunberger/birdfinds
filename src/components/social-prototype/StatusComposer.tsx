@@ -783,16 +783,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 )}
                             </div>
                         )}
-                        {!showMentionPicker && atPosition >= 0 && triggerLength > 1 && mentionTitle.trim() && (
-                            <div
-                                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-[1] align-top overflow-hidden"
-                                aria-hidden="true"
-                            >
-                                {content.slice(0, atPosition)}
-                                <span className="border-b-2 border-neutral-700">{content.slice(atPosition, atPosition + triggerLength)}</span>
-                                {content.slice(atPosition + triggerLength)}
-                            </div>
-                        )}
                         <textarea
                             ref={textareaRef}
                             value={content}
