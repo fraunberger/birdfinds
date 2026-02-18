@@ -701,39 +701,33 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>
                         {draftBadgeText}
                     </span>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const input = dateInputRef.current;
-                                if (!input) return;
-                                try {
-                                    if (typeof input.showPicker === 'function') {
-                                        input.showPicker();
-                                        return;
-                                    }
-                                } catch {
-                                    // fall through
-                                }
-                                input.focus();
-                                input.click();
-                            }}
-                            className="flex items-center w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors"
-                            aria-label="Open calendar"
-                            title="Open calendar"
-                        >
-                            <span className="block text-right flex-1 font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
-                                {activeDate}
-                            </span>
-                        </button>
+                    <div className="relative inline-flex items-center gap-1 p-1 border-b border-transparent hover:border-neutral-300 transition-colors">
+                        <span className="block font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
+                            {activeDate}
+                        </span>
+                        <span className="text-neutral-400" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <rect x="3" y="4" width="18" height="17" rx="2" />
+                                <path d="M8 2v4M16 2v4M3 9h18" />
+                            </svg>
+                        </span>
                         <input
                             ref={dateInputRef}
                             type="date"
                             value={activeDate}
                             onChange={(e) => setActiveDate(e.target.value)}
-                            tabIndex={-1}
-                            aria-hidden="true"
-                            className="absolute inset-0 opacity-0 pointer-events-none"
+                            onClick={(e) => {
+                                try {
+                                    const target = e.target as HTMLInputElement;
+                                    if (typeof target.showPicker === 'function') {
+                                        target.showPicker();
+                                    }
+                                } catch {
+                                    // Fallback: let browser native date input behavior run.
+                                }
+                            }}
+                            aria-label="Select date"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
                         />
                     </div>
                 </div>
