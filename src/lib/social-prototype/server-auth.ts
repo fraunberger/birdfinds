@@ -1,5 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { randomUUID } from "crypto";
 
 interface ClerkLinkRow {
   clerk_user_id: string;
@@ -81,6 +82,12 @@ async function ensureProfileForUser(userId: string, username: string) {
   if (error) throw error;
 }
 
+async function createProfileOnlyUser(username: string) {
+  const userId = randomUUID();
+  await ensureProfileForUser(userId, username);
+  return userId;
+}
+
 async function findSupabaseAuthUserIdByEmail(email: string) {
   const supabaseAdmin = getSupabaseAdmin();
   let page = 1;
@@ -133,16 +140,19 @@ export async function getOrCreateLinkedSupabaseUser() {
 
   if (!supabaseUserId) {
     if (!email) {
-      throw new Error("Cannot create Supabase account for Clerk user without an email.");
-    }
-    try {
-      supabaseUserId = await createSupabaseAuthUser(email);
-    } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : "";
-      if (message.includes("already been registered")) {
-        supabaseUserId = await findSupabaseAuthUserIdByEmail(email);
+      // Fallback for Clerk users without email (e.g. provider edge-cases):
+      // create a profile-only user id and link it to Clerk.
+      supabaseUserId = await createProfileOnlyUser(resolvedUsername);
+    } else {
+      try {
+        supabaseUserId = await createSupabaseAuthUser(email);
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : "";
+        if (message.includes("already been registered")) {
+          supabaseUserId = await findSupabaseAuthUserIdByEmail(email);
+        }
+        if (!supabaseUserId) throw error;
       }
-      if (!supabaseUserId) throw error;
     }
   }
 
