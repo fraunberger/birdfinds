@@ -8,14 +8,17 @@ interface CategorySheetProps {
     category: Category;
     items: ConsumableItem[];
     onClose: () => void;
+    canAddItem?: boolean;
+    onAddItem?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
 }
 
 type SortMode = 'latest' | 'top';
 
-export function CategorySheet({ category, items, onClose }: CategorySheetProps) {
+export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
 
     if (!config) return null;
 
@@ -37,6 +40,14 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
+                    {canAddItem && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 text-neutral-600 hover:text-neutral-800 hover:border-neutral-500"
+                        >
+                            Add Find
+                        </button>
+                    )}
                     {/* Sort Toggle */}
                     <div className="flex text-[10px] border border-neutral-300">
                         <button
@@ -126,6 +137,21 @@ export function CategorySheet({ category, items, onClose }: CategorySheetProps) 
                     readOnly
                     onClose={() => setSelectedItem(null)}
                     onSave={() => { }}
+                />
+            )}
+
+            {showAddModal && (
+                <ConsumableModal
+                    key={`new-${category}`}
+                    isOpen={showAddModal}
+                    initialCategory={category}
+                    onClose={() => setShowAddModal(false)}
+                    onSave={async (item) => {
+                        if (onAddItem) {
+                            await onAddItem(item);
+                        }
+                        setShowAddModal(false);
+                    }}
                 />
             )}
         </div>

@@ -10,7 +10,8 @@ import {
     useFollows,
     getCategoryConfig,
     Category,
-    ConsumableItem
+    ConsumableItem,
+    PILE_CATEGORY_STATUS_DATE
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { CategorySheet } from './CategorySheet';
@@ -28,7 +29,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -39,7 +40,8 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const isOwnProfile = myProfile?.id === userId;
     const userStatuses = getUserStatuses(userId);
     const sortedFilteredStatuses = useMemo(() => {
-        const withCategory = userStatuses.filter((status) => {
+        const visibleStatuses = userStatuses.filter((status) => status.date !== PILE_CATEGORY_STATUS_DATE);
+        const withCategory = visibleStatuses.filter((status) => {
             if (statusCategoryFilter === 'all') return true;
             return status.items.some((item) => item.category === statusCategoryFilter);
         });
@@ -260,6 +262,10 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             category={openCategory}
                             items={categoryItems[openCategory] || []}
                             onClose={() => setOpenCategory(null)}
+                            canAddItem={isOwnProfile}
+                            onAddItem={async (item) => {
+                                await addItemToPileCategory(item);
+                            }}
                         />
                     )}
 
