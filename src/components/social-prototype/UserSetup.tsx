@@ -9,6 +9,13 @@ interface UserSetupProps {
     onComplete: () => void;
 }
 
+const avatarExtFromMime = (mime: string) => {
+    if (mime === 'image/png') return 'png';
+    if (mime === 'image/webp') return 'webp';
+    if (mime === 'image/gif') return 'gif';
+    return 'jpg';
+};
+
 export function UserSetup({ onComplete }: UserSetupProps) {
     const { profile, saveProfile, uploadAvatar, loading } = useUserProfile();
     const { habits, addHabit, removeHabit } = useHabits();
@@ -84,7 +91,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             } else {
                 const preferredType = pendingAvatarFile?.type || 'image/png';
                 const croppedImageBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels, preferredType);
-                file = new File([croppedImageBlob], 'avatar', { type: preferredType });
+                const ext = avatarExtFromMime(preferredType);
+                file = new File([croppedImageBlob], `avatar.${ext}`, { type: preferredType });
             }
             const url = await uploadAvatar(file);
             setAvatarUrl(url);
