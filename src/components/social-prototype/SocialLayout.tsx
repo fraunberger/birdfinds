@@ -24,9 +24,15 @@ export function SocialLayout() {
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
   const { setActiveDate, statuses, isLoaded: socialLoaded } = useSocialStore();
-  const needsOnboarding = !!user && !profile?.username?.trim();
-  const needsCategorySetup = !!user && !!profile?.username?.trim() && (!profile?.categories || profile.categories.length === 0);
-  const needsFirstPost = !!user && !!profile?.username?.trim() && statuses.length === 0;
+  const hasUsername = !!profile?.username?.trim();
+  const hasCategories = !!profile?.categories && profile.categories.length > 0;
+  const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
+  const stepOneComplete = !!user && hasUsername;
+  const stepTwoComplete = stepOneComplete && hasCategories;
+  const stepThreeComplete = stepTwoComplete && hasPublishedPost;
+  const needsOnboarding = !!user && !stepOneComplete;
+  const needsCategorySetup = !!user && !stepTwoComplete;
+  const needsFirstPost = !!user && !stepThreeComplete;
   const showOnboardingChecklist = !!user && socialLoaded && (needsOnboarding || needsCategorySetup || needsFirstPost);
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -175,14 +181,14 @@ export function SocialLayout() {
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
               <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
               <ol className="mt-2 space-y-1 text-xs">
-                <li className={needsOnboarding ? "text-neutral-800" : "text-green-700"}>
-                  {needsOnboarding ? "□" : "✓"} 1. Set username and avatar
+                <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
+                  {stepOneComplete ? "✓" : "□"} 1. Set username and avatar
                 </li>
-                <li className={needsCategorySetup ? "text-neutral-800" : "text-green-700"}>
-                  {needsCategorySetup ? "□" : "✓"} 2. Choose categories to track
+                <li className={stepTwoComplete ? "text-green-700" : "text-neutral-800"}>
+                  {stepTwoComplete ? "✓" : "□"} 2. Choose categories to track
                 </li>
-                <li className={needsFirstPost ? "text-neutral-800" : "text-green-700"}>
-                  {needsFirstPost ? "□" : "✓"} 3. Publish your first post
+                <li className={stepThreeComplete ? "text-green-700" : "text-neutral-800"}>
+                  {stepThreeComplete ? "✓" : "□"} 3. Publish your first post
                 </li>
               </ol>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
