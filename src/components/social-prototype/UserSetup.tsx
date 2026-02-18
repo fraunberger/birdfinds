@@ -278,7 +278,13 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     </div>
                     <div className="flex gap-4">
                         <button
-                            onClick={() => setIsCropping(false)}
+                            onClick={() => {
+                                setIsCropping(false);
+                                setCropImageSrc(null);
+                                setCroppedAreaPixels(null);
+                                setZoom(1);
+                                setCrop({ x: 0, y: 0 });
+                            }}
                             className="px-6 py-2 border border-neutral-600 text-white text-xs uppercase tracking-widest hover:bg-neutral-800"
                         >
                             Cancel
@@ -672,8 +678,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob | 
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
             if (!blob) {
-                // reject(new Error('Canvas is empty'));
-                console.error('Canvas is empty');
+                reject(new Error('Canvas is empty'));
                 return;
             }
             resolve(blob);
