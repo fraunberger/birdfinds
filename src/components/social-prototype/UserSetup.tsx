@@ -29,6 +29,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const lastSavedSignatureRef = useRef<string>('');
     const autoSaveTimerRef = useRef<number | null>(null);
     const saveIndicatorTimerRef = useRef<number | null>(null);
+    const inFlightSaveRef = useRef<Promise<void> | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const avatarObjectUrlRef = useRef<string | null>(null);
 
@@ -62,17 +63,31 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     }, []);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            setPendingAvatarFile(file);
-            if (avatarObjectUrlRef.current) {
-                URL.revokeObjectURL(avatarObjectUrlRef.current);
-            }
-            const objectUrl = URL.createObjectURL(file);
-            avatarObjectUrlRef.current = objectUrl;
-            setCropImageSrc(objectUrl);
-            setIsCropping(true);
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const file = e.target.files[0];
+        e.target.value = '';
+
+        if (!file.type.startsWith('image/')) {
+            setError('Please select an image file.');
+            return;
         }
+
+        const maxBytes = 12 * 1024 * 1024;
+        if (file.size > maxBytes) {
+            setError('Image is too large. Please choose one under 12MB.');
+            return;
+        }
+
+        setError(null);
+        setPendingAvatarFile(file);
+        if (avatarObjectUrlRef.current) {
+            URL.revokeObjectURL(avatarObjectUrlRef.current);
+        }
+        const objectUrl = URL.createObjectURL(file);
+        avatarObjectUrlRef.current = objectUrl;
+        setCropImageSrc(objectUrl);
+        setIsCropping(true);
     };
 
     const resetAvatarCropState = () => {
@@ -91,6 +106,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const handleSaveCrop = async () => {
         if (!cropImageSrc) return;
         setAvatarUploading(true);
+        setError(null);
         try {
             const image = await createImage(cropImageSrc);
             const fullImageArea: Area = {
@@ -189,9 +205,13 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setError('Username is required');
             return;
         }
+        if (inFlightSaveRef.current) {
+            await inFlightSaveRef.current;
+        }
+
         setSaving(true);
         setError(null);
-        try {
+        const doSave = async () => {
             await saveProfile({
                 username: username.trim(),
                 avatarUrl,
@@ -208,10 +228,16 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 categoryConfigs,
             });
             afterSave?.();
+        };
+
+        inFlightSaveRef.current = doSave();
+        try {
+            await inFlightSaveRef.current;
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to save profile');
             setAutoSaveState('error');
         } finally {
+            inFlightSaveRef.current = null;
             setSaving(false);
         }
     };
@@ -441,7 +467,11 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             {/* Avatar */}
             <div className="flex flex-col items-center mb-8">
                 <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                        setError(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                        fileInputRef.current?.click();
+                    }}
                     className="w-24 h-24 rounded-full bg-neutral-200 border-2 border-neutral-300 overflow-hidden flex items-center justify-center hover:border-neutral-500 transition-colors relative"
                 >
                     {avatarUrl ? (
