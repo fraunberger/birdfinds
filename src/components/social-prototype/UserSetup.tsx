@@ -109,12 +109,12 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             [normalized]: {
                 label: baseLabel,
                 shortLabel,
-                titleLabel: '',
-                subtitleLabel: '',
-                subtitlePlaceholder: '',
-                ratingLabel: '',
-                notesLabel: '',
-                notesPlaceholder: '',
+                titleLabel: 'Item',
+                subtitleLabel: 'Details',
+                subtitlePlaceholder: 'Details',
+                ratingLabel: 'Rating',
+                notesLabel: 'Notes',
+                notesPlaceholder: 'Add notes...',
             },
         }));
         setNewCategoryName('');
@@ -324,9 +324,9 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                                 value={editingConfig.titleLabel}
                                                 onChange={(e) => updateCategoryConfig(editingCategory, { titleLabel: e.target.value })}
                                                 placeholder="Primary label"
-                                                className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                                className="block w-full text-sm font-bold uppercase tracking-wider text-neutral-900 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
                                             />
-                                            <div className="w-full text-base font-mono border-b border-neutral-200 py-1 text-neutral-700">
+                                            <div className="w-full text-base font-mono border-b border-neutral-200 py-1 text-neutral-400">
                                                 Example Item
                                             </div>
                                         </div>
@@ -339,9 +339,9 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                                     subtitlePlaceholder: e.target.value,
                                                 })}
                                                 placeholder="Secondary label"
-                                                className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                                className="block w-full text-sm font-bold uppercase tracking-wider text-neutral-900 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
                                             />
-                                            <div className="w-full text-sm font-mono border border-neutral-300 p-2 text-neutral-700">
+                                            <div className="w-full text-sm font-mono border border-neutral-300 p-2 text-neutral-400">
                                                 Example Detail
                                             </div>
                                         </div>
@@ -354,7 +354,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                                 value={editingConfig.ratingLabel}
                                                 onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
                                                 placeholder="Rating"
-                                                className="text-[9px] text-neutral-400 mt-0.5 w-full text-center bg-transparent outline-none"
+                                                className="text-[10px] font-bold uppercase tracking-wide text-neutral-900 mt-0.5 w-full text-center bg-transparent outline-none"
                                             />
                                         </div>
                                     </div>
@@ -368,9 +368,9 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                             notesPlaceholder: e.target.value ? `Add ${e.target.value.toLowerCase()}...` : '',
                                         })}
                                         placeholder="Notes label"
-                                        className="block w-full text-xs uppercase tracking-widest text-neutral-500 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
+                                        className="block w-full text-sm font-bold uppercase tracking-wider text-neutral-900 mb-1 outline-none bg-transparent border-b border-dashed border-neutral-300"
                                     />
-                                    <div className="w-full text-sm font-mono border border-neutral-300 p-3 text-neutral-700 min-h-[88px]">
+                                    <div className="w-full text-sm font-mono border border-neutral-300 p-3 text-neutral-400 min-h-[88px]">
                                         Short annotation
                                     </div>
                                 </div>
