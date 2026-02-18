@@ -9,13 +9,6 @@ interface UserSetupProps {
     onComplete: () => void;
 }
 
-const avatarExtFromMime = (mime: string) => {
-    if (mime === 'image/png') return 'png';
-    if (mime === 'image/webp') return 'webp';
-    if (mime === 'image/gif') return 'gif';
-    return 'jpg';
-};
-
 export function UserSetup({ onComplete }: UserSetupProps) {
     const { profile, saveProfile, uploadAvatar, loading } = useUserProfile();
     const { habits, addHabit, removeHabit } = useHabits();
@@ -84,16 +77,16 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         if (!cropImageSrc) return;
         setAvatarUploading(true);
         try {
-            let file: File;
-            if (!croppedAreaPixels) {
-                if (!pendingAvatarFile) throw new Error('No avatar file selected');
-                file = pendingAvatarFile;
-            } else {
-                const preferredType = pendingAvatarFile?.type || 'image/png';
-                const croppedImageBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels, preferredType);
-                const ext = avatarExtFromMime(preferredType);
-                file = new File([croppedImageBlob], `avatar.${ext}`, { type: preferredType });
-            }
+            const image = await createImage(cropImageSrc);
+            const fullImageArea: Area = {
+                x: 0,
+                y: 0,
+                width: image.naturalWidth || image.width,
+                height: image.naturalHeight || image.height,
+            };
+            const targetArea = croppedAreaPixels || fullImageArea;
+            const optimizedBlob = await getOptimizedAvatarBlob(cropImageSrc, targetArea);
+            const file = new File([optimizedBlob], 'avatar.jpg', { type: 'image/jpeg' });
             const url = await uploadAvatar(file);
             setAvatarUrl(url);
             setIsCropping(false);
@@ -105,26 +98,10 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         } catch (e: unknown) {
             console.error(e);
             const primaryError = getErrorMessage(e);
-            // Fallback: if crop/export fails, upload original selected file.
-            if (pendingAvatarFile) {
-                try {
-                    const url = await uploadAvatar(pendingAvatarFile);
-                    setAvatarUrl(url);
-                    setIsCropping(false);
-                    setCropImageSrc(null);
-                    setCroppedAreaPixels(null);
-                    setPendingAvatarFile(null);
-                    setZoom(1);
-                    setCrop({ x: 0, y: 0 });
-                    return;
-                } catch (fallbackError: unknown) {
-                    const fallbackMessage = getErrorMessage(fallbackError);
-                    setError(fallbackMessage || primaryError || 'Failed to upload image');
-                    return;
-                    // Continue to surface error below.
-                }
-            }
-            setError(primaryError || 'Failed to upload image');
+            const normalized = primaryError.includes('FUNCTION_PAYLOAD_TOO_LARGE')
+                ? 'Image is too large to upload. Try a smaller image.'
+                : primaryError;
+            setError(normalized || 'Failed to upload image');
         } finally {
             setAvatarUploading(false);
         }
@@ -684,8 +661,29 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
         image.src = url;
     });
 
+async function getOptimizedAvatarBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+    let maxDimension = 1400;
+    let quality = 0.86;
+    const maxBytes = 3_500_000;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+        const blob = await getCroppedImg(imageSrc, pixelCrop, 'image/jpeg', quality, maxDimension);
+        if (blob.size <= maxBytes) return blob;
+        maxDimension = Math.max(420, Math.round(maxDimension * 0.82));
+        quality = Math.max(0.55, quality - 0.08);
+    }
+
+    return getCroppedImg(imageSrc, pixelCrop, 'image/jpeg', 0.52, 420);
+}
+
 // Helper to get cropped image blob
-async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: string): Promise<Blob> {
+async function getCroppedImg(
+    imageSrc: string,
+    pixelCrop: Area,
+    outputType: string,
+    quality: number,
+    maxDimension: number,
+): Promise<Blob> {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -694,9 +692,13 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: stri
         throw new Error('Canvas context unavailable');
     }
 
-    // set canvas width to match the bounding box
-    canvas.width = Math.max(1, Math.round(pixelCrop.width));
-    canvas.height = Math.max(1, Math.round(pixelCrop.height));
+    const sourceWidth = Math.max(1, Math.round(pixelCrop.width));
+    const sourceHeight = Math.max(1, Math.round(pixelCrop.height));
+    const downscaleRatio = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+    const destWidth = Math.max(1, Math.round(sourceWidth * downscaleRatio));
+    const destHeight = Math.max(1, Math.round(sourceHeight * downscaleRatio));
+    canvas.width = destWidth;
+    canvas.height = destHeight;
 
     // draw cropped image
     // Note: pixelCrop defines coords in the *original* image natural dimensions if unit is px?
@@ -709,8 +711,8 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: stri
         Math.max(1, Math.round(pixelCrop.height)),
         0,
         0,
-        Math.max(1, Math.round(pixelCrop.width)),
-        Math.max(1, Math.round(pixelCrop.height))
+        destWidth,
+        destHeight
     );
 
     return new Promise((resolve, reject) => {
@@ -720,7 +722,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: stri
                 return;
             }
             resolve(blob);
-        }, outputType);
+        }, outputType, quality);
     });
 }
 
