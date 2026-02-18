@@ -741,8 +741,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     : "absolute z-50 bg-black text-white p-1.5 shadow-xl rounded-sm flex flex-col items-stretch gap-1 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"}
                                 style={{
                                     bottom: isMobileTagging ? `${mobilePickerBottom}px` : undefined,
-                                    // Desktop: anchor near selection, not fixed center.
-                                    top: isMobileTagging ? undefined : `${Math.max(6, (selectionRange?.top ?? 46) - 44)}px`,
+                                    // Desktop: place below selection so selected text remains visible.
+                                    top: isMobileTagging
+                                        ? undefined
+                                        : `${Math.max(8, (selectionRange?.top ?? 24) + (selectionRange?.height ?? 14) + 10)}px`,
                                     left: isMobileTagging ? undefined : `${selectionRange?.left ?? 120}px`,
                                     transform: isMobileTagging ? undefined : 'translateX(-50%)',
                                     width: isMobileTagging ? undefined : 'min(320px, calc(100% - 16px))',
