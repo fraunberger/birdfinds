@@ -16,26 +16,60 @@ const mimeExtMap: Record<string, string> = {
   "image/heif": "heif",
 };
 
+async function resolveAvatarOwnerId(clerkUserId: string): Promise<string> {
+  try {
+    const linkedUserId = await getOrCreateLinkedSupabaseUser();
+    if (linkedUserId) return linkedUserId;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[avatar] link resolution failed, using clerk fallback owner:", message);
+  }
+  return `clerk-${clerkUserId}`;
+}
+
+async function ensureAvatarsBucket() {
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data: bucket } = await supabaseAdmin.storage.getBucket("avatars");
+  if (bucket) return;
+  const { error: createError } = await supabaseAdmin.storage.createBucket("avatars", {
+    public: true,
+    fileSizeLimit: 8 * 1024 * 1024,
+    allowedMimeTypes: Object.keys(mimeExtMap),
+  });
+  if (createError && !createError.message.toLowerCase().includes("already exists")) {
+    throw createError;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const linkedUserId = await getOrCreateLinkedSupabaseUser();
-    if (!linkedUserId) return NextResponse.json({ error: "No linked user" }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const contentType = typeof body?.contentType === "string" ? body.contentType.trim().toLowerCase() : "";
     if (!contentType.startsWith("image/") || !mimeExtMap[contentType]) {
       return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
     }
+
+    const ownerId = await resolveAvatarOwnerId(userId);
+    await ensureAvatarsBucket();
+
     const fileExt = mimeExtMap[contentType] || "jpg";
-    const filePath = `${linkedUserId}/avatar-${Date.now()}.${fileExt}`;
+    const filePath = `${ownerId}/avatar-${Date.now()}.${fileExt}`;
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { data, error } = await supabaseAdmin.storage
+    let { data, error } = await supabaseAdmin.storage
       .from("avatars")
       .createSignedUploadUrl(filePath);
+
+    // One retry after bucket ensure to reduce transient bootstrapping issues.
+    if (error) {
+      await ensureAvatarsBucket();
+      const retry = await supabaseAdmin.storage.from("avatars").createSignedUploadUrl(filePath);
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error || !data?.token) {
       return NextResponse.json(
