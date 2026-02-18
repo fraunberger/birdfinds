@@ -29,6 +29,7 @@ export function SocialLayout() {
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
+  const [isEntryMode, setIsEntryMode] = React.useState(false);
   const hasUsername = !!profile?.username?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
   const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
@@ -277,10 +278,15 @@ export function SocialLayout() {
 
           {user && !needsOnboarding && (
             <>
-              <StatusComposer userCategories={profile?.categories} />
-              <div className="mt-3 mb-1">
-                <HabitChecklist date={activeDate} />
-              </div>
+              <StatusComposer
+                userCategories={profile?.categories}
+                onEntryModeChange={setIsEntryMode}
+              />
+              {isEntryMode && (
+                <div className="mt-3 mb-1">
+                  <HabitChecklist date={activeDate} />
+                </div>
+              )}
             </>
           )}
 

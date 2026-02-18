@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 
 interface StatusComposerProps {
     userCategories?: Category[];
+    onEntryModeChange?: (isEntryMode: boolean) => void;
 }
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
@@ -58,7 +59,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
 };
 
-export function StatusComposer({ userCategories }: StatusComposerProps) {
+export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
@@ -143,6 +144,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        onEntryModeChange?.(isExpanded);
+    }, [isExpanded, onEntryModeChange]);
 
     // Active categories
     const activeCategories = userCategories && userCategories.length > 0
