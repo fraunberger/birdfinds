@@ -132,23 +132,21 @@ export function SocialLayout() {
                       you find. It is designed as a journal with a feed: a non-addictive social platform for sharing your
                       tastes, your finds, and the little stories that make your day.
                     </p>
-                    <ul className="list-disc pl-5 space-y-2">
-                      <li>
-                        Every day you get one post and one pile to track your finds in the categories you care about.
-                        Use the starting categories or create your own.
-                      </li>
-                      <li>
-                        Add as much, or as little detail as you want per item. Find the same item as someone else and
-                        compare your opinions on its page, or drop a comment on their post.
-                      </li>
-                      <li>
-                        See everyone&apos;s finds in the global feed, or curate your own following. Click on somebody&apos;s
-                        pile to see an overview of their finds and to follow or block them.
-                      </li>
-                      <li>
-                        Trying to build a habit? Add those as well and track progress in your pile.
-                      </li>
-                    </ul>
+                    <p>
+                      Every day you get one post and one pile to track your finds in the categories you care about.
+                      Use the starting categories or create your own.
+                    </p>
+                    <p>
+                      Add as much, or as little detail as you want per item. Find the same item as someone else and
+                      compare your opinions on its page, or drop a comment on their post.
+                    </p>
+                    <p>
+                      See everyone&apos;s finds in the global feed, or curate your own following. Click on somebody&apos;s
+                      pile to see an overview of their finds and to follow or block them.
+                    </p>
+                    <p>
+                      Trying to build a habit? Add those as well and track progress in your pile.
+                    </p>
                     <p>
                       Found a bug in birdfinds? email mikefraun19 AT gmail and I&apos;ll venmo you a dollar*.
                     </p>
