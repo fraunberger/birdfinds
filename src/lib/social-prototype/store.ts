@@ -514,6 +514,26 @@ class SocialStore {
         }
     }
 
+    async addItemToStatus(statusId: string, item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
+        try {
+            await socialWrite('social.item.add', {
+                statusId,
+                item: {
+                    category: item.category,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    rating: item.rating,
+                    notes: item.notes,
+                    image: item.image,
+                }
+            });
+            await this.fetchStatuses();
+        } catch (error) {
+            console.error("Error adding item to status:", error);
+            throw error;
+        }
+    }
+
     async addItemToPileCategory(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
         try {
             const response = await socialWrite('social.status.upsert', {
@@ -686,6 +706,7 @@ export function useSocialStore() {
         setActiveDate: (d: string) => socialStore.setActiveDate(d),
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
+        addItemToStatus: (statusId: string, i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToStatus(statusId, i),
         addItemToPileCategory: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToPileCategory(i),
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
         addComment: (statusId: string, content: string) => socialStore.addComment(statusId, content),

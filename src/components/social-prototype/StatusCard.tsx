@@ -57,7 +57,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const [commentSubmitting, setCommentSubmitting] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const { user } = useAuth();
-    const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment } = useSocialStore();
+    const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment, removeItemFromActive, addItemToStatus } = useSocialStore();
 
     const defer = (fn: () => void | Promise<void>) => {
         window.setTimeout(() => {
@@ -486,6 +486,19 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                 existingItem={selectedItem || undefined}
                 initialCategory={selectedItem?.category || 'movie'}
                 readOnly={!isOwn}
+                onSave={isOwn ? async (item) => {
+                    if (selectedItem) {
+                        await removeItemFromActive(selectedItem.id);
+                    }
+                    await addItemToStatus(status.id, item);
+                    setSelectedItem(null);
+                } : undefined}
+                onDelete={isOwn ? async () => {
+                    if (selectedItem) {
+                        await removeItemFromActive(selectedItem.id);
+                    }
+                    setSelectedItem(null);
+                } : undefined}
             />
         </div>
     );
