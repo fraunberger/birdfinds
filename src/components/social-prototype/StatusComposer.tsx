@@ -307,11 +307,6 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         const val = e.target.value;
         setContentForActive(val);
         adjustTextareaHeight();
-
-        if (!isMobileTagging) {
-            return;
-        }
-
         const cursorPos = e.target.selectionStart || 0;
         const justTypedAt = cursorPos > 0 && val[cursorPos - 1] === '@';
 
@@ -345,6 +340,23 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                 setTriggerLength(cursorPos - atPosition);
                 return;
             }
+        }
+
+        // Keep mention state deterministic as user deletes/moves cursor.
+        if (!showMentionPicker && atPosition >= 0) {
+            const openAt = val.lastIndexOf('@', Math.max(0, cursorPos - 1));
+            if (openAt < 0 || openAt >= cursorPos) {
+                clearTaggingState();
+                return;
+            }
+            const segment = val.substring(openAt + 1, cursorPos);
+            if (!segment || segment.includes('@') || segment.includes('\n')) {
+                clearTaggingState();
+                return;
+            }
+            setAtPosition(openAt);
+            setTriggerLength(cursorPos - openAt);
+            setMentionTitle(segment);
         }
     };
 
@@ -733,6 +745,16 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                         </mark>
                                     )
                                 )}
+                            </div>
+                        )}
+                        {!showMentionPicker && atPosition >= 0 && triggerLength > 1 && mentionTitle.trim() && (
+                            <div
+                                className="absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-[1] align-top overflow-hidden"
+                                aria-hidden="true"
+                            >
+                                {content.slice(0, atPosition)}
+                                <span className="border-b-2 border-neutral-700">{content.slice(atPosition, atPosition + triggerLength)}</span>
+                                {content.slice(atPosition + triggerLength)}
                             </div>
                         )}
                         <textarea
