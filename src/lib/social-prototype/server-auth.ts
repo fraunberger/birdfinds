@@ -17,6 +17,9 @@ const usernameFromEmail = (email?: string | null) => {
   return local || null;
 };
 
+const normalizeHandle = (value?: string | null) =>
+  (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 async function getClerkUserIdentity(clerkUserId: string) {
   const client = await clerkClient();
   const user = await client.users.getUser(clerkUserId);
@@ -58,6 +61,28 @@ async function buildUniqueUsername(base: string) {
     candidate = `${cleanBase}_${suffix}`;
     suffix += 1;
   }
+}
+
+async function findProfileByNormalizedUsername(candidates: string[]) {
+  const normalizedCandidates = Array.from(
+    new Set(candidates.map((c) => normalizeHandle(c)).filter(Boolean))
+  );
+  if (normalizedCandidates.length === 0) return null;
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data } = await supabaseAdmin
+    .from("user_profiles")
+    .select("id,username")
+    .limit(2000);
+
+  const profiles = (data || []) as UserProfileRow[];
+  for (const profile of profiles) {
+    const normalizedProfile = normalizeHandle(profile.username);
+    if (normalizedCandidates.includes(normalizedProfile)) {
+      return profile;
+    }
+  }
+  return null;
 }
 
 async function ensureProfileForUser(userId: string, username: string) {
@@ -128,18 +153,31 @@ export async function getOrCreateLinkedSupabaseUser() {
     matchedProfile = data || null;
   }
 
+  if (!matchedProfile) {
+    matchedProfile = await findProfileByNormalizedUsername(candidates);
+  }
+
   let supabaseUserId = matchedProfile?.id || null;
   const resolvedUsername = matchedProfile?.username || clerkUsername || usernameFromEmail(email) || `user-${clerkUserId.slice(0, 8)}`;
-  const fallbackEmail = `clerk_${clerkUserId}@users.birdfinds.local`;
-  const targetEmail = email || fallbackEmail;
+  const targetEmail = email || null;
 
   if (!supabaseUserId) {
+    // In migration mode, avoid silently creating shadow accounts.
+    if (!targetEmail && process.env.NODE_ENV === "production") {
+      throw new Error(
+        `No linked profile for Clerk user ${clerkUserId}. Add row to clerk_user_links in Supabase.`
+      );
+    }
     try {
-      supabaseUserId = await createSupabaseAuthUser(targetEmail);
+      supabaseUserId = await createSupabaseAuthUser(
+        targetEmail || `clerk_${clerkUserId}@users.birdfinds.local`
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (message.includes("already been registered")) {
-        supabaseUserId = await findSupabaseAuthUserIdByEmail(targetEmail);
+        supabaseUserId = await findSupabaseAuthUserIdByEmail(
+          targetEmail || `clerk_${clerkUserId}@users.birdfinds.local`
+        );
       }
       if (!supabaseUserId) throw error;
     }
