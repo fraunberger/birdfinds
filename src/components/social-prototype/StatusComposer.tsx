@@ -5,6 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
+import { useAuth } from '@/lib/auth';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -51,6 +52,7 @@ const getItemHighlightTerms = (item: ConsumableItem): string[] => {
 };
 
 export function StatusComposer({ userCategories }: StatusComposerProps) {
+    const { user } = useAuth();
     const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
@@ -137,6 +139,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
     const activeCategoryConfigs = activeCategories.map(c => getCategoryConfig(c));
+    const draftsStorageKey = `birdfinds:composer:drafts:v2:${user?.id || 'anon'}`;
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = activeStatus?.items || [];
@@ -164,9 +167,13 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     };
 
     useEffect(() => {
+        setContentDrafts({});
+    }, [draftsStorageKey]);
+
+    useEffect(() => {
         if (typeof window === 'undefined') return;
         try {
-            const raw = window.localStorage.getItem('birdfinds:composer:drafts:v1');
+            const raw = window.localStorage.getItem(draftsStorageKey);
             if (!raw) return;
             const parsed = JSON.parse(raw) as Record<string, string>;
             if (parsed && typeof parsed === 'object') {
@@ -175,19 +182,19 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         } catch {
             // Ignore malformed local draft cache.
         }
-    }, []);
+    }, [draftsStorageKey]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const timer = window.setTimeout(() => {
             try {
-                window.localStorage.setItem('birdfinds:composer:drafts:v1', JSON.stringify(contentDrafts));
+                window.localStorage.setItem(draftsStorageKey, JSON.stringify(contentDrafts));
             } catch {
                 // Ignore storage errors.
             }
         }, 220);
         return () => window.clearTimeout(timer);
-    }, [contentDrafts]);
+    }, [contentDrafts, draftsStorageKey]);
 
     useEffect(() => {
         if (!isExpanded) return;

@@ -309,6 +309,24 @@ class SocialStore {
         this.emit();
     }
 
+    resetAndRefresh() {
+        this.state = {
+            statuses: [],
+            allStatuses: [],
+            activeDate: getTodayDateString(),
+            activeStatus: null,
+            isLoaded: false,
+            mutedUsers: [],
+        };
+        this.syncActiveStatus();
+        this.emit();
+        void this.fetchStatuses();
+    }
+
+    refresh() {
+        void this.fetchStatuses();
+    }
+
     private syncActiveStatus() {
         const { statuses, activeDate } = this.state;
         const existing = statuses.find(s => s.date === activeDate);
@@ -682,6 +700,8 @@ export function useSocialStore() {
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
         toggleMute: (uid: string) => socialStore.toggleMute(uid),
+        refresh: () => socialStore.refresh(),
+        resetAndRefresh: () => socialStore.resetAndRefresh(),
         mutedUsers: state.mutedUsers,
     };
 }

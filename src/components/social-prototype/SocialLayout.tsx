@@ -24,7 +24,8 @@ export function SocialLayout() {
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
-  const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded } = useSocialStore();
+  const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded, resetAndRefresh } = useSocialStore();
+  const lastAuthKeyRef = React.useRef<string | null>(null);
   const hasUsername = !!profile?.username?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
   const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
@@ -55,6 +56,19 @@ export function SocialLayout() {
       window.removeEventListener("birdfinds:open-about", handleOpenAbout);
     };
   }, []);
+
+  React.useEffect(() => {
+    if (authLoading) return;
+    const authKey = user?.id || "signed-out";
+    if (lastAuthKeyRef.current === null) {
+      lastAuthKeyRef.current = authKey;
+      return;
+    }
+    if (lastAuthKeyRef.current !== authKey) {
+      lastAuthKeyRef.current = authKey;
+      resetAndRefresh();
+    }
+  }, [authLoading, user?.id, resetAndRefresh]);
 
   if (authLoading || profileLoading) {
     return (
