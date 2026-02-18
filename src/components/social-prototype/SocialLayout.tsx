@@ -82,8 +82,10 @@ export function SocialLayout() {
 
     let cancelled = false;
     const readReports = async () => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
       try {
-        const response = await fetch("/api/social/reports", { cache: "no-store" });
+        const response = await fetch("/api/social/reports", { cache: "no-store", signal: controller.signal });
         if (!response.ok) return;
         const payload = await response.json();
         const nextCount = Array.isArray(payload?.reports) ? payload.reports.length : 0;
@@ -96,6 +98,8 @@ export function SocialLayout() {
         setReportCount(nextCount);
       } catch {
         // Ignore polling failures.
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     };
 

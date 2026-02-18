@@ -35,19 +35,24 @@ export default function ModerationPage() {
   const [fetching, setFetching] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setFetching(true);
+  const reload = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setFetching(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
     try {
-      const response = await fetch("/api/social/reports", { cache: "no-store" });
+      const response = await fetch("/api/social/reports", { cache: "no-store", signal: controller.signal });
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error || "Failed to load reports");
       }
       setReports(payload.reports || []);
     } catch (error) {
-      pushToast({ message: error instanceof Error ? error.message : "Failed to load reports", tone: "error" });
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        pushToast({ message: error instanceof Error ? error.message : "Failed to load reports", tone: "error" });
+      }
     } finally {
-      setFetching(false);
+      window.clearTimeout(timeoutId);
+      if (!options?.silent) setFetching(false);
     }
   }, []);
 
@@ -59,7 +64,7 @@ export default function ModerationPage() {
   useEffect(() => {
     if (!user?.id || !isAdmin) return;
     const intervalId = window.setInterval(() => {
-      void reload();
+      void reload({ silent: true });
     }, 30000);
     return () => window.clearInterval(intervalId);
   }, [user?.id, isAdmin, reload]);
