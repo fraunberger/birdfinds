@@ -1313,7 +1313,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-neutral-50">
+                <div className="sticky bottom-0 z-10 flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-t border-neutral-300 bg-neutral-50/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-50/90 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
                     <div>
                         {existingItem && onDelete && !readOnly && (
                             <button
@@ -1345,7 +1345,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                         <button
                             onClick={onClose}
-                            className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-1"
+                            className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-2"
                         >
                             Cancel
                         </button>
@@ -1353,7 +1353,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <button
                                 onClick={handleSave}
                                 disabled={!title.trim()}
-                                className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 py-1 hover:bg-neutral-700 disabled:opacity-30"
+                                className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 disabled:opacity-30"
                             >
                                 Save
                             </button>

@@ -138,7 +138,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
         : Object.keys(CATEGORY_CONFIGS) as Category[];
 
     const activeCategoryConfigs = activeCategories.map(c => getCategoryConfig(c));
-    const activeContentKey = activeStatus?.id ?? `draft:${activeDate}`;
+    const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = activeStatus?.items || [];
     const effectiveQuickAddCategory = activeCategories.includes(quickAddCategory)
