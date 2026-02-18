@@ -23,11 +23,12 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [saving, setSaving] = useState(false);
-    const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const autoSaveTimerRef = useRef<number | null>(null);
+    const saveIndicatorTimerRef = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Cropping State
@@ -206,16 +207,28 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         }
 
         autoSaveTimerRef.current = window.setTimeout(async () => {
-            setAutoSaveState('saving');
+            if (saveIndicatorTimerRef.current) {
+                window.clearTimeout(saveIndicatorTimerRef.current);
+            }
+            saveIndicatorTimerRef.current = window.setTimeout(() => {
+                setAutoSaveState('saving');
+            }, 350);
             await persistProfile();
-            setAutoSaveState('saved');
-            window.setTimeout(() => setAutoSaveState('idle'), 1200);
+            if (saveIndicatorTimerRef.current) {
+                window.clearTimeout(saveIndicatorTimerRef.current);
+                saveIndicatorTimerRef.current = null;
+            }
+            setAutoSaveState((prev) => (prev === 'error' ? 'error' : 'idle'));
         }, 900);
 
         return () => {
             if (autoSaveTimerRef.current) {
                 window.clearTimeout(autoSaveTimerRef.current);
                 autoSaveTimerRef.current = null;
+            }
+            if (saveIndicatorTimerRef.current) {
+                window.clearTimeout(saveIndicatorTimerRef.current);
+                saveIndicatorTimerRef.current = null;
             }
         };
     }, [profile, username, avatarUrl, selectedCategories, visibility, categoryConfigs, isCropping, avatarUploading]);
@@ -597,7 +610,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             ) : (
                 <div className="mb-6 text-center text-[10px] uppercase tracking-widest text-neutral-400">
                     {autoSaveState === 'saving' && 'Saving changes...'}
-                    {autoSaveState === 'saved' && 'Saved'}
                     {(autoSaveState === 'idle' || autoSaveState === 'error') && 'Auto-save enabled'}
                 </div>
             )}
