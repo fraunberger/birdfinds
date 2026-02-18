@@ -233,9 +233,15 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         <div className="relative" ref={menuRef}>
                             <button
                                 onClick={() => setShowMenu((prev) => !prev)}
-                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
+                                aria-label="Open post menu"
+                                title="Post menu"
+                                className="w-7 h-7 border border-neutral-300 rounded-full flex items-center justify-center text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
                             >
-                                Menu ▾
+                                <span className="inline-flex items-center gap-0.5">
+                                    <span className="w-1 h-1 rounded-full bg-current" />
+                                    <span className="w-1 h-1 rounded-full bg-current" />
+                                    <span className="w-1 h-1 rounded-full bg-current" />
+                                </span>
                             </button>
                             {showMenu && (
                                 <div className="absolute right-0 mt-1 w-36 border border-neutral-300 bg-white shadow-sm z-20">

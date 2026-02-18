@@ -26,10 +26,10 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false }: 
         title="Menu"
         className="w-8 h-8 border border-neutral-300 rounded-full flex items-center justify-center text-neutral-700 hover:bg-neutral-100 transition-colors"
       >
-        <div className="flex items-center gap-0.5">
-          <span className="w-1 h-1 rounded-full bg-current" />
-          <span className="w-1 h-1 rounded-full bg-current" />
-          <span className="w-1 h-1 rounded-full bg-current" />
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="w-3 h-[1px] bg-current" />
+          <span className="w-3 h-[1px] bg-current" />
+          <span className="w-3 h-[1px] bg-current" />
         </div>
       </button>
 

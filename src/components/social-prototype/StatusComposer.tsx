@@ -348,6 +348,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const hasUnsavedChanges = !!content.trim() && content.trim() !== (activeStatus?.content || '').trim() && !activeStatus?.published;
     const hasDraftChanges = content.trim() !== (activeStatus?.content || '').trim();
+    const draftBadgeText = activeStatus?.published && !hasDraftChanges
+        ? 'Posted'
+        : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
+    const draftBadgeTone = activeStatus?.published && !hasDraftChanges
+        ? 'text-neutral-500'
+        : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
 
     useEffect(() => {
         const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -505,6 +511,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     };
 
     const linkExistingItemToPost = async (item: ConsumableItem) => {
+        if (isMobileTagging) {
+            pushToast({ message: 'Linking is disabled on mobile.', tone: 'error' });
+            return;
+        }
         const phrase = selectedPlainText.trim();
 
         // Natural-language link: map selected phrase to this table item via alias.
@@ -624,15 +634,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                             ?
                         </button>
                     )}
-                    <span
-                        className={`text-[10px] uppercase tracking-widest ${activeStatus?.published
-                            ? 'text-neutral-500'
-                            : draftStatus === 'error'
-                                ? 'text-red-600'
-                                : 'text-green-700'
-                            }`}
-                    >
-                        {activeStatus?.published ? 'Posted' : draftStatus === 'error' ? 'Draft Error' : 'Draft Saved'}
+                    <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>
+                        {draftBadgeText}
                     </span>
                     <input
                         type="date"
@@ -762,6 +765,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 window.setTimeout(() => handleTextSelection(target), 0);
                             }}
                             onClick={(e) => {
+                                if (isMobileTagging) return;
                                 const target = e.target as HTMLTextAreaElement;
                                 const cursor = target.selectionStart;
                                 setLastCursorPosition(cursor);
@@ -911,20 +915,22 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                                 {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                             </td>
                                             <td className="px-2 py-1 border-b border-neutral-200 text-center">
-                                                <button
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        try {
-                                                            await linkExistingItemToPost(item);
-                                                        } catch (error: unknown) {
-                                                            pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' });
-                                                        }
-                                                    }}
-                                                    className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
-                                                    title={selectedPlainText.trim() ? `Link "${selectedPlainText.trim()}" to this item` : "Insert into post text"}
-                                                >
-                                                    link
-                                                </button>
+                                                {!isMobileTagging && (
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                await linkExistingItemToPost(item);
+                                                            } catch (error: unknown) {
+                                                                pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' });
+                                                            }
+                                                        }}
+                                                        className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
+                                                        title={selectedPlainText.trim() ? `Link "${selectedPlainText.trim()}" to this item` : "Insert into post text"}
+                                                    >
+                                                        link
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); removeItemFromActive(item.id); }}
                                                     className="text-neutral-400 hover:text-neutral-600 p-1"

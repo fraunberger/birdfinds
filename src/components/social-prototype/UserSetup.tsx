@@ -676,9 +676,18 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     {saving ? 'Saving...' : 'Get Started'}
                 </button>
             ) : (
-                <div className="mb-6 text-center text-[10px] uppercase tracking-widest text-neutral-400">
-                    {autoSaveState === 'saving' && 'Saving changes...'}
-                    {(autoSaveState === 'idle' || autoSaveState === 'error') && 'Auto-save enabled'}
+                <div className="mb-6">
+                    <div className="text-center text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
+                        {autoSaveState === 'saving' && 'Saving changes...'}
+                        {(autoSaveState === 'idle' || autoSaveState === 'error') && 'Auto-save enabled'}
+                    </div>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !username.trim()}
+                        className="w-full bg-neutral-800 text-white py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-50"
+                    >
+                        {saving ? 'Saving...' : 'Save & Exit'}
+                    </button>
                 </div>
             )}
 
