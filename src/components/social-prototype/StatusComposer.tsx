@@ -18,6 +18,7 @@ interface ItemMeta {
     imageUrl?: string;
     aliases?: string[];
     recipeUrl?: string;
+    restaurantLocation?: string;
 }
 
 const META_PREFIX = 'meta:';
@@ -32,6 +33,7 @@ const parseItemMeta = (raw?: string): ItemMeta => {
             imageUrl: parsed.imageUrl,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
             recipeUrl: typeof parsed.recipeUrl === 'string' ? parsed.recipeUrl : undefined,
+            restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
         };
     } catch {
         return {};
@@ -40,9 +42,14 @@ const parseItemMeta = (raw?: string): ItemMeta => {
 
 const serializeItemMeta = (meta: ItemMeta): string | undefined => {
     const aliases = (meta.aliases || []).map((v) => v.trim()).filter(Boolean);
-    if (!meta.imageUrl && aliases.length === 0) return undefined;
-    if (aliases.length === 0 && meta.imageUrl && !meta.recipeUrl) return meta.imageUrl;
-    return `${META_PREFIX}${encodeURIComponent(JSON.stringify({ imageUrl: meta.imageUrl, aliases, recipeUrl: meta.recipeUrl }))}`;
+    if (!meta.imageUrl && aliases.length === 0 && !meta.recipeUrl && !meta.restaurantLocation) return undefined;
+    if (aliases.length === 0 && meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation) return meta.imageUrl;
+    return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
+        imageUrl: meta.imageUrl,
+        aliases,
+        recipeUrl: meta.recipeUrl,
+        restaurantLocation: meta.restaurantLocation,
+    }))}`;
 };
 
 const getItemHighlightTerms = (item: ConsumableItem): string[] => {

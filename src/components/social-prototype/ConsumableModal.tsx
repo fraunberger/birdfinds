@@ -133,6 +133,7 @@ interface ItemMetaData {
     imageUrl?: string;
     recipeUrl?: string;
     aliases?: string[];
+    restaurantLocation?: string;
 }
 
 const parseItemMeta = (raw?: string): ItemMetaData => {
@@ -145,6 +146,7 @@ const parseItemMeta = (raw?: string): ItemMetaData => {
             imageUrl: parsed.imageUrl,
             recipeUrl: parsed.recipeUrl,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
+            restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
         };
     } catch {
         return {};
@@ -153,17 +155,19 @@ const parseItemMeta = (raw?: string): ItemMetaData => {
 
 const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
-    if (!meta.imageUrl && !meta.recipeUrl && aliases.length === 0) return undefined;
-    if (!meta.recipeUrl && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
+    if (!meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
     return `meta:${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
+        restaurantLocation: meta.restaurantLocation,
         aliases,
     }))}`;
 };
 
 const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string): string | null => {
     const imageRef = parseMetaImage(raw);
+    const meta = parseItemMeta(raw);
     if (imageRef?.startsWith('mapsurl:')) {
         const encoded = imageRef.slice('mapsurl:'.length);
         if (encoded) {
@@ -181,7 +185,7 @@ const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string): stri
             return `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`;
         }
     }
-    const query = [title || '', subtitle || ''].join(' ').trim();
+    const query = [title || '', meta.restaurantLocation || subtitle || ''].join(' ').trim();
     if (!query) return null;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 };
@@ -225,7 +229,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [restaurantSearchToken, setRestaurantSearchToken] = useState(0);
     const [brewerySearchToken, setBrewerySearchToken] = useState(0);
     const { category, title, subtitle, rating, notes } = draft;
-    const recipeUrl = parseItemMeta(draft.image).recipeUrl || '';
+    const parsedMeta = parseItemMeta(draft.image);
+    const recipeUrl = parsedMeta.recipeUrl || '';
+    const restaurantLocation = parsedMeta.restaurantLocation || '';
 
     const handleSave = useCallback(() => {
         if (!draft.title.trim()) return;
@@ -1066,13 +1072,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 key={place.id}
                                                 type="button"
                                                 onClick={() => {
+                                                    const nextImageRef = place.googleMapsUri
+                                                        ? `mapsurl:${encodeURIComponent(place.googleMapsUri)}`
+                                                        : `place:${place.id}`;
                                                     setDraft((prev) => ({
+                                                        ...(prev || {}),
                                                         ...prev,
                                                         title: place.name,
-                                                        subtitle: place.address || prev.subtitle,
-                                                        image: place.googleMapsUri
-                                                            ? `mapsurl:${encodeURIComponent(place.googleMapsUri)}`
-                                                            : `place:${place.id}`,
+                                                        image: serializeItemMeta({
+                                                            ...parseItemMeta(prev.image),
+                                                            imageUrl: nextImageRef,
+                                                            restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        }),
                                                     }));
                                                     setShowRestaurantResults(false);
                                                 }}
@@ -1190,6 +1201,35 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
                                                 </button>
                                             ))}
+                                        </div>
+                                    )}
+                                    {category === 'restaurant' && (
+                                        <div className="mt-3">
+                                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                                Location
+                                            </label>
+                                            {readOnly ? (
+                                                <div className="text-sm font-mono text-neutral-700 py-1">
+                                                    {restaurantLocation || <span className="text-neutral-400">—</span>}
+                                                </div>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    value={restaurantLocation}
+                                                    onChange={(e) => {
+                                                        const nextLocation = e.target.value;
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                restaurantLocation: nextLocation.trim() || undefined,
+                                                            }),
+                                                        }));
+                                                    }}
+                                                    placeholder="Restaurant location/address"
+                                                    className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                                />
+                                            )}
                                         </div>
                                     )}
                                 </div>
