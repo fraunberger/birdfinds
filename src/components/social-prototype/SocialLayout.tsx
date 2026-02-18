@@ -115,6 +115,12 @@ export function SocialLayout() {
         </header>
 
         <main className="flex-grow">
+          {!user && (
+            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[10px] uppercase tracking-widest text-neutral-600">
+              Sign in to post and comment.
+            </div>
+          )}
+
           {showAbout && (
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[10px] uppercase tracking-widest text-neutral-600">
               <div className="flex items-start justify-between gap-3">
