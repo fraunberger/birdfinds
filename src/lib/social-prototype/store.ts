@@ -767,14 +767,15 @@ export function useUserProfile() {
     };
 
     const uploadAvatar = async (file: File) => {
-        const form = new FormData();
-        form.append('file', file);
         const response = await fetch('/api/social/avatar', {
             method: 'POST',
-            body: form,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contentType: file.type || 'image/jpeg',
+            }),
         });
         const raw = await response.text();
-        let data: { error?: string; url?: string } = {};
+        let data: { error?: string; publicUrl?: string; path?: string; token?: string } = {};
         try {
             data = raw ? JSON.parse(raw) : {};
         } catch {
@@ -782,10 +783,22 @@ export function useUserProfile() {
         }
         if (!response.ok) {
             const detail = data?.error || raw || `${response.status} ${response.statusText}`;
-            throw new Error(`Failed to upload avatar (${response.status}): ${detail}`);
+            throw new Error(`Failed to prepare avatar upload (${response.status}): ${detail}`);
         }
-        if (!data?.url) throw new Error('Avatar upload succeeded but no URL returned');
-        return data.url;
+        if (!data?.path || !data?.token) {
+            throw new Error('Avatar upload token missing');
+        }
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .uploadToSignedUrl(data.path, data.token, file);
+        if (uploadError) {
+            throw new Error(`Failed to upload avatar: ${uploadError.message}`);
+        }
+        if (!data.publicUrl) {
+            throw new Error('Avatar uploaded but public URL missing');
+        }
+        return data.publicUrl;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
