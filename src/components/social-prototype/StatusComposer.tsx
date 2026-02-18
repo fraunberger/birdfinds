@@ -844,7 +844,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
                     {/* Habit Checklist + Post Action Row */}
                     <div className="mt-2 flex items-start justify-between gap-3">
-                        <div className="py-1.5 px-2 border border-neutral-200 bg-neutral-50/60 rounded-sm flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
                             <HabitChecklist date={activeDate} />
                         </div>
                         <button
