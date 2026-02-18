@@ -74,6 +74,21 @@ const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
   return adminClerkIds.includes(clerkUserId) || adminLinkedIds.includes(linkedUserId);
 };
 
+const extractErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const message = "message" in error ? String((error as { message?: unknown }).message || "") : "";
+    const code = "code" in error ? String((error as { code?: unknown }).code || "") : "";
+    const details = "details" in error ? String((error as { details?: unknown }).details || "") : "";
+    const hint = "hint" in error ? String((error as { hint?: unknown }).hint || "") : "";
+    const parts = [message, code ? `code=${code}` : "", details ? `details=${details}` : "", hint ? `hint=${hint}` : ""]
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join(" | ");
+  }
+  return "Unknown error";
+};
+
 export async function POST(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
@@ -414,7 +429,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message = extractErrorMessage(error);
+    console.error("[social/write] request failed:", message, error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
