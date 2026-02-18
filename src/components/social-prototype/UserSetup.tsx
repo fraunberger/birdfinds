@@ -30,6 +30,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const autoSaveTimerRef = useRef<number | null>(null);
     const saveIndicatorTimerRef = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const avatarObjectUrlRef = useRef<string | null>(null);
 
     // Cropping State
     const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -64,13 +65,27 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
             setPendingAvatarFile(file);
-            const reader = new FileReader();
-            reader.addEventListener('load', () => {
-                setCropImageSrc(reader.result as string);
-                setIsCropping(true);
-            });
-            reader.readAsDataURL(file);
+            if (avatarObjectUrlRef.current) {
+                URL.revokeObjectURL(avatarObjectUrlRef.current);
+            }
+            const objectUrl = URL.createObjectURL(file);
+            avatarObjectUrlRef.current = objectUrl;
+            setCropImageSrc(objectUrl);
+            setIsCropping(true);
         }
+    };
+
+    const resetAvatarCropState = () => {
+        if (avatarObjectUrlRef.current) {
+            URL.revokeObjectURL(avatarObjectUrlRef.current);
+            avatarObjectUrlRef.current = null;
+        }
+        setIsCropping(false);
+        setCropImageSrc(null);
+        setCroppedAreaPixels(null);
+        setPendingAvatarFile(null);
+        setZoom(1);
+        setCrop({ x: 0, y: 0 });
     };
 
     const handleSaveCrop = async () => {
@@ -89,23 +104,26 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             const file = new File([optimizedBlob], 'avatar.jpg', { type: 'image/jpeg' });
             const url = await uploadAvatar(file);
             setAvatarUrl(url);
-            setIsCropping(false);
-            setCropImageSrc(null);
-            setCroppedAreaPixels(null);
-            setPendingAvatarFile(null);
-            setZoom(1);
-            setCrop({ x: 0, y: 0 });
+            resetAvatarCropState();
         } catch (e: unknown) {
             console.error(e);
             const primaryError = getErrorMessage(e);
             const normalized = primaryError.includes('FUNCTION_PAYLOAD_TOO_LARGE')
                 ? 'Image is too large to upload. Try a smaller image.'
                 : primaryError;
-            setError(normalized || 'Failed to upload image');
+            setError(`Avatar upload failed: ${normalized || 'unknown error'}`);
         } finally {
             setAvatarUploading(false);
         }
     };
+
+    useEffect(() => {
+        return () => {
+            if (avatarObjectUrlRef.current) {
+                URL.revokeObjectURL(avatarObjectUrlRef.current);
+            }
+        };
+    }, []);
 
     const toggleCategory = (cat: Category) => {
         setSelectedCategories(prev =>
@@ -294,12 +312,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     <div className="flex gap-4">
                         <button
                             onClick={() => {
-                                setIsCropping(false);
-                                setCropImageSrc(null);
-                                setCroppedAreaPixels(null);
-                                setPendingAvatarFile(null);
-                                setZoom(1);
-                                setCrop({ x: 0, y: 0 });
+                                resetAvatarCropState();
                             }}
                             className="px-6 py-2 border border-neutral-600 text-white text-xs uppercase tracking-widest hover:bg-neutral-800"
                         >
@@ -657,7 +670,9 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
         const image = new Image();
         image.addEventListener('load', () => resolve(image));
         image.addEventListener('error', (error) => reject(error));
-        image.setAttribute('crossOrigin', 'anonymous'); // needed to avoid cross-origin issues on CodeSandbox
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            image.setAttribute('crossOrigin', 'anonymous');
+        }
         image.src = url;
     });
 
