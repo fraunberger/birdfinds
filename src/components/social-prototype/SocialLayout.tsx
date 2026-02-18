@@ -127,9 +127,12 @@ export function SocialLayout() {
                 <div>
                   <p className="font-bold text-neutral-700">About Birdfinds</p>
                   <div className="mt-2 space-y-1 normal-case text-xs tracking-normal">
-                    <p>Birdfinds is designed as a low-noise personal tracking feed for media and life categories.</p>
-                    <p>Use Public Feed or Following, open piles for profile overviews, and compare ratings on item pages.</p>
-                    <p>Comments are available without notifications to keep it social but non-addictive.</p>
+                    <p>birdfinds.com is a daily status engine. It is based on the idea that you are what you do and what you find. It is designed as a journal with a feed: a non-addictive social platform for sharing your tastes, your finds, and the little stories that make your day.</p>
+                    <p>Every day you get one post and one pile to track your finds in the categories you care about. Use the starting categories or create your own. Add as much, or as little detail as you want per item. Find the same item as someone else and compare your opinions on its page, or drop a comment on their post.</p>
+                    <p>See everyone&apos;s finds in the global feed, or curate your own following. Click on somebody&apos;s pile to see an overview of their finds and to follow or block them.</p>
+                    <p>Trying to build a habit? Add those as well and track progress in your pile.</p>
+                    <p>Found a bug in birdfinds? email mikefraun19 AT gmail and I&apos;ll venmo you a dollar*.</p>
+                    <p>*probably</p>
                   </div>
                 </div>
                 <button
