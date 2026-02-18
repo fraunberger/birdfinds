@@ -37,6 +37,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
     const [isCropping, setIsCropping] = useState(false);
+    const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (profile) {
@@ -62,6 +63,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
+            setPendingAvatarFile(file);
             const reader = new FileReader();
             reader.addEventListener('load', () => {
                 setCropImageSrc(reader.result as string);
@@ -72,21 +74,45 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     };
 
     const handleSaveCrop = async () => {
-        if (!cropImageSrc || !croppedAreaPixels) return;
+        if (!cropImageSrc) return;
         setAvatarUploading(true);
         try {
-            const croppedImageBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
-            if (!croppedImageBlob) throw new Error('Failed to crop image');
-
-            // Create a File object from Blob to upload
-            const file = new File([croppedImageBlob], 'avatar.jpg', { type: 'image/jpeg' });
+            let file: File;
+            if (!croppedAreaPixels) {
+                if (!pendingAvatarFile) throw new Error('No avatar file selected');
+                file = pendingAvatarFile;
+            } else {
+                const preferredType = pendingAvatarFile?.type || 'image/png';
+                const croppedImageBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels, preferredType);
+                file = new File([croppedImageBlob], 'avatar', { type: preferredType });
+            }
             const url = await uploadAvatar(file);
             setAvatarUrl(url);
             setIsCropping(false);
             setCropImageSrc(null);
+            setCroppedAreaPixels(null);
+            setPendingAvatarFile(null);
+            setZoom(1);
+            setCrop({ x: 0, y: 0 });
         } catch (e: unknown) {
             console.error(e);
-            setError('Failed to crop/upload image');
+            // Fallback: if crop/export fails, upload original selected file.
+            if (pendingAvatarFile) {
+                try {
+                    const url = await uploadAvatar(pendingAvatarFile);
+                    setAvatarUrl(url);
+                    setIsCropping(false);
+                    setCropImageSrc(null);
+                    setCroppedAreaPixels(null);
+                    setPendingAvatarFile(null);
+                    setZoom(1);
+                    setCrop({ x: 0, y: 0 });
+                    return;
+                } catch {
+                    // Continue to surface error below.
+                }
+            }
+            setError('Failed to upload image');
         } finally {
             setAvatarUploading(false);
         }
@@ -282,6 +308,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                                 setIsCropping(false);
                                 setCropImageSrc(null);
                                 setCroppedAreaPixels(null);
+                                setPendingAvatarFile(null);
                                 setZoom(1);
                                 setCrop({ x: 0, y: 0 });
                             }}
@@ -646,35 +673,34 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
     });
 
 // Helper to get cropped image blob
-async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob | null> {
+async function getCroppedImg(imageSrc: string, pixelCrop: Area, outputType: string): Promise<Blob> {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-        return null;
+        throw new Error('Canvas context unavailable');
     }
 
     // set canvas width to match the bounding box
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
+    canvas.width = Math.max(1, Math.round(pixelCrop.width));
+    canvas.height = Math.max(1, Math.round(pixelCrop.height));
 
     // draw cropped image
     // Note: pixelCrop defines coords in the *original* image natural dimensions if unit is px?
     // react-easy-crop pixelCrop are relative to natural image size? YEs, checked docs.
     ctx.drawImage(
         image,
-        pixelCrop.x,
-        pixelCrop.y,
-        pixelCrop.width,
-        pixelCrop.height,
+        Math.max(0, Math.round(pixelCrop.x)),
+        Math.max(0, Math.round(pixelCrop.y)),
+        Math.max(1, Math.round(pixelCrop.width)),
+        Math.max(1, Math.round(pixelCrop.height)),
         0,
         0,
-        pixelCrop.width,
-        pixelCrop.height
+        Math.max(1, Math.round(pixelCrop.width)),
+        Math.max(1, Math.round(pixelCrop.height))
     );
 
-    // As Blob
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
             if (!blob) {
@@ -682,6 +708,6 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob | 
                 return;
             }
             resolve(blob);
-        }, 'image/jpeg');
+        }, outputType);
     });
 }
