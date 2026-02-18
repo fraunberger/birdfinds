@@ -55,6 +55,7 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [showTagHelp, setShowTagHelp] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -656,6 +657,15 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                     </h2>
                 </button>
                 <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setShowTagHelp((prev) => !prev)}
+                        className="h-5 w-5 inline-flex items-center justify-center border border-neutral-300 text-[10px] text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                        title="How tagging works"
+                        aria-label="How tagging works"
+                    >
+                        ?
+                    </button>
                     <span className={`text-[10px] uppercase tracking-widest ${draftStatus === 'saved' ? 'text-green-700' : draftStatus === 'saving' ? 'text-neutral-500' : 'text-neutral-300'}`}>
                         {draftStatus === 'saved' ? 'Draft Saved' : draftStatus === 'saving' ? 'Saving Draft...' : 'Draft'}
                     </span>
@@ -682,6 +692,14 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             {/* Collapsible Content */}
             {isExpanded && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    {showTagHelp && (
+                        <div className="mb-2 border border-neutral-300 bg-neutral-50 px-3 py-2 text-[10px] text-neutral-700">
+                            <p className="uppercase tracking-widest font-bold mb-1">Tagging Help</p>
+                            <p>Highlight text and choose a category from the black menu to tag it.</p>
+                            <p className="mt-1">Type `@something@` to open category tagging quickly.</p>
+                            <p className="mt-1">Use the table `link` button to connect selected words to an existing item.</p>
+                        </div>
+                    )}
                     {/* Editor Container */}
                     <div className="bg-white border border-neutral-300 mb-2 relative min-h-[100px]">
                         {/* Floating "Black Bar" Toolbar */}
