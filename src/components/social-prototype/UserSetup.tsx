@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useUserProfile, useHabits, DEFAULT_CATEGORIES, Category, CategoryConfigOverride, getCategoryConfig } from '@/lib/social-prototype/store';
+import { useUserProfile, useHabits, DEFAULT_CATEGORIES, Category, CategoryConfigOverride, ProfileVisibility, getCategoryConfig } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import Cropper, { Point, Area } from 'react-easy-crop';
 
@@ -17,7 +17,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [username, setUsername] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
     const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
-    const [isPrivate, setIsPrivate] = useState(false);
+    const [visibility, setVisibility] = useState<ProfileVisibility>('public');
     const [newHabitName, setNewHabitName] = useState('');
     const [newCategoryName, setNewCategoryName] = useState('');
     const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
@@ -42,13 +42,13 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setUsername(profile.username || '');
             setAvatarUrl(profile.avatarUrl);
             setSelectedCategories(profile.categories || []);
-            setIsPrivate(profile.isPrivate || false);
+            setVisibility(profile.visibility || (profile.isPrivate ? 'private' : 'public'));
             setCategoryConfigs(profile.categoryConfigs || {});
             lastSavedSignatureRef.current = JSON.stringify({
                 username: profile.username || '',
                 avatarUrl: profile.avatarUrl || '',
                 categories: profile.categories || [],
-                isPrivate: profile.isPrivate || false,
+                visibility: profile.visibility || (profile.isPrivate ? 'private' : 'public'),
                 categoryConfigs: profile.categoryConfigs || {},
             });
         }
@@ -162,14 +162,15 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 username: username.trim(),
                 avatarUrl,
                 categories: selectedCategories,
-                isPrivate,
+                visibility,
+                isPrivate: visibility === 'private',
                 categoryConfigs,
             });
             lastSavedSignatureRef.current = JSON.stringify({
                 username: username.trim(),
                 avatarUrl: avatarUrl || '',
                 categories: selectedCategories,
-                isPrivate,
+                visibility,
                 categoryConfigs,
             });
             afterSave?.();
@@ -194,7 +195,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             username: username.trim(),
             avatarUrl: avatarUrl || '',
             categories: selectedCategories,
-            isPrivate,
+            visibility,
             categoryConfigs,
         });
 
@@ -217,7 +218,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 autoSaveTimerRef.current = null;
             }
         };
-    }, [profile, username, avatarUrl, selectedCategories, isPrivate, categoryConfigs, isCropping, avatarUploading]);
+    }, [profile, username, avatarUrl, selectedCategories, visibility, categoryConfigs, isCropping, avatarUploading]);
 
     const handleSignOut = async () => {
         await signOut();
@@ -534,21 +535,47 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-3">
                     Privacy
                 </label>
-                <button
-                    onClick={() => setIsPrivate(!isPrivate)}
-                    className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${isPrivate
-                        ? 'border-neutral-800 bg-neutral-800 text-white'
-                        : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
-                        }`}
-                >
-                    <span className="text-sm">{isPrivate ? 'Private' : 'Public'}</span>
-                    <span className="uppercase tracking-wider font-bold">
-                        {isPrivate ? 'Private Mode' : 'Public Mode'}
-                    </span>
-                    <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
-                        {isPrivate ? 'Only you see your posts' : 'Posts visible in feed'}
-                    </span>
-                </button>
+                <div className="space-y-2">
+                    <button
+                        onClick={() => setVisibility('public')}
+                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'public'
+                            ? 'border-neutral-800 bg-neutral-800 text-white'
+                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                            }`}
+                    >
+                        <span className="text-sm">Public</span>
+                        <span className="uppercase tracking-wider font-bold">Public Mode</span>
+                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            Anyone can view
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setVisibility('accounts')}
+                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'accounts'
+                            ? 'border-neutral-800 bg-neutral-800 text-white'
+                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                            }`}
+                    >
+                        <span className="text-sm">Accounts</span>
+                        <span className="uppercase tracking-wider font-bold">Accounts Only</span>
+                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            Signed-in users only
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setVisibility('private')}
+                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'private'
+                            ? 'border-neutral-800 bg-neutral-800 text-white'
+                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                            }`}
+                    >
+                        <span className="text-sm">Private</span>
+                        <span className="uppercase tracking-wider font-bold">Private Mode</span>
+                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            Only you can view
+                        </span>
+                    </button>
+                </div>
             </div>
 
             {/* Error */}

@@ -263,6 +263,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "social.profile.upsert") {
+      const visibilityRaw = String(payload.visibility || "").trim();
+      const visibility =
+        visibilityRaw === "public" || visibilityRaw === "accounts" || visibilityRaw === "private"
+          ? visibilityRaw
+          : undefined;
+      const isPrivate = visibility ? visibility === "private" : typeof payload.isPrivate === "boolean" ? payload.isPrivate : undefined;
       const { error } = await supabaseAdmin
         .from("user_profiles")
         .upsert({
@@ -270,7 +276,8 @@ export async function POST(req: NextRequest) {
           username: payload.username ? String(payload.username) : undefined,
           avatar_url: payload.avatarUrl ? String(payload.avatarUrl) : undefined,
           categories: Array.isArray(payload.categories) ? payload.categories : undefined,
-          is_private: typeof payload.isPrivate === "boolean" ? payload.isPrivate : undefined,
+          is_private: isPrivate,
+          visibility,
           category_configs:
             payload.categoryConfigs && typeof payload.categoryConfigs === "object"
               ? payload.categoryConfigs

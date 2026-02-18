@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSocialStore, useFollows, UserProfile, Status } from '@/lib/social-prototype/store';
+import { useSocialStore, useFollows, UserProfile, Status, normalizeProfileVisibility } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import { useUserProfile } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
@@ -36,22 +36,26 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                 .in('id', missing);
 
             if (data) {
-                const newCache = { ...profileCache };
-                data.forEach(p => {
-                    newCache[p.id] = {
-                        id: p.id,
-                        username: p.username,
-                        avatarUrl: p.avatar_url,
-                        categories: p.categories || [],
-                        isPrivate: p.is_private || false,
-                    };
+                setProfileCache((prev) => {
+                    const next = { ...prev };
+                    data.forEach((p) => {
+                        const visibility = normalizeProfileVisibility(p);
+                        next[p.id] = {
+                            id: p.id,
+                            username: p.username,
+                            avatarUrl: p.avatar_url,
+                            categories: p.categories || [],
+                            visibility,
+                            isPrivate: visibility === 'private',
+                        };
+                    });
+                    return next;
                 });
-                setProfileCache(newCache);
             }
         };
 
         fetchProfiles();
-    }, [allStatuses, isLoaded]);
+    }, [allStatuses, isLoaded, profileCache]);
 
     useEffect(() => {
         if (!isLoaded || !user) return;
@@ -62,14 +66,19 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                 .select('*')
                 .limit(12);
             const suggestions = (data || [])
-                .filter((profile) => !excluded.has(profile.id) && !profile.is_private)
+                .filter((profile) => {
+                    const visibility = normalizeProfileVisibility(profile);
+                    if (visibility === 'private') return false;
+                    return !excluded.has(profile.id);
+                })
                 .slice(0, 4)
                 .map((profile) => ({
+                    visibility: normalizeProfileVisibility(profile),
                     id: profile.id,
                     username: profile.username,
                     avatarUrl: profile.avatar_url,
                     categories: profile.categories || [],
-                    isPrivate: profile.is_private || false,
+                    isPrivate: normalizeProfileVisibility(profile) === 'private',
                 } satisfies UserProfile));
             setSuggestedUsers(suggestions);
         };
@@ -80,15 +89,22 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         return <div className="h-40 bg-neutral-100 mb-4 border border-neutral-300" />;
     }
 
+    const linkedUserId = profile?.id || null;
+    const isSignedInViewer = Boolean(user);
+    const canViewProfile = (authorProfile?: UserProfile | null) => {
+        if (!authorProfile) return false;
+        const visibility = authorProfile.visibility || (authorProfile.isPrivate ? 'private' : 'public');
+        if (visibility === 'private') return false;
+        if (visibility === 'accounts') return isSignedInViewer;
+        return true;
+    };
+
     const publishedStatuses = allStatuses.filter(s => {
         if (!s.published) return false;
-        if (s.userId === user?.id) return true;
+        if (linkedUserId && s.userId === linkedUserId) return true;
         const profile = s.userId ? profileCache[s.userId] : null;
-        if (profile?.isPrivate) return false;
-        return true;
+        return canViewProfile(profile);
     });
-
-    const linkedUserId = profile?.id || null;
 
     const feedStatuses: Status[] = mode === 'all'
         ? publishedStatuses

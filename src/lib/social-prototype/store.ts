@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 // ============================================================
 
 export type Category = string;
+export type ProfileVisibility = 'public' | 'accounts' | 'private';
 
 export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
@@ -73,6 +74,7 @@ export interface UserProfile {
     username: string;
     avatarUrl?: string;
     categories: Category[];
+    visibility?: ProfileVisibility;
     isPrivate?: boolean;
     createdAt?: string;
     muted_users?: string[];
@@ -139,6 +141,7 @@ interface MeResponse {
         username: string;
         avatar_url?: string;
         categories?: Category[];
+        visibility?: ProfileVisibility;
         is_private?: boolean;
         created_at?: string;
         muted_users?: string[];
@@ -184,6 +187,13 @@ let ACTIVE_CATEGORY_CONFIG_OVERRIDES: Record<string, CategoryConfigOverride> = {
 
 export function setActiveCategoryConfigOverrides(overrides?: Record<string, CategoryConfigOverride>) {
     ACTIVE_CATEGORY_CONFIG_OVERRIDES = overrides || {};
+}
+
+export function normalizeProfileVisibility(profile?: { visibility?: string | null; is_private?: boolean | null }): ProfileVisibility {
+    if (profile?.is_private) return 'private';
+    if (profile?.visibility === 'accounts') return 'accounts';
+    if (profile?.visibility === 'private') return 'private';
+    return 'public';
 }
 
 const toLabel = (value: string) => {
@@ -666,12 +676,14 @@ export function useUserProfile() {
             if (error && error.code !== 'PGRST116') throw error;
 
             if (data) {
+                const visibility = normalizeProfileVisibility(data);
                 const mappedProfile = {
                     id: data.id,
                     username: data.username,
                     avatarUrl: data.avatar_url,
                     categories: data.categories || [],
-                    isPrivate: data.is_private || false,
+                    visibility,
+                    isPrivate: visibility === 'private',
                     createdAt: data.created_at,
                     muted_users: data.muted_users || [],
                     categoryConfigs: data.category_configs || {},
@@ -702,11 +714,13 @@ export function useUserProfile() {
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
+        const visibility = updates.visibility || (updates.isPrivate ? 'private' : undefined);
         await socialWrite('social.profile.upsert', {
             username: updates.username,
             avatarUrl: updates.avatarUrl,
             categories: updates.categories,
             isPrivate: updates.isPrivate,
+            visibility,
             categoryConfigs: updates.categoryConfigs,
         });
         await fetchProfile();
@@ -868,11 +882,14 @@ export function usePublicProfile(userId: string) {
             .single();
 
         if (data) {
+            const visibility = normalizeProfileVisibility(data);
             setProfile({
                 id: data.id,
                 username: data.username,
                 avatarUrl: data.avatar_url,
                 categories: data.categories || [],
+                visibility,
+                isPrivate: visibility === 'private',
                 createdAt: data.created_at,
                 categoryConfigs: data.category_configs || {},
             });

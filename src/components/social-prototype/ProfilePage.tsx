@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Ban, UserCheck, UserPlus } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 import {
     usePublicProfile,
     useUserProfile,
@@ -24,6 +25,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
+    const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
     const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers } = useSocialStore();
@@ -67,6 +69,23 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         return (
             <div className="font-mono text-center py-12">
                 <p className="text-neutral-400 text-xs uppercase tracking-widest mb-4">Profile not found.</p>
+            </div>
+        );
+    }
+
+    const visibility = profile.visibility || (profile.isPrivate ? 'private' : 'public');
+    if (!isOwnProfile && visibility === 'private') {
+        return (
+            <div className="font-mono text-center py-12">
+                <p className="text-neutral-400 text-xs uppercase tracking-widest mb-4">Pile is private.</p>
+            </div>
+        );
+    }
+
+    if (!isOwnProfile && visibility === 'accounts' && !user) {
+        return (
+            <div className="font-mono text-center py-12">
+                <p className="text-neutral-400 text-xs uppercase tracking-widest mb-4">Sign in to view this pile.</p>
             </div>
         );
     }
