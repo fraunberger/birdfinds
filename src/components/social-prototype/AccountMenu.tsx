@@ -10,9 +10,10 @@ interface AccountMenuProps {
   username: string;
   avatarUrl?: string;
   isAdmin?: boolean;
+  reportCount?: number;
 }
 
-export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false }: AccountMenuProps) {
+export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, reportCount = 0 }: AccountMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -32,6 +33,11 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false }: 
           <span className="w-3 h-[1px] bg-current" />
         </div>
       </button>
+      {isAdmin && reportCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full bg-red-600 text-white text-[9px] leading-[14px] text-center font-bold">
+          {reportCount > 9 ? "9+" : reportCount}
+        </span>
+      )}
 
       {open && (
         <div className="absolute right-0 mt-2 w-40 border border-neutral-300 bg-white shadow-sm z-20">

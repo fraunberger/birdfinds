@@ -54,7 +54,15 @@ export default function ModerationPage() {
   useEffect(() => {
     if (!user || !isAdmin) return;
     void reload();
-  }, [user, isAdmin, reload]);
+  }, [user?.id, isAdmin, reload]);
+
+  useEffect(() => {
+    if (!user?.id || !isAdmin) return;
+    const intervalId = window.setInterval(() => {
+      void reload();
+    }, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [user?.id, isAdmin, reload]);
 
   const resolveReport = async (reportId: string) => {
     setActingId(reportId);

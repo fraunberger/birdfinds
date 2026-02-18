@@ -16,6 +16,7 @@ import { StatusComposer } from "./StatusComposer";
 import { HabitChecklist } from "./HabitChecklist";
 import { AccountMenu } from "./AccountMenu";
 import { HeaderSearch } from "./HeaderSearch";
+import { pushToast } from "@/lib/social-prototype/toast";
 
 export function SocialLayout() {
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -26,6 +27,8 @@ export function SocialLayout() {
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
   const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded, resetAndRefresh } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
+  const [reportCount, setReportCount] = React.useState(0);
+  const reportCountRef = React.useRef<number | null>(null);
   const hasUsername = !!profile?.username?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
   const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
@@ -69,6 +72,42 @@ export function SocialLayout() {
       resetAndRefresh();
     }
   }, [authLoading, user?.id, resetAndRefresh]);
+
+  React.useEffect(() => {
+    if (!user?.id || !isAdmin) {
+      setReportCount(0);
+      reportCountRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    const readReports = async () => {
+      try {
+        const response = await fetch("/api/social/reports", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const nextCount = Array.isArray(payload?.reports) ? payload.reports.length : 0;
+        if (cancelled) return;
+        if (reportCountRef.current != null && nextCount > reportCountRef.current) {
+          const delta = nextCount - reportCountRef.current;
+          pushToast({ message: `${delta} new report${delta > 1 ? "s" : ""} in moderation.`, tone: "error" });
+        }
+        reportCountRef.current = nextCount;
+        setReportCount(nextCount);
+      } catch {
+        // Ignore polling failures.
+      }
+    };
+
+    void readReports();
+    const intervalId = window.setInterval(() => {
+      void readReports();
+    }, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [user?.id, isAdmin]);
 
   if (authLoading || profileLoading) {
     return (
@@ -121,6 +160,7 @@ export function SocialLayout() {
                 username={userDisplay}
                 avatarUrl={profile?.avatarUrl}
                 isAdmin={isAdmin}
+                reportCount={reportCount}
               />
             )}
             {clerkEnabled ? (
