@@ -13,7 +13,7 @@ create temporary table tmp_clerk_users (
   clerk_user_id text primary key,
   email text,
   username text
-) on commit drop;
+) on commit preserve rows;
 
 -- Paste exported Clerk users here.
 -- Example:
@@ -55,8 +55,6 @@ where r.supabase_user_id is not null
 on conflict (clerk_user_id) do update
 set supabase_user_id = excluded.supabase_user_id;
 
-commit;
-
 -- Linked rows count
 select count(*) as linked_count
 from public.clerk_user_links
@@ -68,3 +66,4 @@ from tmp_clerk_users t
 left join public.clerk_user_links l on l.clerk_user_id = t.clerk_user_id
 where l.clerk_user_id is null;
 
+commit;
