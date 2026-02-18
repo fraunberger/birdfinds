@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from "next/link";
 import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
@@ -51,10 +51,24 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
     const [commentDraft, setCommentDraft] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
     const { user } = useAuth();
     const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment } = useSocialStore();
+
+    useEffect(() => {
+        if (!showMenu) return;
+        const onPointerDown = (event: MouseEvent) => {
+            if (!menuRef.current) return;
+            if (!menuRef.current.contains(event.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+        window.addEventListener('mousedown', onPointerDown);
+        return () => window.removeEventListener('mousedown', onPointerDown);
+    }, [showMenu]);
 
     type HighlightMatch = {
         start: number;
@@ -170,61 +184,94 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                     </button>
                 )}
                 <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-                    {onEdit && (
-                        <button
-                            onClick={onEdit}
-                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
-                        >
-                            Edit
-                        </button>
-                    )}
-                    {!isOwn && user && (
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const reason = window.prompt('Report reason (optional):') || '';
-                                    await reportStatus(status.id, reason);
-                                    pushToast({ message: 'Report submitted. Thanks.', tone: 'success' });
-                                } catch (error) {
-                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to report post', tone: 'error' });
-                                }
-                            }}
-                            className="text-[10px] uppercase tracking-widest border border-neutral-200 px-2 py-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
-                        >
-                            Report
-                        </button>
-                    )}
-                    {isAdmin && !isOwn && (
-                        <button
-                            onClick={async () => {
-                                if (!confirm('Hide this post from public feed?')) return;
-                                try {
-                                    await softDeleteStatus(status.id, 'Hidden by admin');
-                                    pushToast({ message: 'Post hidden.', tone: 'success' });
-                                } catch (error) {
-                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to hide post', tone: 'error' });
-                                }
-                            }}
-                            className="text-[10px] uppercase tracking-widest border border-red-200 px-2 py-1 text-red-500 hover:bg-red-50"
-                        >
-                            Hide
-                        </button>
-                    )}
-                    {isOwn && (
-                        <button
-                            onClick={async () => {
-                                if (confirm('Delete this post and all its items?')) {
-                                    try {
-                                        await deleteStatus(status.id);
-                                    } catch (error) {
-                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to delete post', tone: 'error' });
-                                    }
-                                }
-                            }}
-                            className="text-[10px] text-neutral-400 hover:text-red-500 uppercase tracking-widest"
-                        >
-                            DEL
-                        </button>
+                    {(status.userId || onEdit || (!isOwn && user) || isOwn) && (
+                        <div className="relative" ref={menuRef}>
+                            <button
+                                onClick={() => setShowMenu((prev) => !prev)}
+                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
+                            >
+                                Menu ▾
+                            </button>
+                            {showMenu && (
+                                <div className="absolute right-0 mt-1 w-36 border border-neutral-300 bg-white shadow-sm z-20">
+                                    {status.userId && (
+                                        <button
+                                            onClick={() => {
+                                                setShowHabits((prev) => !prev);
+                                                setShowMenu(false);
+                                            }}
+                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
+                                        >
+                                            {showHabits ? 'Hide Habits' : 'Show Habits'}
+                                        </button>
+                                    )}
+                                    {onEdit && (
+                                        <button
+                                            onClick={() => {
+                                                onEdit();
+                                                setShowMenu(false);
+                                            }}
+                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
+                                    {!isOwn && user && (
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const reason = window.prompt('Report reason (optional):') || '';
+                                                    await reportStatus(status.id, reason);
+                                                    pushToast({ message: 'Report submitted. Thanks.', tone: 'success' });
+                                                } catch (error) {
+                                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to report post', tone: 'error' });
+                                                } finally {
+                                                    setShowMenu(false);
+                                                }
+                                            }}
+                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+                                        >
+                                            Report
+                                        </button>
+                                    )}
+                                    {isOwn && (
+                                        <button
+                                            onClick={async () => {
+                                                if (confirm('Delete this post and all its items?')) {
+                                                    try {
+                                                        await deleteStatus(status.id);
+                                                    } catch (error) {
+                                                        pushToast({ message: error instanceof Error ? error.message : 'Failed to delete post', tone: 'error' });
+                                                    }
+                                                }
+                                                setShowMenu(false);
+                                            }}
+                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+                                    {isAdmin && !isOwn && (
+                                        <button
+                                            onClick={async () => {
+                                                if (!confirm('Hide this post from public feed?')) return;
+                                                try {
+                                                    await softDeleteStatus(status.id, 'Hidden by admin');
+                                                    pushToast({ message: 'Post hidden.', tone: 'success' });
+                                                } catch (error) {
+                                                    pushToast({ message: error instanceof Error ? error.message : 'Failed to hide post', tone: 'error' });
+                                                } finally {
+                                                    setShowMenu(false);
+                                                }
+                                            }}
+                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
+                                        >
+                                            Hide
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     )}
                     <span className="text-[10px] text-neutral-400">
                         {new Date(status.date).toLocaleDateString(undefined, {
@@ -233,16 +280,6 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                             timeZone: 'UTC'
                         })}
                     </span>
-                    {/* Habit Toggle */}
-                    {status.userId && (
-                        <button
-                            onClick={() => setShowHabits(!showHabits)}
-                            className={`text-[10px] uppercase tracking-widest border px-3 py-1.5 ml-1 transition-colors min-w-[44px] flex items-center justify-center ${showHabits ? 'border-neutral-400 text-neutral-800' : 'border-transparent text-neutral-300 hover:text-neutral-500'}`}
-                            title={showHabits ? "Hide habits" : "Show habits"}
-                        >
-                            {showHabits ? 'Habits' : 'Habits ▼'}
-                        </button>
-                    )}
                 </div>
             </div>
 
