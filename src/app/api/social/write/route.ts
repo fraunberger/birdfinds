@@ -75,23 +75,23 @@ const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
 };
 
 export async function POST(req: NextRequest) {
-  const supabaseAdmin = getSupabaseAdmin();
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const linkedUserId = await getOrCreateLinkedSupabaseUser();
-  if (!linkedUserId) {
-    return NextResponse.json({ error: "No linked user" }, { status: 400 });
-  }
-
-  const body = (await req.json()) as WriteBody;
-  const action = body.action;
-  const payload = body.payload || {};
-  const admin = isSocialAdmin(clerkUserId, linkedUserId);
-
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const linkedUserId = await getOrCreateLinkedSupabaseUser();
+    if (!linkedUserId) {
+      return NextResponse.json({ error: "No linked user" }, { status: 400 });
+    }
+
+    const body = (await req.json()) as WriteBody;
+    const action = body.action;
+    const payload = body.payload || {};
+    const admin = isSocialAdmin(clerkUserId, linkedUserId);
+
     if (action === "social.status.upsert") {
       const date = String(payload.date || "");
       const content = String(payload.content || "");
