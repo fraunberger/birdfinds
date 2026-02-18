@@ -718,13 +718,10 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                 input.focus();
                                 input.click();
                             }}
-                            className="flex items-center gap-1 w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors"
+                            className="flex items-center w-[130px] sm:w-[100px] p-1 border-b border-transparent hover:border-neutral-300 transition-colors"
                             aria-label="Open calendar"
                             title="Open calendar"
                         >
-                            <span className="inline-flex h-3.5 w-3.5 items-center justify-center border border-neutral-400 text-[8px] leading-none text-neutral-500" aria-hidden="true">
-                                31
-                            </span>
                             <span className="block text-right flex-1 font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">
                                 {activeDate}
                             </span>
