@@ -130,6 +130,9 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     const [mobilePickerBottom, setMobilePickerBottom] = useState(12);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
+    const [mentionBusy, setMentionBusy] = useState(false);
+    const mentionInFlightRef = useRef(false);
+    const recentMentionKeyRef = useRef<{ key: string; at: number } | null>(null);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -297,11 +300,18 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
     }, [isMobileTagging]);
 
     useEffect(() => {
+        // Mobile performance: skip expensive live parsing while user is actively typing.
+        // We refresh full highlights on blur and after input settles.
+        if (isMobileTagging && document.activeElement === textareaRef.current) {
+            setPreviewText(content);
+            setPreviewDecorations([]);
+            return;
+        }
         const timer = window.setTimeout(() => {
             rebuildPreviewHighlights(content, items);
-        }, 180);
+        }, isMobileTagging ? 360 : 180);
         return () => window.clearTimeout(timer);
-    }, [content, items]);
+    }, [content, items, isMobileTagging]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
@@ -392,13 +402,21 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
 
     const handleMentionSubmit = async () => {
         if (!mentionTitle.trim() || !mentionCategory) return;
+        if (mentionInFlightRef.current) return;
 
         const title = mentionTitle.trim();
+        const mentionKey = `${mentionCategory}:${title.toLowerCase()}`;
+        const now = Date.now();
+        if (recentMentionKeyRef.current && recentMentionKeyRef.current.key === mentionKey && (now - recentMentionKeyRef.current.at) < 2500) {
+            return;
+        }
         const existing = items.find((item) =>
             item.category === mentionCategory
             && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
         );
 
+        mentionInFlightRef.current = true;
+        setMentionBusy(true);
         try {
             // Reuse matching table item instead of creating duplicates.
             if (!existing) {
@@ -418,8 +436,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             const newContent = before + title + after;
             setContentForActive(newContent);
             updateActiveStatus(newContent);
+            recentMentionKeyRef.current = { key: mentionKey, at: Date.now() };
         } catch (error: unknown) {
             pushToast({ message: `Failed to add item: ${getErrorMessage(error)}`, tone: 'error' });
+        } finally {
+            mentionInFlightRef.current = false;
+            setMentionBusy(false);
         }
 
         // Reset
@@ -441,14 +463,23 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             handleSelectCategory(category);
             return;
         }
+        if (mentionInFlightRef.current) return;
 
         try {
             const normalizedTitle = mentionTitle.trim();
+            const mentionKey = `${category}:${normalizedTitle.toLowerCase()}`;
+            const now = Date.now();
+            if (recentMentionKeyRef.current && recentMentionKeyRef.current.key === mentionKey && (now - recentMentionKeyRef.current.at) < 2500) {
+                clearTaggingState();
+                return;
+            }
             const existing = items.find((item) =>
                 item.category === category
                 && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === normalizedTitle.toLowerCase())
             );
 
+            mentionInFlightRef.current = true;
+            setMentionBusy(true);
             if (!existing) {
                 await addItemToActive({
                     category,
@@ -471,8 +502,12 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
             setContentForActive(newContent);
             updateActiveStatus(newContent);
             clearTaggingState();
+            recentMentionKeyRef.current = { key: mentionKey, at: Date.now() };
         } catch (error: unknown) {
             pushToast({ message: `Failed to add item: ${getErrorMessage(error)}`, tone: 'error' });
+        } finally {
+            mentionInFlightRef.current = false;
+            setMentionBusy(false);
         }
     };
 
@@ -709,7 +744,8 @@ export function StatusComposer({ userCategories }: StatusComposerProps) {
                                     <button
                                         key={cat.id}
                                         onClick={() => { void applyCategoryToMention(cat.id); }}
-                                        className="w-full px-2 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-900 transition-colors whitespace-nowrap text-left"
+                                        disabled={mentionBusy}
+                                        className="w-full px-2 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-900 transition-colors whitespace-nowrap text-left disabled:opacity-40"
                                     >
                                         {cat.shortLabel}
                                     </button>
