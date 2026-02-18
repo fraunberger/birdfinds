@@ -115,6 +115,7 @@ export function UserStats() {
                     isOpen={true}
                     onClose={handleCloseModal}
                     onSave={async (item) => {
+                        await removeItemFromActive(selectedItem.id);
                         await addItemToActive(item);
                         handleCloseModal();
                     }}

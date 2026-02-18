@@ -109,6 +109,9 @@ export function CategoryList({ category, title }: CategoryListProps) {
                 onClose={() => setSelectedItem(null)}
                 existingItem={selectedItem || undefined}
                 onSave={async (item) => {
+                    if (selectedItem) {
+                        await removeItemFromActive(selectedItem.id);
+                    }
                     await addItemToActive(item);
                     setSelectedItem(null);
                 }}
