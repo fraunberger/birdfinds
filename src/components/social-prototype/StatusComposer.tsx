@@ -266,8 +266,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             if (!selectedText.trim()) return;
             setSelectedPlainText(selectedText.trim());
             tagging.updateSelection(start, end, selectedText.trim());
-            const existing = items.find((i) => getItemHighlightTerms(i).some((term) => term.toLowerCase() === selectedText.toLowerCase()));
-            if (existing) { openModal(existing); return; }
+            // Auto-matching via selection removed as requested — user must tap item in table or category button
             return;
         }
         tagging.clearSelection();
@@ -431,7 +430,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     </div>
 
                     {/* Post Action Row + Habits */}
-                    <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="mt-2 mb-1 flex items-center justify-between gap-3">
                         <HabitChecklist date={activeDate} />
                         <button
                             onClick={async () => {

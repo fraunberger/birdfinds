@@ -294,11 +294,7 @@ export function SocialLayout() {
                 userCategories={profile?.categories}
                 onEntryModeChange={setIsEntryMode}
               />
-              {isEntryMode && (
-                <div className="mt-3 mb-1">
-                  <HabitChecklist date={activeDate} />
-                </div>
-              )}
+
             </>
           )}
 
