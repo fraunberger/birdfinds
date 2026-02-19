@@ -86,10 +86,10 @@ export function parseHighlights(text, entities) {
   (entities || []).forEach((entity) => {
     const terms = normalizeTerms(entity.terms || []);
     terms.forEach((term) => {
-      const regex = new RegExp(escapeRegex(term), "gi");
-      /** @type {RegExpExecArray | null} */
-      let match = null;
-      while ((match = regex.exec(text)) !== null) {
+      // Only highlight the FIRST occurrence of each term (no "g" flag)
+      const regex = new RegExp(escapeRegex(term), "i");
+      const match = regex.exec(text);
+      if (match) {
         const start = match.index;
         const end = start + match[0].length;
         candidates.push({

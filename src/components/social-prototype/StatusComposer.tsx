@@ -9,6 +9,7 @@ import { parseHighlights, segmentText } from '@/lib/social-prototype/highlightin
 import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
+import { HabitChecklist } from './HabitChecklist';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -473,9 +474,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </button>
                     </div>
 
+                    {/* Habit Checklist */}
+                    <HabitChecklist date={activeDate} />
+
                     {/* Data Table */}
                     <ComposerItemTable
                         items={items}
+                        content={content}
                         isMobileTagging={tagging.isMobileTagging}
                         selectedPlainText={selectedPlainText}
                         activeCategoryConfigs={activeCategoryConfigs}

@@ -1,14 +1,28 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
+import { getItemHighlightTerms } from './useTaggingState';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+
+/** Find the earliest position of any of the item's highlight terms in the content. */
+const getFirstPosition = (item: ConsumableItem, lowerContent: string): number => {
+    const terms = getItemHighlightTerms(item);
+    let earliest = Infinity;
+    for (const term of terms) {
+        const pos = lowerContent.indexOf(term.toLowerCase());
+        if (pos >= 0 && pos < earliest) earliest = pos;
+    }
+    return earliest;
+};
 
 interface ComposerItemTableProps {
     /** Items attached to the active status. */
     items: ConsumableItem[];
+    /** The current post content text — used to order items by text position. */
+    content: string;
     /** Whether we're in mobile tagging mode (hides "link" button). */
     isMobileTagging: boolean;
     /** Currently selected text in the textarea — used for link tooltip. */
@@ -27,6 +41,7 @@ interface ComposerItemTableProps {
 
 export function ComposerItemTable({
     items,
+    content,
     isMobileTagging,
     selectedPlainText,
     activeCategoryConfigs,
@@ -37,6 +52,17 @@ export function ComposerItemTable({
 }: ComposerItemTableProps) {
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
+
+    // Sort items by first occurrence position in the post text
+    const sortedItems = useMemo(() => {
+        if (!content) return items;
+        const lowerContent = content.toLowerCase();
+        return [...items].sort((a, b) => {
+            const posA = getFirstPosition(a, lowerContent);
+            const posB = getFirstPosition(b, lowerContent);
+            return posA - posB;
+        });
+    }, [items, content]);
 
     const effectiveQuickAddCategory = activeCategoryConfigs.some(c => c.id === quickAddCategory)
         ? quickAddCategory
@@ -70,7 +96,7 @@ export function ComposerItemTable({
                     </tr>
                 </thead>
                 <tbody>
-                    {items.map((item) => {
+                    {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
                         return (
                             <tr key={item.id} className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100" onClick={() => onOpenItem(item)}>

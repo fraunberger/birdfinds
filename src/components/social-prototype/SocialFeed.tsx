@@ -110,8 +110,12 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         ? publishedStatuses
         : publishedStatuses.filter((s) => s.userId && (s.userId === linkedUserId || following.includes(s.userId)));
 
-    // Sort by date descending
-    feedStatuses.sort((a, b) => b.date.localeCompare(a.date));
+    // Sort by date descending, then by tag count descending within same date
+    feedStatuses.sort((a, b) => {
+        const dateCmp = b.date.localeCompare(a.date);
+        if (dateCmp !== 0) return dateCmp;
+        return (b.items?.length || 0) - (a.items?.length || 0);
+    });
     const followingPostCountToday = publishedStatuses.filter((status) => {
         if (!status.userId || !following.includes(status.userId)) return false;
         return status.date === new Date().toISOString().slice(0, 10);
