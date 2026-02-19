@@ -329,7 +329,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
                     )}
                     {/* Editor Container */}
-                    <div className="border border-neutral-300 mb-2">
+                    <div className="border border-neutral-300">
                         {/* ── Inline Category Toolbar ── */}
                         <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
                             <div className="flex items-stretch min-w-0 shrink">
@@ -422,28 +422,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 onSelect={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); handleTextSelection(t); }}
                                 onTouchEnd={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
                                 onPointerUp={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
-                                onClick={(e) => {
-                                    const target = e.target as HTMLTextAreaElement;
-                                    const cursor = target.selectionStart;
-                                    setLastCursorPosition(cursor);
-                                    let foundItem: ConsumableItem | undefined;
-                                    for (const item of items) {
-                                        const terms = getItemHighlightTerms(item);
-                                        for (const term of terms) {
-                                            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                                            const regex = new RegExp(`(${escaped})`, 'gi');
-                                            let match;
-                                            while ((match = regex.exec(content)) !== null) {
-                                                const start = match.index;
-                                                const end = start + match[0].length;
-                                                if (cursor >= start && cursor < end) { foundItem = item; break; }
-                                            }
-                                            if (foundItem) break;
-                                        }
-                                        if (foundItem) break;
-                                    }
-                                    if (foundItem) openModal(foundItem);
-                                }}
+                                // onClick auto-match removed as requested
                                 placeholder="What did you do today? Type @item then tap a category, or select text..."
                                 className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[170px] sm:min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                                 spellCheck={false}
@@ -451,8 +430,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
                     </div>
 
-                    {/* Post Action Row */}
-                    <div className="mt-2 flex items-start justify-end gap-3">
+                    {/* Post Action Row + Habits */}
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <HabitChecklist date={activeDate} />
                         <button
                             onClick={async () => {
                                 try {
@@ -473,9 +453,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             {activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST'}
                         </button>
                     </div>
-
-                    {/* Habit Checklist */}
-                    <HabitChecklist date={activeDate} />
 
                     {/* Data Table */}
                     <ComposerItemTable

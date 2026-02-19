@@ -85,7 +85,7 @@ export function ComposerItemTable({
     };
 
     return (
-        <div className="border border-neutral-300 bg-white mt-2 overflow-x-auto">
+        <div className="border border-neutral-300 bg-white overflow-x-auto">
             <table className="w-full text-xs font-mono border-collapse">
                 <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                     <tr>
