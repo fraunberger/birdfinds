@@ -175,10 +175,10 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
         body: JSON.stringify({ action, payload }),
     });
     const raw = await response.text();
-    let data: { error?: string; [key: string]: unknown } = {};
+    let data: { error?: string;[key: string]: unknown } = {};
     if (raw) {
         try {
-            data = JSON.parse(raw) as { error?: string; [key: string]: unknown };
+            data = JSON.parse(raw) as { error?: string;[key: string]: unknown };
         } catch {
             data = { error: raw };
         }
@@ -193,14 +193,14 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
 export const HIGHLIGHT_COLOR = '#fffb91';
 
 export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
-    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#fffb91', icon: '' },
-    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#91efff', icon: '' },
-    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#ff91f9', icon: '' },
-    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#91ff9c', icon: '' },
-    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#ffd691', icon: '' },
-    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#ffae91', icon: '' },
-    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#d491ff', icon: '' },
-    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#f5d142', icon: '' },
+    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#f5d142', icon: '' },
+    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#62d9f7', icon: '' },
+    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#f78be0', icon: '' },
+    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Location/Dish', subtitlePlaceholder: 'Location', ratingLabel: 'Rating', color: '#7be08a', icon: '' },
+    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#e8a94f', icon: '' },
+    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#f7756a', icon: '' },
+    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#b78ef5', icon: '' },
+    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#6ab4f7', icon: '' },
 };
 
 let ACTIVE_CATEGORY_CONFIG_OVERRIDES: Record<string, CategoryConfigOverride> = {};
@@ -350,26 +350,40 @@ class SocialStore {
             const me = await getLinkedMe();
             const linkedUserId = me.linkedUserId;
 
-            // Fetch ALL statuses (public)
+            // Fetch recent statuses (capped at 200, soft-deletes filtered at DB level)
             const { data: statusData, error: statusError } = await supabase
                 .from('social_statuses')
                 .select('*')
-                .order('created_at', { ascending: false }); // Sort by creation time (chronological feed)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(200);
 
             if (statusError) throw statusError;
 
-            // Fetch ALL items (public)
-            const { data: itemData, error: itemError } = await supabase
-                .from('social_items')
-                .select('*');
+            const statusRows = (statusData || []) as StatusRow[];
+            const statusIds = statusRows.map((s) => s.id);
 
-            if (itemError) throw itemError;
+            // Scope items + comments to only fetched status IDs
+            let itemData: Record<string, unknown>[] = [];
+            let comments: CommentRow[] = [];
 
-            const { data: commentData, error: commentError } = await supabase
-                .from('social_comments')
-                .select('*');
+            if (statusIds.length > 0) {
+                const { data: items, error: itemError } = await supabase
+                    .from('social_items')
+                    .select('*')
+                    .in('status_id', statusIds);
+                if (itemError) throw itemError;
+                itemData = items || [];
 
-            const comments: CommentRow[] = commentError ? [] : ((commentData || []) as CommentRow[]);
+                const { data: commentData, error: commentError } = await supabase
+                    .from('social_comments')
+                    .select('*')
+                    .is('deleted_at', null)
+                    .in('status_id', statusIds);
+                comments = commentError ? [] : ((commentData || []) as CommentRow[]);
+            }
+
+            // Resolve comment author usernames
             const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
             let commentUsernames = new Map<string, string>();
             if (commentUserIds.length > 0) {
@@ -382,8 +396,22 @@ class SocialStore {
                 );
             }
 
-            const statusRows = ((statusData || []) as StatusRow[])
-                .filter((row) => !row.deleted_at);
+            // Build Map-based lookups instead of nested .filter() (O(n+m) vs O(n×m))
+            const itemsByStatus = new Map<string, typeof itemData>();
+            for (const item of itemData) {
+                const sid = item.status_id as string;
+                const list = itemsByStatus.get(sid);
+                if (list) list.push(item);
+                else itemsByStatus.set(sid, [item]);
+            }
+
+            const commentsByStatus = new Map<string, CommentRow[]>();
+            for (const comment of comments) {
+                const sid = comment.status_id;
+                const list = commentsByStatus.get(sid);
+                if (list) list.push(comment);
+                else commentsByStatus.set(sid, [comment]);
+            }
 
             const combined: Status[] = statusRows.map((s) => ({
                 id: s.id,
@@ -392,21 +420,18 @@ class SocialStore {
                 userId: s.user_id,
                 published: s.published ?? false,
                 createdAt: new Date(s.created_at).getTime(),
-                items: (itemData || [])
-                    .filter(i => i.status_id === s.id)
+                items: (itemsByStatus.get(s.id) || [])
                     .map(i => ({
-                        id: i.id,
+                        id: i.id as string,
                         category: i.category as Category,
-                        title: i.title,
-                        subtitle: i.subtitle,
-                        rating: i.rating,
-                        notes: i.notes,
-                        image: i.image,
-                        createdAt: new Date(i.created_at).getTime()
+                        title: i.title as string,
+                        subtitle: (i.subtitle as string | null) || undefined,
+                        rating: (i.rating as number | null) ?? undefined,
+                        notes: (i.notes as string | null) || undefined,
+                        image: (i.image as string | null) || undefined,
+                        createdAt: new Date(i.created_at as string).getTime()
                     })),
-                comments: comments
-                    .filter((comment) => comment.status_id === s.id)
-                    .filter((comment) => !comment.deleted_at)
+                comments: (commentsByStatus.get(s.id) || [])
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
                     .map((comment) => ({
                         id: comment.id,
@@ -453,12 +478,19 @@ class SocialStore {
         }
     }
 
+    // Debounce real-time re-fetches to prevent rapid-fire full refreshes
+    private _fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    private debouncedFetch = () => {
+        if (this._fetchDebounceTimer) clearTimeout(this._fetchDebounceTimer);
+        this._fetchDebounceTimer = setTimeout(() => this.fetchStatuses(), 500);
+    };
+
     setupSubscription() {
-        const channel = supabase
+        supabase
             .channel('social_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, () => this.fetchStatuses())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, () => this.fetchStatuses())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_comments' }, () => this.fetchStatuses())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, this.debouncedFetch)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, this.debouncedFetch)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_comments' }, this.debouncedFetch)
             .subscribe();
     }
 

@@ -2,7 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { rateLimit } from "@/lib/rate-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+// ── Input length limits ─────────────────────────────────────────────
+const MAX_BODY_BYTES = 100 * 1024;          // 100 KB
+const MAX_STATUS_CONTENT = 5_000;
+const MAX_ITEM_TITLE = 500;
+const MAX_ITEM_SUBTITLE = 500;
+const MAX_ITEM_NOTES = 10_000;
+const MAX_ITEM_IMAGE_URL = 2_000;
+const MAX_COMMENT_CONTENT = 2_000;
+const MAX_HABIT_NAME = 100;
+const MAX_REPORT_REASON = 1_000;
+const MAX_HABIT_LOG_NOTES = 2_000;
+const MAX_AVATAR_URL = 2_000;
+
+/** Truncate a string to `max` characters (no-op when shorter). */
+const truncate = (value: string, max: number) =>
+  value.length > max ? value.slice(0, max) : value;
+
+// ── Rate limit: 60 writes per minute per user ───────────────────────
+const WRITE_RATE_LIMIT = 60;
+const WRITE_RATE_WINDOW_MS = 60_000;
 
 type WriteAction =
   | "social.status.upsert"
@@ -91,10 +113,28 @@ const extractErrorMessage = (error: unknown) => {
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Body size guard ───────────────────────────────────────────
+    const contentLength = Number(req.headers.get("content-length") || "0");
+    if (contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: `Request body too large (max ${MAX_BODY_BYTES / 1024} KB)` },
+        { status: 413 },
+      );
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
     const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // ── Rate limit ────────────────────────────────────────────────
+    const rl = rateLimit(`write:${clerkUserId}`, WRITE_RATE_LIMIT, WRITE_RATE_WINDOW_MS);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many requests, please slow down" },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetMs / 1000)) } },
+      );
     }
 
     const linkedUserId = await getOrCreateLinkedSupabaseUser();
@@ -109,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.status.upsert") {
       const date = String(payload.date || "");
-      const content = String(payload.content || "");
+      const content = truncate(String(payload.content || ""), MAX_STATUS_CONTENT);
       if (!date) return NextResponse.json({ error: "Missing date" }, { status: 400 });
 
       const { data: existing } = await supabaseAdmin
@@ -165,12 +205,12 @@ export async function POST(req: NextRequest) {
       const item = (payload.item || {}) as Record<string, unknown>;
       const { error } = await supabaseAdmin.from("social_items").insert({
         status_id: statusId,
-        category: String(item.category || "movie"),
-        title: String(item.title || ""),
-        subtitle: item.subtitle ? String(item.subtitle) : null,
+        category: truncate(String(item.category || "movie"), MAX_ITEM_TITLE),
+        title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
+        subtitle: item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null,
         rating: typeof item.rating === "number" ? item.rating : null,
-        notes: item.notes ? String(item.notes) : null,
-        image: item.image ? String(item.image) : null,
+        notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
+        image: item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null,
       });
       if (error) throw error;
       return NextResponse.json({ ok: true });
@@ -186,7 +226,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.comment.add") {
       const statusId = String(payload.statusId || "");
-      const content = String(payload.content || "").trim();
+      const content = truncate(String(payload.content || "").trim(), MAX_COMMENT_CONTENT);
       if (!statusId || !content) {
         return NextResponse.json({ error: "Missing statusId or content" }, { status: 400 });
       }
@@ -217,7 +257,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.status.report") {
       const statusId = String(payload.statusId || "").trim();
-      const reason = String(payload.reason || "").trim();
+      const reason = truncate(String(payload.reason || "").trim(), MAX_REPORT_REASON);
       if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
       const { error } = await supabaseAdmin.from("social_reports").insert({
         reporter_id: linkedUserId,
@@ -231,7 +271,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.comment.report") {
       const commentId = String(payload.commentId || "").trim();
-      const reason = String(payload.reason || "").trim();
+      const reason = truncate(String(payload.reason || "").trim(), MAX_REPORT_REASON);
       if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
       const { error } = await supabaseAdmin.from("social_reports").insert({
         reporter_id: linkedUserId,
@@ -246,7 +286,7 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.soft_delete") {
       if (!admin) return NextResponse.json({ error: "Admin only" }, { status: 403 });
       const statusId = String(payload.statusId || "").trim();
-      const reason = String(payload.reason || "").trim();
+      const reason = truncate(String(payload.reason || "").trim(), MAX_REPORT_REASON);
       if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
       const { error } = await supabaseAdmin
         .from("social_statuses")
@@ -263,7 +303,7 @@ export async function POST(req: NextRequest) {
     if (action === "social.comment.soft_delete") {
       if (!admin) return NextResponse.json({ error: "Admin only" }, { status: 403 });
       const commentId = String(payload.commentId || "").trim();
-      const reason = String(payload.reason || "").trim();
+      const reason = truncate(String(payload.reason || "").trim(), MAX_REPORT_REASON);
       if (!commentId) return NextResponse.json({ error: "Missing commentId" }, { status: 400 });
       const { error } = await supabaseAdmin
         .from("social_comments")
@@ -306,7 +346,7 @@ export async function POST(req: NextRequest) {
         : undefined;
       const avatarUrl = payload.avatarUrl == null || payload.avatarUrl === ""
         ? null
-        : String(payload.avatarUrl);
+        : truncate(String(payload.avatarUrl), MAX_AVATAR_URL);
 
       const { error } = await supabaseAdmin
         .from("user_profiles")
@@ -362,8 +402,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "social.habit.add") {
-      const name = String(payload.name || "").trim();
-      const icon = String(payload.icon || "");
+      const name = truncate(String(payload.name || "").trim(), MAX_HABIT_NAME);
+      const icon = truncate(String(payload.icon || ""), 10);
       if (!name) return NextResponse.json({ error: "Missing habit name" }, { status: 400 });
       const { data: existing } = await supabaseAdmin
         .from("user_habits")
@@ -397,7 +437,7 @@ export async function POST(req: NextRequest) {
       const habitId = String(payload.habitId || "");
       const date = String(payload.date || "");
       const completed = Boolean(payload.completed);
-      const notes = payload.notes ? String(payload.notes) : "";
+      const notes = payload.notes ? truncate(String(payload.notes), MAX_HABIT_LOG_NOTES) : "";
       const { data: habit } = await supabaseAdmin
         .from("user_habits")
         .select("id,user_id")

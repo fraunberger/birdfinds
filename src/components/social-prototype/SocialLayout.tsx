@@ -160,13 +160,25 @@ export function SocialLayout() {
           <div className="flex items-center gap-3">
             <HeaderSearch />
             {user && (
-              <AccountMenu
-                pileHref={pileHref}
-                username={userDisplay}
-                avatarUrl={profile?.avatarUrl}
-                isAdmin={isAdmin}
-                reportCount={reportCount}
-              />
+              <>
+                <span className="hidden sm:flex items-center gap-2">
+                  {profile?.avatarUrl ? (
+                    <img src={profile.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-neutral-300" />
+                  ) : (
+                    <span className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-[10px] font-bold text-neutral-500 border border-neutral-300">
+                      {userDisplay.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="text-[10px] uppercase tracking-widest text-neutral-500">{userDisplay}</span>
+                </span>
+                <AccountMenu
+                  pileHref={pileHref}
+                  username={userDisplay}
+                  avatarUrl={profile?.avatarUrl}
+                  isAdmin={isAdmin}
+                  reportCount={reportCount}
+                />
+              </>
             )}
             {clerkEnabled ? (
               <>

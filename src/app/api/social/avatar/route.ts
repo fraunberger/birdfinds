@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,11 @@ export async function POST(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const rl = rateLimit(`avatar:${userId}`, 10);
+    if (!rl.success) {
+      return NextResponse.json({ error: "Too many uploads, please slow down" }, { status: 429 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const contentType = typeof body?.contentType === "string" ? body.contentType.trim().toLowerCase() : "";

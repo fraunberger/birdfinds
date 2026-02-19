@@ -28,21 +28,6 @@ interface ItemHit {
   score?: number;
 }
 
-interface RawPostHit {
-  id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-}
-
-interface PostHit {
-  id: string;
-  userId: string;
-  username: string;
-  content: string;
-  createdAt: string;
-  score?: number;
-}
 
 const normalize = (value: string) =>
   value
@@ -95,10 +80,9 @@ export function HeaderSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"all" | "users" | "items" | "posts">("all");
+  const [tab, setTab] = useState<"all" | "users" | "items">("all");
   const [users, setUsers] = useState<UserHit[]>([]);
   const [items, setItems] = useState<ItemHit[]>([]);
-  const [posts, setPosts] = useState<PostHit[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -131,7 +115,6 @@ export function HeaderSearch() {
     if (q.length < 2) {
       setUsers([]);
       setItems([]);
-      setPosts([]);
       setLoading(false);
       return;
     }
@@ -139,7 +122,7 @@ export function HeaderSearch() {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setLoading(true);
-      const [userRes, itemRes, postRes] = await Promise.all([
+      const [userRes, itemRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("id,username")
@@ -148,11 +131,6 @@ export function HeaderSearch() {
           .from("social_items")
           .select("category,title,subtitle")
           .limit(300),
-        supabase
-          .from("social_statuses")
-          .select("id,user_id,content,created_at")
-          .eq("published", true)
-          .limit(120),
       ]);
 
       if (cancelled) return;
@@ -163,7 +141,6 @@ export function HeaderSearch() {
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, 8);
       const rawItems = (itemRes.data || []) as RawItemHit[];
-      const rawPosts = (postRes.data || []) as RawPostHit[];
 
       const deduped = new Map<string, ItemHit>();
       rawItems
@@ -197,46 +174,12 @@ export function HeaderSearch() {
           });
         });
 
-      const uniqueUserIds = Array.from(new Set(rawPosts.map((post) => post.user_id).filter(Boolean)));
-      let userLookup = new Map<string, string>();
-      if (uniqueUserIds.length > 0) {
-        const profileRes = await supabase
-          .from("user_profiles")
-          .select("id,username")
-          .in("id", uniqueUserIds);
-        userLookup = new Map(
-          ((profileRes.data || []) as UserHit[]).map((profile) => [profile.id, profile.username])
-        );
-      }
-
-      const postHits: PostHit[] = rawPosts
-        .filter((post) => post.content?.trim())
-        .map((post) => ({
-          id: post.id,
-          userId: post.user_id,
-          username: userLookup.get(post.user_id) || "Unknown",
-          content: post.content.trim(),
-          createdAt: post.created_at,
-          score: Math.max(
-            fuzzyScore(post.content || "", q),
-            fuzzyScore(userLookup.get(post.user_id) || "", q)
-          ),
-        }))
-        .filter((post) => (post.score || 0) >= 35)
-        .sort(
-          (a, b) =>
-            (b.score || 0) - (a.score || 0) ||
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-        .slice(0, 6);
-
       setUsers(userHits);
       setItems(
         Array.from(deduped.values())
           .sort((a, b) => (b.score || 0) - (a.score || 0) || b.count - a.count)
           .slice(0, 8)
       );
-      setPosts(postHits);
       setLoading(false);
     }, 220);
 
@@ -246,10 +189,9 @@ export function HeaderSearch() {
     };
   }, [query, open]);
 
-  const hasResults = useMemo(() => users.length > 0 || items.length > 0 || posts.length > 0, [users, items, posts]);
+  const hasResults = useMemo(() => users.length > 0 || items.length > 0, [users, items]);
   const showUsers = tab === "all" || tab === "users";
   const showItems = tab === "all" || tab === "items";
-  const showPosts = tab === "all" || tab === "posts";
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -287,7 +229,7 @@ export function HeaderSearch() {
           <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-500 border-b border-neutral-200 flex items-center justify-between">
             <span>Search</span>
             <div className="flex items-center border border-neutral-200">
-              {(["all", "users", "items", "posts"] as const).map((candidate) => (
+              {(["all", "users", "items"] as const).map((candidate) => (
                 <button
                   key={candidate}
                   onClick={() => setTab(candidate)}
@@ -350,22 +292,6 @@ export function HeaderSearch() {
             </div>
           )}
 
-          {!loading && showPosts && posts.length > 0 && (
-            <div className="border-t border-neutral-200">
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-neutral-400">Posts</div>
-              {posts.map((post) => (
-                <Link
-                  key={post.id}
-                  href={`/pile/${encodeURIComponent(post.username)}`}
-                  onClick={() => { setOpen(false); setQuery(""); }}
-                  className="block px-3 py-2 hover:bg-neutral-100"
-                >
-                  <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-1">{post.username}</div>
-                  <div className="text-xs text-neutral-700 max-h-10 overflow-hidden">{post.content}</div>
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

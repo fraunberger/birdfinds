@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface MusicBrainzArtistCredit {
     name?: string;
@@ -26,6 +27,11 @@ export async function GET(request: Request) {
 
     if (!query) {
         return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
+    }
+
+    const rl = rateLimit(`search:${getClientIp(request)}`, 30);
+    if (!rl.success) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     try {

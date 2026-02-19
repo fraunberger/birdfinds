@@ -1,5 +1,6 @@
 
 import { NextResponse } from 'next/server';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 interface GooglePlace {
@@ -29,6 +30,11 @@ export async function GET(request: Request) {
     if (!GOOGLE_PLACES_API_KEY) {
         console.error("Missing GOOGLE_PLACES_API_KEY");
         return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const rl = rateLimit(`search:${getClientIp(request)}`, 30);
+    if (!rl.success) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     try {
