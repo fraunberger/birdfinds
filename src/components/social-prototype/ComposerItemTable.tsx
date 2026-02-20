@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
@@ -33,6 +33,8 @@ interface ComposerItemTableProps {
     onOpenItem: (item: ConsumableItem) => void;
     /** Link an existing item into the post text. */
     onLinkItem: (item: ConsumableItem) => Promise<void>;
+    /** Whether table row taps should link instead of opening modal. */
+    isLinkingMode?: boolean;
     /** Remove an item from the post. */
     onRemoveItem: (itemId: string) => void;
     /** Add a new quick-add item. */
@@ -47,11 +49,14 @@ export function ComposerItemTable({
     activeCategoryConfigs,
     onOpenItem,
     onLinkItem,
+    isLinkingMode = false,
     onRemoveItem,
     onAddItem,
 }: ComposerItemTableProps) {
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
+    const [isQuickAdding, setIsQuickAdding] = useState(false);
+    const quickAddInFlightRef = useRef(false);
 
     // Sort items by first occurrence position in the post text
     const sortedItems = useMemo(() => {
@@ -69,11 +74,14 @@ export function ComposerItemTable({
         : (activeCategoryConfigs[0]?.id as Category ?? 'movie');
 
     const handleQuickAddRow = async () => {
-        if (!quickAddTitle.trim()) return;
+        const title = quickAddTitle.trim();
+        if (!title || isQuickAdding || quickAddInFlightRef.current) return;
+        quickAddInFlightRef.current = true;
+        setIsQuickAdding(true);
         try {
             await onAddItem({
                 category: effectiveQuickAddCategory,
-                title: quickAddTitle,
+                title,
                 rating: undefined,
                 subtitle: '',
                 notes: '',
@@ -81,6 +89,9 @@ export function ComposerItemTable({
             setQuickAddTitle('');
         } catch (error: unknown) {
             pushToast({ message: `Failed to quick add: ${getErrorMessage(error)}`, tone: 'error' });
+        } finally {
+            quickAddInFlightRef.current = false;
+            setIsQuickAdding(false);
         }
     };
 
@@ -99,7 +110,18 @@ export function ComposerItemTable({
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
                         return (
-                            <tr key={item.id} className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100" onClick={() => onOpenItem(item)}>
+                            <tr
+                                key={item.id}
+                                className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100"
+                                onClick={async () => {
+                                    if (isLinkingMode) {
+                                        try { await onLinkItem(item); }
+                                        catch (error: unknown) { pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' }); }
+                                        return;
+                                    }
+                                    onOpenItem(item);
+                                }}
+                            >
                                 <td className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold" style={{ backgroundColor: config.color || undefined }}>
                                     {config.shortLabel}
                                 </td>
@@ -160,10 +182,10 @@ export function ComposerItemTable({
                         <td className="px-2 py-1 text-center" colSpan={2}>
                             <button
                                 onClick={handleQuickAddRow}
-                                disabled={!quickAddTitle.trim()}
+                                disabled={!quickAddTitle.trim() || isQuickAdding}
                                 className="text-neutral-400 hover:text-neutral-600 disabled:opacity-30 p-1 w-full h-full flex items-center justify-center"
                             >
-                                +
+                                {isQuickAdding ? '…' : '+'}
                             </button>
                         </td>
                     </tr>
