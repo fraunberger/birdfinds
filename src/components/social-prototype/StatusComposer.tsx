@@ -140,12 +140,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     // ── Mobile highlight debounce ──────────────────────────────────────
     useEffect(() => {
-        if (tagging.isMobileTagging && document.activeElement === textareaRef.current) {
-            setPreviewText(content);
-            setPreviewDecorations([]);
-            return;
-        }
-        const timer = window.setTimeout(() => { rebuildPreviewHighlights(content, items); }, tagging.isMobileTagging ? 360 : 180);
+        const timer = window.setTimeout(() => { rebuildPreviewHighlights(content, items); }, tagging.isMobileTagging ? 520 : 180);
         return () => window.clearTimeout(timer);
     }, [content, items, tagging.isMobileTagging]);
 
@@ -165,6 +160,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const hasDraftChanges = content.trim() !== (activeStatus?.content || '').trim();
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
+    const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
 
     useEffect(() => {
         const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -218,7 +214,28 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     };
 
     const linkExistingItemToPost = async (item: ConsumableItem) => {
-        if (tagging.isMobileTagging) { pushToast({ message: 'Linking is disabled on mobile.', tone: 'error' }); return; }
+        if (isAtPrefixLinking) {
+            const title = item.title.trim();
+            const currentContent = content || '';
+            const before = currentContent.slice(0, tagging.atPrefixPos);
+            const after = currentContent.slice(tagging.atPrefixPos + 1 + tagging.atPrefixText.length);
+            const nextContent = `${before}${title}${after}`;
+            setContentForActive(nextContent);
+            await updateActiveStatus(nextContent);
+            tagging.clearAtPrefix();
+            setIsExpanded(true);
+            setTimeout(() => {
+                const target = textareaRef.current;
+                if (!target) return;
+                target.focus();
+                const nextCursor = before.length + title.length;
+                target.setSelectionRange(nextCursor, nextCursor);
+                setLastCursorPosition(nextCursor);
+            }, 30);
+            return;
+        }
+
+        if (tagging.isMobileTagging) { pushToast({ message: 'Select text or type @ to link from mobile.', tone: 'error' }); return; }
         const phrase = selectedPlainText.trim();
 
         if (phrase) {
@@ -462,6 +479,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         activeCategoryConfigs={activeCategoryConfigs}
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
+                        isLinkingMode={isAtPrefixLinking}
                         onRemoveItem={removeItemFromActive}
                         onAddItem={addItemToActive}
                     />
