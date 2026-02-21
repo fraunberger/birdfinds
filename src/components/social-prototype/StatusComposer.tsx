@@ -26,6 +26,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
+    const [isPosting, setIsPosting] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -454,6 +455,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <button
                             type="button"
                             onClick={async () => {
+                                if (isPosting) return;
+                                setIsPosting(true);
                                 try {
                                     let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
                                     const trimmedContent = content.trim();
@@ -469,12 +472,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     }
                                 } catch (error) {
                                     pushToast({ message: error instanceof Error ? error.message : 'Failed to post update', tone: 'error' });
+                                } finally {
+                                    setIsPosting(false);
                                 }
                             }}
-                            disabled={!!activeStatus?.published && !hasDraftChanges}
+                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges)}
                             className={`ml-auto shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
-                            {activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST'}
+                            {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>
                     </div>
 
