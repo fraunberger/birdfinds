@@ -92,6 +92,7 @@ export function useTaggingState({
     const quickAddInputRef = useRef<HTMLInputElement | null>(null);
     const inFlightRef = useRef(false);
     const recentKeyRef = useRef<{ key: string; at: number } | null>(null);
+    const lastSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
     // Mobile detection
     useEffect(() => {
@@ -109,13 +110,19 @@ export function useTaggingState({
         setSelectionStart(start);
         setSelectionEnd(end);
         setSelectedText(text);
+        if (text.trim()) {
+            lastSelectionRef.current = { text: text.trim(), at: Date.now() };
+        }
     }, []);
 
     const clearSelection = useCallback(() => {
+        if (selectedText.trim()) {
+            lastSelectionRef.current = { text: selectedText.trim(), at: Date.now() };
+        }
         setSelectionStart(0);
         setSelectionEnd(0);
         setSelectedText('');
-    }, []);
+    }, [selectedText]);
 
     const cancelQuickAdd = useCallback(() => {
         setQuickAddCategory(null);
@@ -163,9 +170,15 @@ export function useTaggingState({
         if (inFlightRef.current) return;
 
         // Priority 1: Has text selected (Flow A)
-        const hasSelection = selectedText.trim().length > 0;
+        const recentSelection = lastSelectionRef.current;
+        const hasRecentMobileSelection = isMobileTagging
+            && !!recentSelection
+            && (Date.now() - recentSelection.at) < 6000
+            && recentSelection.text.trim().length > 0;
+        const effectiveSelectionText = selectedText.trim() || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
+        const hasSelection = effectiveSelectionText.length > 0;
         if (hasSelection) {
-            const title = selectedText.trim();
+            const title = effectiveSelectionText;
             const mentionKey = `${category}:${title.toLowerCase()}`;
             const now = Date.now();
             if (recentKeyRef.current && recentKeyRef.current.key === mentionKey && (now - recentKeyRef.current.at) < 2500) return;
@@ -189,6 +202,7 @@ export function useTaggingState({
                     inFlightRef.current = false;
                     setBusy(false);
                     clearSelection();
+                    lastSelectionRef.current = null;
                 }
             })();
             return;
@@ -239,7 +253,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {
