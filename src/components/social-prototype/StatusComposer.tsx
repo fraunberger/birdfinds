@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
@@ -275,7 +275,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         }, 30);
     };
 
-    const handleTextSelection = (target: HTMLTextAreaElement) => {
+    const handleTextSelection = useCallback((target: HTMLTextAreaElement) => {
         const start = target.selectionStart;
         const end = target.selectionEnd;
         if (start !== end) {
@@ -287,7 +287,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             return;
         }
         tagging.clearSelection();
-    };
+    }, [tagging]);
+
+    useEffect(() => {
+        const syncTextareaSelection = () => {
+            const target = textareaRef.current;
+            if (!target || document.activeElement !== target) return;
+            setLastCursorPosition(target.selectionStart);
+            handleTextSelection(target);
+        };
+
+        document.addEventListener('selectionchange', syncTextareaSelection);
+        return () => document.removeEventListener('selectionchange', syncTextareaSelection);
+    }, [handleTextSelection]);
 
     if (!isLoaded) return <div className="h-32 bg-neutral-100 mb-4 border border-neutral-300" />;
 
