@@ -447,24 +447,32 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     </div>
 
                     {/* Post Action Row + Habits */}
-                    <div className="mt-2 mb-1 flex items-center justify-between gap-3">
-                        <HabitChecklist date={activeDate} />
+                    <div className="mt-2 mb-1 flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                            <HabitChecklist date={activeDate} />
+                        </div>
                         <button
+                            type="button"
                             onClick={async () => {
                                 try {
                                     let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                    if (content) statusId = await updateActiveStatus(content) || statusId;
+                                    const trimmedContent = content.trim();
+                                    if (trimmedContent) {
+                                        statusId = await updateActiveStatus(trimmedContent) || statusId;
+                                    }
                                     if (statusId) {
                                         await togglePublished(statusId, true);
                                         setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
                                         setIsExpanded(false);
+                                    } else {
+                                        pushToast({ message: 'Write something before posting.', tone: 'error' });
                                     }
                                 } catch (error) {
                                     pushToast({ message: error instanceof Error ? error.message : 'Failed to post update', tone: 'error' });
                                 }
                             }}
                             disabled={!!activeStatus?.published && !hasDraftChanges}
-                            className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            className={`ml-auto shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST'}
                         </button>
