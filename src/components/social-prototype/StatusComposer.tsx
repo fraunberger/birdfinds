@@ -38,11 +38,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     }>>([]);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
+    const [isIosSafari, setIsIosSafari] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
+
+    useEffect(() => {
+        if (typeof navigator === 'undefined') return;
+        const ua = navigator.userAgent;
+        const isIOS = /iP(ad|hone|od)/.test(ua);
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+        setIsIosSafari(isIOS && isSafari);
+    }, []);
 
     // Active categories
     const activeCategories = userCategories && userCategories.length > 0
@@ -369,6 +378,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                         <button
                                             key={cat.id}
                                             onClick={() => tagging.handleCategoryTap(cat.id)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onTouchStart={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
                                             title={cat.label}
                                             className={`px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${isActive
@@ -385,8 +396,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 })}
                             </div>
                             {tagging.selectedText && (
-                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
-                                    SEL: {tagging.selectedText.length > 20 ? tagging.selectedText.slice(0, 20) + '...' : tagging.selectedText}
+                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
+                                    TEXT SELECTED → TAP A CATEGORY
                                 </div>
                             )}
                             {!tagging.selectedText && tagging.atPrefixText && (
@@ -428,7 +439,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
                         <div className="relative min-h-[100px] bg-white">
-                            {previewText && (
+                            {!isIosSafari && previewText && (
                                 <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
                                     {(segmentText(previewText, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
                                         segment.type === 'text' ? (
@@ -501,6 +512,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         content={content}
                         isMobileTagging={tagging.isMobileTagging}
                         selectedPlainText={selectedPlainText}
+                        linkHint={isAtPrefixLinking
+                            ? 'Link mode active — tap any item row below to connect it.'
+                            : (selectedPlainText.trim()
+                                ? `Text selected (“${selectedPlainText.trim().slice(0, 32)}${selectedPlainText.trim().length > 32 ? '…' : ''}”) — tap LINK in a row below.`
+                                : null)}
                         activeCategoryConfigs={activeCategoryConfigs}
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
