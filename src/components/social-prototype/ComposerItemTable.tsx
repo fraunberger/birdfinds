@@ -108,7 +108,12 @@ export function ComposerItemTable({
     };
 
     return (
-        <div className="border border-neutral-300 bg-white overflow-x-auto transition-colors">
+        <div className={`border bg-white overflow-x-auto transition-colors ${isLinkingMode ? 'border-amber-500 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]' : 'border-neutral-300'}`}>
+            {isLinkingMode && (
+                <div className="px-2 py-1 border-b border-amber-300 bg-amber-50 text-[10px] font-bold uppercase tracking-widest text-amber-800">
+                    Link mode active — tap any row to link
+                </div>
+            )}
             <table className="w-full text-xs font-mono border-collapse">
                 <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                     <tr>
@@ -124,7 +129,7 @@ export function ComposerItemTable({
                         return (
                             <tr
                                 key={item.id}
-                                className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100 touch-manipulation"
+                                className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
                                 onPointerUp={async (e) => {
                                     if (e.pointerType === 'touch' || e.pointerType === 'pen') {
                                         await handleRowAction(item);
@@ -140,6 +145,9 @@ export function ComposerItemTable({
                                 <td className="px-2 py-1 border-b border-r border-neutral-200 font-medium">
                                     {item.title}
                                     {item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>}
+                                    {isLinkingMode && (
+                                        <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
+                                    )}
                                 </td>
                                 <td className="px-2 py-1 border-b border-r border-neutral-200 text-center">
                                     {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
