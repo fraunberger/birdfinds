@@ -224,8 +224,23 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     };
 
     const linkExistingItemToPost = async (item: ConsumableItem) => {
+        const ensureAliasLinked = async (phrase: string) => {
+            const normalizedPhrase = phrase.trim();
+            if (!normalizedPhrase) return;
+            const alreadyLinked = getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === normalizedPhrase.toLowerCase());
+            if (alreadyLinked) return;
+
+            const meta = parseItemMeta(item.image);
+            const aliases = new Set((meta.aliases || []).map((v) => v.trim()).filter(Boolean));
+            aliases.add(normalizedPhrase);
+            const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
+            await removeItemFromActive(item.id);
+            await addItemToActive({ category: item.category, title: item.title, subtitle: item.subtitle, rating: item.rating, notes: item.notes, image: nextImage });
+        };
+
         if (isAtPrefixLinking) {
-            const typedText = tagging.atPrefixText;
+            const typedText = tagging.atPrefixText.trim();
+            await ensureAliasLinked(typedText);
             const currentContent = content || '';
             const before = currentContent.slice(0, tagging.atPrefixPos);
             const after = currentContent.slice(tagging.atPrefixPos + 1 + tagging.atPrefixText.length);
@@ -249,16 +264,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         const phrase = selectedPlainText.trim();
 
         if (phrase) {
-            const lowerPhrase = phrase.toLowerCase();
-            const alreadyLinked = getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === lowerPhrase);
-            if (!alreadyLinked) {
-                const meta = parseItemMeta(item.image);
-                const aliases = new Set((meta.aliases || []).map((v) => v.trim()).filter(Boolean));
-                aliases.add(phrase);
-                const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
-                await removeItemFromActive(item.id);
-                await addItemToActive({ category: item.category, title: item.title, subtitle: item.subtitle, rating: item.rating, notes: item.notes, image: nextImage });
-            }
+            await ensureAliasLinked(phrase);
             setSelectedPlainText('');
             return;
         }

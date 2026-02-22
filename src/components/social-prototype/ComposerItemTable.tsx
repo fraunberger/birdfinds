@@ -74,6 +74,7 @@ export function ComposerItemTable({
     const effectiveQuickAddCategory = activeCategoryConfigs.some(c => c.id === quickAddCategory)
         ? quickAddCategory
         : (activeCategoryConfigs[0]?.id as Category ?? 'movie');
+    const canLinkFromTable = isLinkingMode || selectedPlainText.trim().length > 0;
 
     const handleQuickAddRow = async () => {
         if (!quickAddTitle.trim() || isQuickAdding) return;
@@ -137,7 +138,7 @@ export function ComposerItemTable({
                                     {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                 </td>
                                 <td className="px-2 py-1 border-b border-neutral-200 text-center">
-                                    {!isMobileTagging && (
+                                    {!isMobileTagging && canLinkFromTable && (
                                         <button
                                             onClick={async (e) => {
                                                 e.stopPropagation();
