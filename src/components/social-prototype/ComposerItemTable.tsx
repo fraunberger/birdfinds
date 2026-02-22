@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
@@ -53,6 +53,7 @@ export function ComposerItemTable({
     onRemoveItem,
     onAddItem,
 }: ComposerItemTableProps) {
+    const lastRowActionRef = useRef<{ itemId: string; at: number } | null>(null);
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
     const [isQuickAdding, setIsQuickAdding] = useState(false);
@@ -72,6 +73,20 @@ export function ComposerItemTable({
         ? quickAddCategory
         : (activeCategoryConfigs[0]?.id as Category ?? 'movie');
     const canLinkFromTable = isLinkingMode || selectedPlainText.trim().length > 0;
+
+    const handleRowAction = async (item: ConsumableItem) => {
+        const now = Date.now();
+        const recent = lastRowActionRef.current;
+        if (recent && recent.itemId === item.id && now - recent.at < 450) return;
+        lastRowActionRef.current = { itemId: item.id, at: now };
+
+        if (isLinkingMode) {
+            try { await onLinkItem(item); }
+            catch (error: unknown) { pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' }); }
+            return;
+        }
+        onOpenItem(item);
+    };
 
     const handleQuickAddRow = async () => {
         if (!quickAddTitle.trim() || isQuickAdding) return;
@@ -109,14 +124,14 @@ export function ComposerItemTable({
                         return (
                             <tr
                                 key={item.id}
-                                className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100"
-                                onClick={async () => {
-                                    if (isLinkingMode) {
-                                        try { await onLinkItem(item); }
-                                        catch (error: unknown) { pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' }); }
-                                        return;
+                                className="hover:bg-neutral-50 cursor-pointer active:bg-neutral-100 touch-manipulation"
+                                onPointerUp={async (e) => {
+                                    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                                        await handleRowAction(item);
                                     }
-                                    onOpenItem(item);
+                                }}
+                                onClick={async () => {
+                                    await handleRowAction(item);
                                 }}
                             >
                                 <td className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold" style={{ backgroundColor: config.color || undefined }}>
