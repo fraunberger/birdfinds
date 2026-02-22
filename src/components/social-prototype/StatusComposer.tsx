@@ -41,6 +41,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
+    const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
 
@@ -251,12 +252,23 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             return;
         }
 
-        if (tagging.isMobileTagging) { pushToast({ message: 'Select text or type @ to link from mobile.', tone: 'error' }); return; }
-        const phrase = selectedPlainText.trim();
+        const recentSelection = recentSelectionRef.current;
+        const mobileFallbackPhrase = tagging.isMobileTagging
+            && recentSelection
+            && (Date.now() - recentSelection.at) < 3000
+            ? recentSelection.text.trim()
+            : '';
+        const phrase = selectedPlainText.trim() || mobileFallbackPhrase;
+
+        if (tagging.isMobileTagging && !phrase) {
+            pushToast({ message: 'Select text or type @ to link from mobile.', tone: 'error' });
+            return;
+        }
 
         if (phrase) {
             await ensureAliasLinked(phrase);
             setSelectedPlainText('');
+            recentSelectionRef.current = null;
             return;
         }
 
@@ -289,10 +301,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             const selectedText = target.value.substring(start, end);
             if (!selectedText.trim()) return;
             setSelectedPlainText(selectedText.trim());
+            recentSelectionRef.current = { text: selectedText.trim(), at: Date.now() };
             tagging.updateSelection(start, end, selectedText.trim());
             // Auto-matching via selection removed as requested — user must tap item in table or category button
             return;
         }
+        setSelectedPlainText('');
         tagging.clearSelection();
     }, [tagging]);
 
