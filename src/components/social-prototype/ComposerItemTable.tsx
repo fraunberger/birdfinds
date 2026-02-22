@@ -29,8 +29,6 @@ interface ComposerItemTableProps {
     selectedPlainText: string;
     /** Active category configurations for the quick-add dropdown. */
     activeCategoryConfigs: CategoryConfig[];
-    /** Optional helper message that indicates linking is currently available. */
-    linkHint?: string | null;
     /** Open the ConsumableModal for an item. */
     onOpenItem: (item: ConsumableItem) => void;
     /** Link an existing item into the post text. */
@@ -49,7 +47,6 @@ export function ComposerItemTable({
     isMobileTagging,
     selectedPlainText,
     activeCategoryConfigs,
-    linkHint,
     onOpenItem,
     onLinkItem,
     isLinkingMode = false,
@@ -96,12 +93,7 @@ export function ComposerItemTable({
     };
 
     return (
-        <div className={`border bg-white overflow-x-auto transition-colors ${linkHint ? 'border-green-500 ring-1 ring-green-200' : 'border-neutral-300'}`}>
-            {linkHint && (
-                <div className="px-2 py-1 border-b border-green-200 bg-green-50 text-[10px] uppercase tracking-widest text-green-800">
-                    {linkHint}
-                </div>
-            )}
+        <div className="border border-neutral-300 bg-white overflow-x-auto transition-colors">
             <table className="w-full text-xs font-mono border-collapse">
                 <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
                     <tr>
