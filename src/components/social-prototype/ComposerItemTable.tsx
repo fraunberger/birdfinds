@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 import { getItemHighlightTerms } from './useTaggingState';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
@@ -17,6 +18,15 @@ const getFirstPosition = (item: ConsumableItem, lowerContent: string): number =>
     }
     return earliest;
 };
+
+
+interface ReviewHistorySummary {
+    count: number;
+    lastReview: {
+        rating?: number;
+        notes?: string;
+    } | null;
+}
 
 interface ComposerItemTableProps {
     /** Items attached to the active status. */
@@ -57,6 +67,37 @@ export function ComposerItemTable({
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
     const [isQuickAdding, setIsQuickAdding] = useState(false);
+    const [reviewHistoryByItemId, setReviewHistoryByItemId] = useState<Record<string, ReviewHistorySummary>>({});
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const run = async () => {
+            const next: Record<string, ReviewHistorySummary> = {};
+
+            for (const item of items) {
+                const reviewMatchKey = parseItemMeta(item.image).reviewMatchKey;
+                if (!reviewMatchKey) continue;
+
+                try {
+                    const response = await fetch(`/api/social/review-history?reviewMatchKey=${encodeURIComponent(reviewMatchKey)}&excludeItemId=${encodeURIComponent(item.id)}`, { cache: 'no-store' });
+                    if (!response.ok) continue;
+                    const data = await response.json() as ReviewHistorySummary;
+                    next[item.id] = {
+                        count: data.count || 0,
+                        lastReview: data.lastReview || null,
+                    };
+                } catch {
+                    // Ignore per-item fetch errors so table remains interactive
+                }
+            }
+
+            if (!cancelled) setReviewHistoryByItemId(next);
+        };
+
+        void run();
+        return () => { cancelled = true; };
+    }, [items]);
 
     // Sort items by first occurrence position in the post text
     const sortedItems = useMemo(() => {
@@ -120,6 +161,7 @@ export function ComposerItemTable({
                         <th className="px-2 py-1 text-left border-b border-r border-neutral-300 w-14">Type</th>
                         <th className="px-2 py-1 text-left border-b border-r border-neutral-300">Title</th>
                         <th className="px-2 py-1 text-center border-b border-r border-neutral-300 w-10">R</th>
+                        <th className="px-2 py-1 text-center border-b border-r border-neutral-300 w-14">Prev</th>
                         <th className="px-2 py-1 text-center border-b border-neutral-300 w-8"></th>
                     </tr>
                 </thead>
@@ -151,6 +193,13 @@ export function ComposerItemTable({
                                 </td>
                                 <td className="px-2 py-1 border-b border-r border-neutral-200 text-center">
                                     {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
+                                </td>
+                                <td className="px-2 py-1 border-b border-r border-neutral-200 text-center text-[10px]">
+                                    {reviewHistoryByItemId[item.id]?.count ? (
+                                        <span title={reviewHistoryByItemId[item.id]?.lastReview?.rating ? `Last ${reviewHistoryByItemId[item.id].lastReview?.rating}/10` : 'Has previous tags'} className="inline-block rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700">
+                                            {reviewHistoryByItemId[item.id].count}
+                                        </span>
+                                    ) : '—'}
                                 </td>
                                 <td className="px-2 py-1 border-b border-neutral-200 text-center">
                                     {!isMobileTagging && canLinkFromTable && (
@@ -199,7 +248,7 @@ export function ComposerItemTable({
                                 className="w-full bg-transparent outline-none text-[14px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
                             />
                         </td>
-                        <td className="px-2 py-1 text-center" colSpan={2}>
+                        <td className="px-2 py-1 text-center" colSpan={3}>
                             <button
                                 onClick={handleQuickAddRow}
                                 disabled={!quickAddTitle.trim() || isQuickAdding}
