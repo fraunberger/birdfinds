@@ -6,7 +6,10 @@ import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from 
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import {
+    buildReviewMatchKey,
+    countExactReviewMatches,
     countReviewMatchesByKey,
+    findMostRecentExactReviewMatch,
     findMostRecentReviewMatchByKey,
 } from '@/lib/social-prototype/review-matching';
 import { useSearchPicker } from './useSearchPicker';
@@ -141,12 +144,19 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const sameCategoryItems = getAllItemsByCategory(category);
     const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
     const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const reviewCount = reviewMatchKey
-        ? Math.max(serverReviewCount, reviewMatchCountByKey) + (existingItem ? 1 : 0)
-        : (existingItem ? 1 : 0);
-    const activeMatchKey = reviewMatchKey || null;
+    const fallbackMatchCandidate = title.trim()
+        ? { category, title, subtitle }
+        : null;
+    const fallbackMatch = fallbackMatchCandidate
+        ? findMostRecentExactReviewMatch(sameCategoryItems, fallbackMatchCandidate, existingItem?.id)
+        : undefined;
+    const fallbackReviewCount = fallbackMatchCandidate
+        ? countExactReviewMatches(sameCategoryItems, fallbackMatchCandidate, existingItem?.id)
+        : 0;
+    const reviewCount = Math.max(serverReviewCount, reviewMatchCountByKey, fallbackReviewCount) + (existingItem ? 1 : 0);
+    const activeMatchKey = reviewMatchKey || (fallbackMatchCandidate ? `fallback:${buildReviewMatchKey(fallbackMatchCandidate)}` : null);
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
-    const exactMatch = serverLastReview || keyMatch;
+    const exactMatch = serverLastReview || keyMatch || fallbackMatch;
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -170,16 +180,26 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
     useEffect(() => {
-        if (!reviewMatchKey || readOnly) {
+        const normalizedTitle = title.trim();
+        if (readOnly || (!reviewMatchKey && !normalizedTitle)) {
             setServerReviewCount(0);
             setServerLastReview(null);
             return;
         }
 
+        const params = new URLSearchParams();
+        if (reviewMatchKey) params.set('reviewMatchKey', reviewMatchKey);
+        if (normalizedTitle) {
+            params.set('category', category);
+            params.set('title', normalizedTitle);
+            const normalizedSubtitle = subtitle.trim();
+            if (normalizedSubtitle) params.set('subtitle', normalizedSubtitle);
+        }
+
         const controller = new AbortController();
         const timeoutId = window.setTimeout(async () => {
             try {
-                const response = await fetch(`/api/social/review-history?reviewMatchKey=${encodeURIComponent(reviewMatchKey)}`, { signal: controller.signal, cache: 'no-store' });
+                const response = await fetch(`/api/social/review-history?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
                 if (!response.ok) {
                     setServerReviewCount(0);
                     setServerLastReview(null);
@@ -201,7 +221,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [readOnly, reviewMatchKey]);
+    }, [category, readOnly, reviewMatchKey, subtitle, title]);
 
     useEffect(() => {
         if (readOnly || existingItem || !exactMatch || !activeMatchKey) return;

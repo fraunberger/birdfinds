@@ -20,6 +20,8 @@ interface ItemRow {
   created_at: string;
 }
 
+const normalizeValue = (value?: string | null) => (value || '').trim().toLowerCase();
+
 export async function GET(request: NextRequest) {
   try {
     const linkedUserId = await getOrCreateLinkedSupabaseUser();
@@ -28,7 +30,11 @@ export async function GET(request: NextRequest) {
     }
 
     const reviewMatchKey = request.nextUrl.searchParams.get('reviewMatchKey')?.trim();
-    if (!reviewMatchKey) {
+    const category = request.nextUrl.searchParams.get('category')?.trim();
+    const title = request.nextUrl.searchParams.get('title')?.trim();
+    const subtitle = request.nextUrl.searchParams.get('subtitle')?.trim();
+
+    if (!reviewMatchKey && (!category || !title)) {
       return NextResponse.json({ count: 0, lastReview: null });
     }
 
@@ -57,12 +63,37 @@ export async function GET(request: NextRequest) {
     if (itemError) throw itemError;
 
     const statusCreatedAtById = new Map(statusRows.map((row) => [row.id, row.created_at]));
-    const normalizedMatchKey = reviewMatchKey.toLowerCase();
+    const normalizedMatchKey = normalizeValue(reviewMatchKey);
+    const normalizedCategory = normalizeValue(category);
+    const normalizedTitle = normalizeValue(title);
+    const normalizedSubtitle = normalizeValue(subtitle);
 
     const matches = ((items || []) as ItemRow[])
       .filter((item) => {
-        const itemKey = parseItemMeta(item.image || undefined).reviewMatchKey;
-        return !!itemKey && itemKey.toLowerCase() === normalizedMatchKey;
+        if (normalizedMatchKey) {
+          const itemKey = parseItemMeta(item.image || undefined).reviewMatchKey;
+          if (!!itemKey && normalizeValue(itemKey) === normalizedMatchKey) {
+            return true;
+          }
+        }
+
+        if (!normalizedCategory || !normalizedTitle) {
+          return false;
+        }
+
+        if (normalizeValue(item.category) !== normalizedCategory) {
+          return false;
+        }
+
+        if (normalizeValue(item.title) !== normalizedTitle) {
+          return false;
+        }
+
+        if (!normalizedSubtitle) {
+          return true;
+        }
+
+        return normalizeValue(item.subtitle) === normalizedSubtitle;
       })
       .map((item) => ({
         id: item.id,
