@@ -147,15 +147,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     useEffect(() => {
         if (readOnly || existingItem || !exactMatch) return;
-        if (hydratedMatchKey === activeMatchKey) return;
-        setDraft((prev) => ({
-            ...prev,
-            subtitle: exactMatch.subtitle ?? prev.subtitle,
-            rating: exactMatch.rating ?? prev.rating,
-            notes: exactMatch.notes ?? prev.notes,
-            image: prev.image || exactMatch.image,
-        }));
-        setHydratedMatchKey(buildReviewMatchKey(exactMatch));
+
+        setDraft((prev) => {
+            const notesAreEmpty = !prev.notes.trim();
+            const shouldHydrate = hydratedMatchKey !== activeMatchKey || prev.rating === undefined || notesAreEmpty;
+            if (!shouldHydrate) return prev;
+
+            return {
+                ...prev,
+                subtitle: prev.subtitle || exactMatch.subtitle || '',
+                rating: prev.rating ?? exactMatch.rating,
+                notes: notesAreEmpty ? (exactMatch.notes ?? '') : prev.notes,
+                image: prev.image || exactMatch.image,
+            };
+        });
+        setHydratedMatchKey(activeMatchKey);
     }, [activeMatchKey, exactMatch, existingItem, hydratedMatchKey, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
@@ -287,7 +293,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
-                                {reviewCount > 0 && title.trim() && (
+                                {reviewCount > 1 && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
                                         {reviewCountLabel}{exactMatch && !existingItem ? ' • previous review loaded' : ''}
                                     </div>

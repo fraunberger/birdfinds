@@ -23,22 +23,39 @@ export async function GET(request: Request) {
     }
 
     try {
-        const upstreamUrl = new URL('https://api.openbrewerydb.org/v1/breweries/search');
-        upstreamUrl.searchParams.set('query', query);
-        upstreamUrl.searchParams.set('per_page', '12');
+        const endpointVariants: Array<{ path: string; queryParam: string }> = [
+            { path: '/v1/breweries/search', queryParam: 'query' },
+            { path: '/v1/breweries', queryParam: 'by_name' },
+        ];
 
-        const response = await fetch(upstreamUrl.toString(), {
-            headers: { Accept: 'application/json' },
-            next: { revalidate: 300 },
-        });
+        let data: OpenBreweryResult[] = [];
+        let lastErrorStatus = 500;
 
-        if (!response.ok) {
-            const text = await response.text();
-            console.error('Brewery search failed:', response.status, text);
-            return NextResponse.json({ error: 'Failed to fetch breweries' }, { status: response.status });
+        for (const variant of endpointVariants) {
+            const upstreamUrl = new URL(`https://api.openbrewerydb.org${variant.path}`);
+            upstreamUrl.searchParams.set(variant.queryParam, query);
+            upstreamUrl.searchParams.set('per_page', '12');
+
+            const response = await fetch(upstreamUrl.toString(), {
+                headers: { Accept: 'application/json' },
+                next: { revalidate: 300 },
+            });
+
+            if (!response.ok) {
+                lastErrorStatus = response.status;
+                const text = await response.text();
+                console.error('Brewery search failed:', response.status, variant.path, text);
+                continue;
+            }
+
+            data = (await response.json()) as OpenBreweryResult[];
+            break;
         }
 
-        const data = (await response.json()) as OpenBreweryResult[];
+        if (!Array.isArray(data)) {
+            return NextResponse.json({ error: 'Failed to fetch breweries' }, { status: lastErrorStatus });
+        }
+
         const results = (data || [])
             .map((item) => ({
                 id: item.id || '',
