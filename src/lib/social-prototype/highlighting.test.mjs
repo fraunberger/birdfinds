@@ -5,6 +5,7 @@ import {
   parseHighlights,
   resolveOverlappingHighlights,
   segmentText,
+  TAG_MARKER,
 } from "./highlighting.mjs";
 
 test("resolveOverlappingHighlights picks priority then longest", () => {
@@ -47,7 +48,7 @@ test("resolveOverlappingHighlights picks priority then longest", () => {
 });
 
 test("parseHighlights is deterministic and non-overlapping", () => {
-  const text = "Watched Dune then Dune: Part Two";
+  const text = `Watched ${TAG_MARKER}Dune then ${TAG_MARKER}Dune: Part Two`;
   const entities = [
     {
       id: "e1",
@@ -69,7 +70,7 @@ test("parseHighlights is deterministic and non-overlapping", () => {
 });
 
 test("segmentText preserves all characters and boundaries", () => {
-  const text = "I loved The Bear and The Bear S1E1";
+  const text = `I loved ${TAG_MARKER}The Bear and ${TAG_MARKER}The Bear S1E1`;
   const decorations = parseHighlights(text, [
     {
       id: "tv-1",
@@ -88,7 +89,7 @@ test("segmentText preserves all characters and boundaries", () => {
 });
 
 test("partial edit simulation drops invalid intersecting highlight", () => {
-  const original = "Read Project Hail Mary";
+  const original = `Read ${TAG_MARKER}Project Hail Mary`;
   const entities = [
     {
       id: "book-1",
@@ -106,4 +107,22 @@ test("partial edit simulation drops invalid intersecting highlight", () => {
   const edited = "Read Project h Mary";
   const after = parseHighlights(edited, entities);
   assert.equal(after.length, 0);
+});
+
+
+test("parseHighlights ignores untagged duplicate words", () => {
+  const text = `I drove through Nebraska and listened to ${TAG_MARKER}Nebraska`;
+  const entities = [{
+    id: "music-1",
+    entityType: "music",
+    entityId: "nebraska",
+    terms: ["Nebraska"],
+    priority: 1,
+    source: "title",
+  }];
+
+  const decorations = parseHighlights(text, entities);
+  assert.equal(decorations.length, 1);
+  assert.equal(decorations[0].displayText, "Nebraska");
+  assert.equal(text.slice(decorations[0].start, decorations[0].end), "Nebraska");
 });

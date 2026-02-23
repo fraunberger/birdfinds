@@ -4,11 +4,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Category, ConsumableItem } from '@/lib/social-prototype/store';
 import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 import { pushToast } from '@/lib/social-prototype/toast';
+import { TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+
+const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
+    if (start < 0 || end <= start || end > content.length) return content;
+    if (content.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return content;
+    return `${content.slice(0, start)}${TAG_MARKER}${content.slice(start)}`;
+};
 
 export const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     const meta = parseItemMeta(item.image);
@@ -192,6 +199,11 @@ export function useTaggingState({
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
                     }
+                    const nextContent = insertTagMarkerAtRange(content || '', selectionStart, selectionEnd);
+                    if (nextContent !== (content || '')) {
+                        setContentForActive(nextContent);
+                        await updateActiveStatus(nextContent);
+                    }
                     recentKeyRef.current = { key: mentionKey, at: Date.now() };
                 } catch (error: unknown) {
                     pushToast({ message: `Failed to tag: ${getErrorMessage(error)}`, tone: 'error' });
@@ -231,9 +243,9 @@ export function useTaggingState({
                     const currentContent = content || '';
                     const before = currentContent.slice(0, atPrefixPos);
                     const after = currentContent.slice(atPrefixPos + 1 + atPrefixText.length);
-                    const newContent = before + title + after;
+                    const newContent = before + TAG_MARKER + title + after;
                     setContentForActive(newContent);
-                    updateActiveStatus(newContent);
+                    await updateActiveStatus(newContent);
                     recentKeyRef.current = { key: mentionKey, at: Date.now() };
                 } catch (error: unknown) {
                     pushToast({ message: `Failed to tag: ${getErrorMessage(error)}`, tone: 'error' });
@@ -250,7 +262,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {
