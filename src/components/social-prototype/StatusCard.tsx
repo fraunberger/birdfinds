@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from "next/link";
-import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
+import { Status, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
@@ -20,34 +20,6 @@ interface StatusCardProps {
     showPostReportButton?: boolean;
     disableItemEditing?: boolean;
 }
-
-interface ItemMeta {
-    imageUrl?: string;
-    aliases?: string[];
-}
-
-const META_PREFIX = 'meta:';
-
-const parseItemMeta = (raw?: string): ItemMeta => {
-    if (!raw) return {};
-    if (!raw.startsWith(META_PREFIX)) return { imageUrl: raw };
-    try {
-        const decoded = decodeURIComponent(raw.slice(META_PREFIX.length));
-        const parsed = JSON.parse(decoded) as ItemMeta;
-        return {
-            imageUrl: parsed.imageUrl,
-            aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
-        };
-    } catch {
-        return {};
-    }
-};
-
-const getItemHighlightTerms = (item: ConsumableItem): string[] => {
-    const meta = parseItemMeta(item.image);
-    const terms = [item.title, ...(meta.aliases || [])].map((v) => (v || '').trim()).filter(Boolean);
-    return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
-};
 
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true, disableItemEditing = false }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
@@ -116,92 +88,12 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         return () => window.removeEventListener('mousedown', onPointerDown);
     }, [showMenu]);
 
-    type HighlightMatch = {
-        start: number;
-        end: number;
-        itemId: string;
-        color: string;
-    };
-
-    const findMatches = (source: string): HighlightMatch[] => {
-        const matches: HighlightMatch[] = [];
-
-        status.items.forEach((item) => {
-            const config = getCategoryConfig(item.category);
-            const color = config?.color || HIGHLIGHT_COLOR;
-            const terms = getItemHighlightTerms(item);
-            terms.forEach((term) => {
-                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(escaped, 'gi');
-                let found: RegExpExecArray | null;
-                while ((found = regex.exec(source)) !== null) {
-                    matches.push({
-                        start: found.index,
-                        end: found.index + found[0].length,
-                        itemId: item.id,
-                        color,
-                    });
-                }
-            });
-        });
-
-        // Prefer longer matches first, then earlier position, then stable item id order.
-        matches.sort((a, b) => {
-            const lenDiff = (b.end - b.start) - (a.end - a.start);
-            if (lenDiff !== 0) return lenDiff;
-            if (a.start !== b.start) return a.start - b.start;
-            return a.itemId.localeCompare(b.itemId);
-        });
-
-        const chosen: HighlightMatch[] = [];
-        matches.forEach((candidate) => {
-            const overlaps = chosen.some(
-                (existing) => !(candidate.end <= existing.start || candidate.start >= existing.end)
-            );
-            if (!overlaps) chosen.push(candidate);
-        });
-
-        return chosen.sort((a, b) => a.start - b.start);
-    };
-
-    // Render content with robust clickable highlights
     const renderContent = () => {
         if (!status.content) return null;
 
-        const text = status.content;
-        const matches = findMatches(text);
-        const parts: React.ReactNode[] = [];
-        let cursor = 0;
-
-        matches.forEach((match, index) => {
-            if (match.start > cursor) {
-                parts.push(text.slice(cursor, match.start));
-            }
-            const label = text.slice(match.start, match.end);
-            const item = status.items.find((entry) => entry.id === match.itemId);
-            parts.push(
-                <button
-                    key={`${match.itemId}:${match.start}:${index}`}
-                    type="button"
-                    onClick={() => item && setSelectedItem(item)}
-                    className="inline px-[1px] cursor-pointer"
-                    style={{ backgroundColor: match.color }}
-                >
-                    {label}
-                </button>
-            );
-            cursor = match.end;
-        });
-
-        if (cursor < text.length) {
-            parts.push(text.slice(cursor));
-        }
-
         return (
-            <p
-                className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default"
-            >
-                {parts}
+            <p className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default">
+                {status.content}
             </p>
         );
     };
