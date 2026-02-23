@@ -665,12 +665,14 @@ class SocialStore {
     }
 
     async removeItemFromActive(itemId: string) {
+        const currentStatus = this.state.activeStatus;
+        const previousItems = currentStatus?.items || [];
         try {
             // Optimistic removal
-            if (this.state.activeStatus && this.state.activeStatus.items) {
+            if (currentStatus && currentStatus.items) {
                 this.state.activeStatus = {
-                    ...this.state.activeStatus,
-                    items: this.state.activeStatus.items.filter(i => i.id !== itemId)
+                    ...currentStatus,
+                    items: currentStatus.items.filter(i => i.id !== itemId)
                 };
                 this.emit();
             }
@@ -678,7 +680,15 @@ class SocialStore {
             await socialWrite('social.item.delete', { itemId });
             await this.fetchStatuses();
         } catch (error) {
+            if (currentStatus) {
+                this.state.activeStatus = {
+                    ...currentStatus,
+                    items: previousItems,
+                };
+                this.emit();
+            }
             console.error("Error removing item:", error);
+            throw error;
         }
     }
 

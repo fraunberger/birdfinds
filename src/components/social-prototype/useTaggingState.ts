@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Category, ConsumableItem } from '@/lib/social-prototype/store';
-import { parseItemMeta } from '@/lib/social-prototype/item-meta';
+import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { pushToast } from '@/lib/social-prototype/toast';
 
 // ---------------------------------------------------------------------------
@@ -12,8 +12,8 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 
 export const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     const meta = parseItemMeta(item.image);
-    const terms = [item.title, ...(meta.aliases || [])].map((v) => (v || '').trim()).filter(Boolean);
-    return Array.from(new Set(terms)).sort((a, b) => b.length - a.length);
+    const aliases = (meta.aliases || []).map((v) => (v || '').trim()).filter(Boolean);
+    return Array.from(new Set(aliases)).sort((a, b) => b.length - a.length);
 };
 
 // ---------------------------------------------------------------------------
@@ -190,7 +190,14 @@ export function useTaggingState({
             (async () => {
                 try {
                     if (!existing) {
-                        await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
+                        await addItemToActive({
+                            category,
+                            title,
+                            rating: undefined,
+                            subtitle: '',
+                            notes: '',
+                            image: serializeItemMeta({ aliases: [title] }),
+                        });
                     }
                     recentKeyRef.current = { key: mentionKey, at: Date.now() };
                 } catch (error: unknown) {
@@ -225,7 +232,14 @@ export function useTaggingState({
             (async () => {
                 try {
                     if (!existing) {
-                        await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
+                        await addItemToActive({
+                            category,
+                            title,
+                            rating: undefined,
+                            subtitle: '',
+                            notes: '',
+                            image: serializeItemMeta({ aliases: [title] }),
+                        });
                     }
                     // Remove the @ prefix from content, keep just the title text
                     const currentContent = content || '';
@@ -274,7 +288,14 @@ export function useTaggingState({
         setBusy(true);
         try {
             if (!existing) {
-                await addItemToActive({ category: quickAddCategory, title, rating: undefined, subtitle: '', notes: '' });
+                await addItemToActive({
+                    category: quickAddCategory,
+                    title,
+                    rating: undefined,
+                    subtitle: '',
+                    notes: '',
+                    image: serializeItemMeta({ aliases: [title] }),
+                });
             }
             // Insert title into content at the end (or append with space)
             const currentContent = content || '';
