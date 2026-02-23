@@ -25,6 +25,24 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
+const CATEGORY_CONSUMPTION_LABELS: Record<string, string> = {
+    movie: 'watched',
+    tv: 'watched',
+    music: 'listened',
+    podcast: 'listened',
+    restaurant: 'ate',
+    beer: 'drank',
+    cooking: 'cooked',
+    book: 'read',
+};
+
+function getReviewCountLabel(category: Category, reviewCount: number) {
+    const countLabel = `${reviewCount} ${reviewCount === 1 ? 'time' : 'times'}`;
+    const consumptionLabel = CATEGORY_CONSUMPTION_LABELS[category];
+    if (!consumptionLabel) return `Tagged ${countLabel}`;
+    return `${consumptionLabel} ${countLabel}`;
+}
+
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
     const { getAllItemsByCategory } = useSocialStore();
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
@@ -104,6 +122,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const exactMatch = findMostRecentExactReviewMatch(sameCategoryItems, { category, title, subtitle }, existingItem?.id);
     const reviewCount = countExactReviewMatches(sameCategoryItems, { category, title, subtitle }, existingItem?.id) + (existingItem ? 1 : 0);
     const activeMatchKey = buildReviewMatchKey({ category, title, subtitle });
+    const reviewCountLabel = getReviewCountLabel(category, reviewCount);
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -131,12 +150,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (hydratedMatchKey === activeMatchKey) return;
         setDraft((prev) => ({
             ...prev,
-            subtitle: prev.subtitle || exactMatch.subtitle || '',
-            rating: typeof prev.rating === 'number' ? prev.rating : exactMatch.rating,
-            notes: prev.notes.trim() ? prev.notes : (exactMatch.notes || ''),
+            subtitle: exactMatch.subtitle ?? prev.subtitle,
+            rating: exactMatch.rating ?? prev.rating,
+            notes: exactMatch.notes ?? prev.notes,
             image: prev.image || exactMatch.image,
         }));
-        setHydratedMatchKey(activeMatchKey);
+        setHydratedMatchKey(buildReviewMatchKey(exactMatch));
     }, [activeMatchKey, exactMatch, existingItem, hydratedMatchKey, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
@@ -270,7 +289,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 />
                                 {reviewCount > 0 && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
-                                        Reviewed {reviewCount} {reviewCount === 1 ? 'time' : 'times'}{exactMatch && !existingItem ? ' • previous tag found' : ''}
+                                        {reviewCountLabel}{exactMatch && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
