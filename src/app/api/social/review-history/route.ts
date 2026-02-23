@@ -6,6 +6,7 @@ import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 interface StatusRow {
   id: string;
   created_at: string;
+  date?: string;
 }
 
 interface ItemRow {
@@ -41,8 +42,9 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: statuses, error: statusError } = await supabaseAdmin
       .from('social_statuses')
-      .select('id,created_at')
+      .select('id,created_at,date')
       .eq('user_id', linkedUserId)
+      .eq('published', true)
       .is('deleted_at', null)
       .limit(2000);
 
@@ -63,6 +65,7 @@ export async function GET(request: NextRequest) {
     if (itemError) throw itemError;
 
     const statusCreatedAtById = new Map(statusRows.map((row) => [row.id, row.created_at]));
+    const statusDateById = new Map(statusRows.map((row) => [row.id, row.date || row.created_at.slice(0, 10)]));
     const normalizedMatchKey = normalizeValue(reviewMatchKey);
     const normalizedCategory = normalizeValue(category);
     const normalizedTitle = normalizeValue(title);
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
       })
       .map((item) => ({
         id: item.id,
+        statusId: item.status_id,
         category: item.category,
         title: item.title,
         subtitle: item.subtitle || '',
@@ -107,9 +111,17 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    const seenDates = new Set<string>();
+    const uniqueReviewDates = matches.filter((item) => {
+      const statusDate = statusDateById.get(item.statusId) || item.createdAt.slice(0, 10);
+      if (seenDates.has(statusDate)) return false;
+      seenDates.add(statusDate);
+      return true;
+    });
+
     return NextResponse.json({
-      count: matches.length,
-      lastReview: matches[0] || null,
+      count: uniqueReviewDates.length,
+      lastReview: uniqueReviewDates[0] || null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
