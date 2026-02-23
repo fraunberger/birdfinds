@@ -37,6 +37,8 @@ export interface UseTaggingStateOptions {
     updateActiveStatus: (text: string) => Promise<string | void>;
     /** Add a new item row. */
     addItemToActive: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
+    /** Update an existing item row. */
+    updateItemInActive: (itemId: string, item: Partial<Omit<ConsumableItem, 'id' | 'createdAt'>>) => Promise<void>;
 }
 
 export interface TaggingState {
@@ -85,6 +87,7 @@ export function useTaggingState({
     setContentForActive,
     updateActiveStatus,
     addItemToActive,
+    updateItemInActive,
 }: UseTaggingStateOptions): TaggingState {
     const [isMobileTagging, setIsMobileTagging] = useState(false);
     const [selectionStart, setSelectionStart] = useState(0);
@@ -100,6 +103,13 @@ export function useTaggingState({
     const inFlightRef = useRef(false);
     const recentKeyRef = useRef<{ key: string; at: number } | null>(null);
     const lastSelectionRef = useRef<{ text: string; at: number } | null>(null);
+
+    const markReviewedAlready = useCallback(async (item: ConsumableItem) => {
+        const noteText = 'reviewed already!';
+        if (item.notes?.toLowerCase().includes(noteText)) return;
+        const nextNotes = item.notes?.trim() ? `${item.notes.trim()}\n${noteText}` : noteText;
+        await updateItemInActive(item.id, { notes: nextNotes });
+    }, [updateItemInActive]);
 
     // Mobile detection
     useEffect(() => {
@@ -198,6 +208,8 @@ export function useTaggingState({
                 try {
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
+                    } else {
+                        await markReviewedAlready(existing);
                     }
                     const nextContent = insertTagMarkerAtRange(content || '', selectionStart, selectionEnd);
                     if (nextContent !== (content || '')) {
@@ -238,6 +250,8 @@ export function useTaggingState({
                 try {
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
+                    } else {
+                        await markReviewedAlready(existing);
                     }
                     // Remove the @ prefix from content, keep just the title text
                     const currentContent = content || '';
@@ -262,7 +276,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd, markReviewedAlready]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {
@@ -287,6 +301,8 @@ export function useTaggingState({
         try {
             if (!existing) {
                 await addItemToActive({ category: quickAddCategory, title, rating: undefined, subtitle: '', notes: '' });
+            } else {
+                await markReviewedAlready(existing);
             }
             // Insert title into content at the end (or append with space)
             const currentContent = content || '';
@@ -302,7 +318,7 @@ export function useTaggingState({
             inFlightRef.current = false;
             setBusy(false);
         }
-    }, [quickAddTitle, quickAddCategory, content, items, cancelQuickAdd, addItemToActive, setContentForActive, updateActiveStatus]);
+    }, [quickAddTitle, quickAddCategory, content, items, cancelQuickAdd, addItemToActive, setContentForActive, updateActiveStatus, markReviewedAlready]);
 
     return {
         isMobileTagging,

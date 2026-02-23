@@ -68,6 +68,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setContentForActive,
         updateActiveStatus,
         addItemToActive,
+        updateItemInActive,
     });
 
     // ── Preview highlights ─────────────────────────────────────────────
