@@ -33,6 +33,7 @@ type WriteAction =
   | "social.status.soft_delete"
   | "social.status.report"
   | "social.item.add"
+  | "social.item.update"
   | "social.item.delete"
   | "social.comment.add"
   | "social.comment.delete"
@@ -212,6 +213,32 @@ export async function POST(req: NextRequest) {
         notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
         image: item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null,
       });
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.item.update") {
+      const itemId = String(payload.itemId || "");
+      if (!itemId) {
+        return NextResponse.json({ error: "Missing itemId" }, { status: 400 });
+      }
+      await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+
+      const item = (payload.item || {}) as Record<string, unknown>;
+      const updates: Record<string, unknown> = {};
+
+      if ("category" in item) updates.category = truncate(String(item.category || "movie"), MAX_ITEM_TITLE);
+      if ("title" in item) updates.title = truncate(String(item.title || ""), MAX_ITEM_TITLE);
+      if ("subtitle" in item) updates.subtitle = item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null;
+      if ("rating" in item) updates.rating = typeof item.rating === "number" ? item.rating : null;
+      if ("notes" in item) updates.notes = item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null;
+      if ("image" in item) updates.image = item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null;
+
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ error: "No item fields provided" }, { status: 400 });
+      }
+
+      const { error } = await supabaseAdmin.from("social_items").update(updates).eq("id", itemId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }

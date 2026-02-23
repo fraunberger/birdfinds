@@ -526,7 +526,25 @@ class SocialStore {
     }
 
     async addItemToActive(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
+        const optimisticItem: ConsumableItem = {
+            id: `temp-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            createdAt: Date.now(),
+            category: item.category,
+            title: item.title,
+            subtitle: item.subtitle,
+            rating: item.rating,
+            notes: item.notes,
+            image: item.image,
+        };
         try {
+            if (this.state.activeStatus) {
+                this.state.activeStatus = {
+                    ...this.state.activeStatus,
+                    items: [...(this.state.activeStatus.items || []), optimisticItem],
+                };
+                this.emit();
+            }
+
             const statusId = await this.ensureActiveStatus();
             await socialWrite('social.item.add', {
                 statusId,
@@ -541,8 +559,43 @@ class SocialStore {
             });
             await this.fetchStatuses();
         } catch (error) {
+            if (this.state.activeStatus) {
+                this.state.activeStatus = {
+                    ...this.state.activeStatus,
+                    items: (this.state.activeStatus.items || []).filter((i) => i.id !== optimisticItem.id),
+                };
+                this.emit();
+            }
             console.error("Error adding item:", error);
             throw error; // Propagate to UI
+        }
+    }
+
+    async updateItemInActive(itemId: string, item: Partial<Omit<ConsumableItem, 'id' | 'createdAt'>>) {
+        const currentStatus = this.state.activeStatus;
+        const previousItems = currentStatus?.items || [];
+
+        if (currentStatus) {
+            this.state.activeStatus = {
+                ...currentStatus,
+                items: previousItems.map((existing) => (existing.id === itemId ? { ...existing, ...item } : existing)),
+            };
+            this.emit();
+        }
+
+        try {
+            await socialWrite('social.item.update', { itemId, item });
+            await this.fetchStatuses();
+        } catch (error) {
+            if (currentStatus) {
+                this.state.activeStatus = {
+                    ...currentStatus,
+                    items: previousItems,
+                };
+                this.emit();
+            }
+            console.error('Error updating item:', error);
+            throw error;
         }
     }
 
@@ -741,6 +794,7 @@ export function useSocialStore() {
         addItemToStatus: (statusId: string, i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToStatus(statusId, i),
         addItemToPileCategory: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToPileCategory(i),
         removeItemFromActive: (id: string) => socialStore.removeItemFromActive(id),
+        updateItemInActive: (id: string, item: Partial<Omit<ConsumableItem, 'id' | 'createdAt'>>) => socialStore.updateItemInActive(id, item),
         addComment: (statusId: string, content: string) => socialStore.addComment(statusId, content),
         deleteComment: (commentId: string) => socialStore.deleteComment(commentId),
         reportStatus: (statusId: string, reason?: string) => socialStore.reportStatus(statusId, reason),

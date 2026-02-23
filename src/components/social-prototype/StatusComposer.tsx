@@ -20,7 +20,7 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, deleteStatus, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -198,8 +198,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
                 nextImage = serializeItemMeta(meta);
             }
-            if (existingItem && existingItem.id !== 'temp') await removeItemFromActive(existingItem.id);
-            await addItemToActive({ ...item, image: nextImage });
+            if (existingItem && existingItem.id !== 'temp') {
+                await updateItemInActive(existingItem.id, { ...item, image: nextImage });
+            } else {
+                await addItemToActive({ ...item, image: nextImage });
+            }
             setExistingItem(undefined);
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
@@ -227,8 +230,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             const aliases = new Set((meta.aliases || []).map((v) => v.trim()).filter(Boolean));
             aliases.add(normalizedPhrase);
             const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
-            await removeItemFromActive(item.id);
-            await addItemToActive({ category: item.category, title: item.title, subtitle: item.subtitle, rating: item.rating, notes: item.notes, image: nextImage });
+            await updateItemInActive(item.id, { image: nextImage });
         };
 
         if (isAtPrefixLinking) {
