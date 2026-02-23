@@ -138,6 +138,7 @@ interface MeResponse {
     clerkUserId: string | null;
     linkedUserId: string | null;
     isAdmin?: boolean;
+    hasPublishedPost?: boolean;
     profile: {
         id: string;
         username: string;
@@ -830,6 +831,7 @@ function getTodayDateString() {
 export function useUserProfile() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [hasPublishedPost, setHasPublishedPost] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const fetchProfile = async () => {
@@ -839,9 +841,11 @@ export function useUserProfile() {
             if (!linkedUserId) {
                 setProfile(null);
                 setIsAdmin(Boolean(me.isAdmin));
+                setHasPublishedPost(false);
                 return;
             }
             setIsAdmin(Boolean(me.isAdmin));
+            setHasPublishedPost(Boolean(me.hasPublishedPost));
 
             const fromMe = me.profile
                 ? {
@@ -950,6 +954,7 @@ export function useUserProfile() {
     return {
         profile,
         isAdmin,
+        hasPublishedPost,
         loading,
         updateProfile,
         saveProfile: updateProfile, // Alias for backward compat
