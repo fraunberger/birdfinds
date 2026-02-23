@@ -6,9 +6,7 @@ import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from 
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import {
-    countExactReviewMatches,
     countReviewMatchesByKey,
-    findMostRecentExactReviewMatch,
     findMostRecentReviewMatchByKey,
 } from '@/lib/social-prototype/review-matching';
 import { useSearchPicker } from './useSearchPicker';
@@ -46,6 +44,20 @@ function getReviewCountLabel(category: Category, reviewCount: number) {
     const consumptionLabel = CATEGORY_CONSUMPTION_LABELS[category];
     if (!consumptionLabel) return `Tagged ${countLabel}`;
     return `${consumptionLabel} ${countLabel}`;
+}
+
+interface ReviewHistoryResponse {
+    count: number;
+    lastReview: {
+        id: string;
+        category: Category;
+        title: string;
+        subtitle?: string;
+        rating?: number;
+        notes?: string;
+        image?: string;
+        createdAt: string;
+    } | null;
 }
 
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
@@ -123,15 +135,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
     const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
+    const [serverReviewCount, setServerReviewCount] = useState(0);
+    const [serverLastReview, setServerLastReview] = useState<ReviewHistoryResponse['lastReview']>(null);
 
     const sameCategoryItems = getAllItemsByCategory(category);
     const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const fallbackMatch = findMostRecentExactReviewMatch(sameCategoryItems, draft, existingItem?.id);
-    const exactMatch = keyMatch || fallbackMatch;
     const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const reviewCount = (reviewMatchCountByKey > 0 ? reviewMatchCountByKey : countExactReviewMatches(sameCategoryItems, draft, existingItem?.id)) + (existingItem ? 1 : 0);
+    const reviewCount = reviewMatchKey
+        ? Math.max(serverReviewCount, reviewMatchCountByKey) + (existingItem ? 1 : 0)
+        : (existingItem ? 1 : 0);
     const activeMatchKey = reviewMatchKey || null;
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
+    const exactMatch = serverLastReview || keyMatch;
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -153,6 +168,41 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         }, 120);
         return () => { controller.abort(); window.clearTimeout(timeoutId); };
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
+
+    useEffect(() => {
+        if (!reviewMatchKey || readOnly) {
+            setServerReviewCount(0);
+            setServerLastReview(null);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                const excludeParam = existingItem?.id ? `&excludeItemId=${encodeURIComponent(existingItem.id)}` : '';
+                const response = await fetch(`/api/social/review-history?reviewMatchKey=${encodeURIComponent(reviewMatchKey)}${excludeParam}`, { signal: controller.signal, cache: 'no-store' });
+                if (!response.ok) {
+                    setServerReviewCount(0);
+                    setServerLastReview(null);
+                    return;
+                }
+                const data = await response.json() as ReviewHistoryResponse;
+                setServerReviewCount(data.count || 0);
+                setServerLastReview(data.lastReview || null);
+            } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                    console.error('Review history fetch failed:', error);
+                }
+                setServerReviewCount(0);
+                setServerLastReview(null);
+            }
+        }, 90);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [existingItem?.id, readOnly, reviewMatchKey]);
 
     useEffect(() => {
         if (readOnly || existingItem || !exactMatch || !activeMatchKey) return;
