@@ -53,6 +53,11 @@ export function ComposerItemTable({
     onRemoveItem,
     onAddItem,
 }: ComposerItemTableProps) {
+    const isInteractiveTarget = (target: EventTarget | null) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('button, input, select, textarea, a, [role="button"]'));
+    };
+
     const lastRowActionRef = useRef<{ itemId: string; at: number } | null>(null);
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
@@ -131,11 +136,13 @@ export function ComposerItemTable({
                                 key={item.id}
                                 className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
                                 onPointerUp={async (e) => {
+                                    if (isInteractiveTarget(e.target)) return;
                                     if (e.pointerType === 'touch' || e.pointerType === 'pen') {
                                         await handleRowAction(item);
                                     }
                                 }}
-                                onClick={async () => {
+                                onClick={async (e) => {
+                                    if (isInteractiveTarget(e.target)) return;
                                     await handleRowAction(item);
                                 }}
                             >
