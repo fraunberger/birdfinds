@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
-import { buildReviewMatchKey, countExactReviewMatches, findMostRecentExactReviewMatch } from '@/lib/social-prototype/review-matching';
+import { countReviewMatchesByKey, findMostRecentReviewMatchByKey } from '@/lib/social-prototype/review-matching';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -50,6 +50,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const parsedMeta = parseItemMeta(draft.image);
     const recipeUrl = parsedMeta.recipeUrl || '';
     const restaurantLocation = parsedMeta.restaurantLocation || '';
+    const reviewMatchKey = parsedMeta.reviewMatchKey;
 
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
@@ -119,9 +120,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
 
     const sameCategoryItems = getAllItemsByCategory(category);
-    const exactMatch = findMostRecentExactReviewMatch(sameCategoryItems, { category, title, subtitle }, existingItem?.id);
-    const reviewCount = countExactReviewMatches(sameCategoryItems, { category, title, subtitle }, existingItem?.id) + (existingItem ? 1 : 0);
-    const activeMatchKey = buildReviewMatchKey({ category, title, subtitle });
+    const exactMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
+    const reviewCount = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id) + (existingItem ? 1 : 0);
+    const activeMatchKey = reviewMatchKey || null;
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
 
     useEffect(() => {
@@ -146,7 +147,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
     useEffect(() => {
-        if (readOnly || existingItem || !exactMatch) return;
+        if (readOnly || existingItem || !exactMatch || !activeMatchKey) return;
 
         setDraft((prev) => {
             const notesAreEmpty = !prev.notes.trim();
@@ -245,7 +246,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <div className="relative group">
                                 <select
                                     value={category}
-                                    onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
+                                    onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }))}
                                     className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4 min-w-[130px]"
                                 >
                                     {Array.from(new Set([category, ...DEFAULT_CATEGORIES])).map((cat) => {
@@ -287,7 +288,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     type="text"
                                     value={title}
                                     onChange={(e) => {
-                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                        setDraft((prev) => ({ ...prev, title: e.target.value, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }));
                                         if (category === 'podcast' && selectedPodcast) { setSelectedPodcast(null); setPodcastEpisodes([]); }
                                         if (category === 'tv' && selectedTvShow) { setSelectedTvShow(null); setTvEpisodes([]); }
                                     }}
@@ -317,7 +318,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.artist, image: r.image || prev.image })); setShowMusicResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.artist, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl, reviewMatchKey: `music:${r.id}` }) })); setShowMusicResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.artist || 'Unknown artist'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -336,7 +337,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.subtitle || prev.subtitle, image: r.image || prev.image })); setShowMovieResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.subtitle || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl, reviewMatchKey: `movie:${r.id}` }) })); setShowMovieResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.subtitle || 'Unknown'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -381,7 +382,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
-                                                        <button type="button" onClick={() => { setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '' })); }}
+                                                        <button type="button" onClick={() => { setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) })); }}
                                                             className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
@@ -391,7 +392,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken > 0 && podcastEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: ep.title, subtitle: selectedPodcast.name })); setShowPodcastPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: ep.title, subtitle: selectedPodcast.name, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `podcast:${selectedPodcast.id}:${ep.id}` }) })); setShowPodcastPicker(false); }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.title}</div>
                                                         <div className="text-xs text-neutral-500">{ep.publishedAt || 'Recent episode'}</div>
@@ -439,7 +440,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
-                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', subtitle: '' })); }}
+                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', subtitle: '', image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) })); }}
                                                             className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
@@ -449,7 +450,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: selectedTvShow.name, subtitle: ep.label })); setShowTvPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: selectedTvShow.name, subtitle: ep.label, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `tv:${selectedTvShow.id}:${ep.id}` }) })); setShowTvPicker(false); }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.label}</div>
                                                         <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
@@ -482,6 +483,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         ...parseItemMeta(prev.image),
                                                         imageUrl: nextImageRef,
                                                         restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        reviewMatchKey: `restaurant:${place.id}`,
                                                     }),
                                                 }));
                                                 setShowRestaurantResults(false);
@@ -504,7 +506,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         maxHeightClass="max-h-56"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(book) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: book.title, subtitle: book.author || prev.subtitle })); setShowBookResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: book.title, subtitle: book.author || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `book:${book.id}` }) })); setShowBookResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{book.title}</div>
                                                 <div className="text-xs text-neutral-500">{book.author || 'Unknown author'}{book.publishedDate ? ` • ${book.publishedDate}` : ''}</div>
@@ -528,7 +530,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             rows={2}
                                             value={subtitle}
                                             onChange={(e) => {
-                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }));
                                                 if (category === 'podcast') setShowPodcastPicker(true);
                                                 if (category === 'tv') setShowTvPicker(true);
                                             }}
@@ -555,7 +557,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             maxHeightClass="max-h-56"
                                             keyExtractor={(r) => r.id}
                                             renderResult={(brewery) => (
-                                                <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, subtitle: brewery.name })); setShowBreweryResults(false); }}
+                                                <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, subtitle: brewery.name, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `beer:${brewery.id}` }) })); setShowBreweryResults(false); }}
                                                     className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                     <div className="text-sm text-neutral-900">{brewery.name}</div>
                                                     <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
