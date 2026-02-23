@@ -243,7 +243,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             const currentContent = content || '';
             const before = currentContent.slice(0, tagging.atPrefixPos);
             const after = currentContent.slice(tagging.atPrefixPos + 1 + tagging.atPrefixText.length);
-            const nextContent = `${before}${typedText}${after}`;
+            const nextContent = `${before}${TAG_MARKER}${typedText}${after}`;
             setContentForActive(nextContent);
             await updateActiveStatus(nextContent);
             tagging.clearAtPrefix();
@@ -252,7 +252,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 const target = textareaRef.current;
                 if (!target) return;
                 target.focus();
-                const nextCursor = before.length + typedText.length;
+                const nextCursor = before.length + TAG_MARKER.length + typedText.length;
                 target.setSelectionRange(nextCursor, nextCursor);
                 setLastCursorPosition(nextCursor);
             }, 30);
