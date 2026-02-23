@@ -119,9 +119,11 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
+    const lastReviewWithContent = uniqueReviewDates.find((item) => item.rating !== undefined || !!item.notes.trim());
+
     return NextResponse.json({
       count: uniqueReviewDates.length,
-      lastReview: uniqueReviewDates[0] || null,
+      lastReview: lastReviewWithContent || uniqueReviewDates[0] || null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

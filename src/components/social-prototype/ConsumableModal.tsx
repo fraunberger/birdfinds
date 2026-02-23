@@ -148,7 +148,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const sameCategoryItems = getAllItemsByCategory(category);
     const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
     const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const hasApiConfirmedMatch = !!reviewMatchKey;
+    const hasApiConfirmedMatch = !!reviewMatchKey && (serverReviewCount > 0 || !!serverLastReview);
     const reviewCount = hasApiConfirmedMatch
         ? Math.max(serverReviewCount, reviewMatchCountByKey) + (existingItem ? 1 : 0)
         : 0;
