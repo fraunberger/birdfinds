@@ -5,6 +5,7 @@
  */
 
 const DEFAULT_PARSE_DELAY_MS = 140;
+export const TAG_MARKER = "\u2063";
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -86,19 +87,21 @@ export function parseHighlights(text, entities) {
   (entities || []).forEach((entity) => {
     const terms = normalizeTerms(entity.terms || []);
     terms.forEach((term) => {
-      // Only highlight the FIRST occurrence of each term (no "g" flag)
-      const regex = new RegExp(escapeRegex(term), "i");
-      const match = regex.exec(text);
-      if (match) {
-        const start = match.index;
-        const end = start + match[0].length;
+      // Only explicitly tagged occurrences should highlight.
+      // Tagging inserts an invisible marker right before the intended phrase.
+      const regex = new RegExp(`${escapeRegex(TAG_MARKER)}${escapeRegex(term)}`, "gi");
+      let match;
+      while ((match = regex.exec(text))) {
+        const markerLength = TAG_MARKER.length;
+        const start = match.index + markerLength;
+        const end = start + (match[0].length - markerLength);
         candidates.push({
           id: `${entity.id}:${start}:${end}:${term.toLowerCase()}`,
           entityType: entity.entityType,
           entityId: entity.entityId,
           start,
           end,
-          displayText: match[0],
+          displayText: match[0].slice(markerLength),
           source: entity.source || "parser",
           color: entity.color,
           priority: entity.priority || 0,
@@ -107,7 +110,11 @@ export function parseHighlights(text, entities) {
     });
   });
 
-  return resolveOverlappingHighlights(candidates).map(({ priority, ...decoration }) => decoration);
+  return resolveOverlappingHighlights(candidates).map((decoration) => {
+    const next = { ...decoration };
+    delete next.priority;
+    return next;
+  });
 }
 
 /**

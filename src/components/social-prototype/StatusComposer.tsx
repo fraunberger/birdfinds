@@ -5,7 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
+import { parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
@@ -274,6 +274,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
         if (phrase) {
             await ensureAliasLinked(phrase);
+            const start = tagging.selectionStart;
+            const end = tagging.selectionEnd;
+            const currentContent = content || '';
+            if (
+                start >= 0
+                && end > start
+                && end <= currentContent.length
+                && currentContent.slice(start, end).trim() === phrase
+                && currentContent.slice(Math.max(0, start - TAG_MARKER.length), start) !== TAG_MARKER
+            ) {
+                const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(start)}`;
+                setContentForActive(nextContent);
+                await updateActiveStatus(nextContent);
+            }
             setSelectedPlainText('');
             recentSelectionRef.current = null;
             return;
@@ -286,7 +300,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         const after = currentContent.slice(insertPos);
         const needsLeadingSpace = before.length > 0 && !/\s$/.test(before);
         const needsTrailingSpace = after.length > 0 && !/^\s/.test(after);
-        const insertion = `${needsLeadingSpace ? ' ' : ''}${item.title}${needsTrailingSpace ? ' ' : ''}`;
+        const insertion = `${needsLeadingSpace ? ' ' : ''}${TAG_MARKER}${item.title}${needsTrailingSpace ? ' ' : ''}`;
         const nextContent = `${before}${insertion}${after}`;
 
         setContentForActive(nextContent);
