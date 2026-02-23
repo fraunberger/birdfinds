@@ -10,6 +10,17 @@ import { TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 // Helpers
 // ---------------------------------------------------------------------------
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+const REVIEWED_NOTE_TEXT = 'reviewed already';
+
+const normalizeForMatch = (value: string) => value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+const isReviewedAlreadyLine = (line: string) => normalizeForMatch(line).replace(/[!?.,:;]+$/g, '') === REVIEWED_NOTE_TEXT;
+
+const isMatchingItemTerm = (term: string, title: string) => normalizeForMatch(term) === normalizeForMatch(title);
 
 const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
     if (start < 0 || end <= start || end > content.length) return content;
@@ -105,9 +116,18 @@ export function useTaggingState({
     const lastSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
     const markReviewedAlready = useCallback(async (item: ConsumableItem) => {
-        const noteText = 'reviewed already!';
-        if (item.notes?.toLowerCase().includes(noteText)) return;
-        const nextNotes = item.notes?.trim() ? `${item.notes.trim()}\n${noteText}` : noteText;
+        const rawNotes = item.notes?.trim() || '';
+        const lines = rawNotes ? rawNotes.split('\n') : [];
+        const hasReviewedAlready = lines.some((line) => isReviewedAlreadyLine(line.trim()));
+        if (hasReviewedAlready) {
+            const normalizedLines = lines.map((line) => (isReviewedAlreadyLine(line.trim()) ? REVIEWED_NOTE_TEXT : line));
+            const normalizedNotes = normalizedLines.join('\n');
+            if (normalizedNotes !== rawNotes) {
+                await updateItemInActive(item.id, { notes: normalizedNotes });
+            }
+            return;
+        }
+        const nextNotes = rawNotes ? `${rawNotes}\n${REVIEWED_NOTE_TEXT}` : REVIEWED_NOTE_TEXT;
         await updateItemInActive(item.id, { notes: nextNotes });
     }, [updateItemInActive]);
 
@@ -199,7 +219,7 @@ export function useTaggingState({
 
             const existing = items.find((item) =>
                 item.category === category
-                && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
+                && getItemHighlightTerms(item).some((term) => isMatchingItemTerm(term, title))
             );
 
             inFlightRef.current = true;
@@ -241,7 +261,7 @@ export function useTaggingState({
 
             const existing = items.find((item) =>
                 item.category === category
-                && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
+                && getItemHighlightTerms(item).some((term) => isMatchingItemTerm(term, title))
             );
 
             inFlightRef.current = true;
@@ -293,7 +313,7 @@ export function useTaggingState({
 
         const existing = items.find((item) =>
             item.category === quickAddCategory
-            && getItemHighlightTerms(item).some((term) => term.trim().toLowerCase() === title.toLowerCase())
+            && getItemHighlightTerms(item).some((term) => isMatchingItemTerm(term, title))
         );
 
         inFlightRef.current = true;
@@ -309,7 +329,7 @@ export function useTaggingState({
             const needsSpace = currentContent.length > 0 && !/\s$/.test(currentContent);
             const newContent = currentContent + (needsSpace ? ' ' : '') + title;
             setContentForActive(newContent);
-            updateActiveStatus(newContent);
+            await updateActiveStatus(newContent);
             recentKeyRef.current = { key: mentionKey, at: Date.now() };
             cancelQuickAdd();
         } catch (error: unknown) {
