@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { parseHighlights, segmentText } from '@/lib/social-prototype/highlighting.mjs';
 import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
@@ -31,11 +30,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
 
-    const [previewText, setPreviewText] = useState('');
-    const [previewDecorations, setPreviewDecorations] = useState<Array<{
-        id: string; entityType: string; entityId: string;
-        start: number; end: number; displayText: string; source: string; color?: string;
-    }>>([]);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
 
@@ -70,14 +64,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     });
 
     // ── Preview highlights ─────────────────────────────────────────────
-    const rebuildPreviewHighlights = (textValue: string, itemList: ConsumableItem[]) => {
-        const entities = itemList.map((item) => ({
-            id: item.id, entityType: item.category, entityId: item.id,
-            terms: getItemHighlightTerms(item), source: 'item',
-            color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR, priority: 1,
-        }));
-        setPreviewText(textValue);
-        setPreviewDecorations(parseHighlights(textValue, entities) as typeof previewDecorations);
+    const rebuildPreviewHighlights = () => {
+        // Auto matching/highlighting is intentionally disabled.
     };
 
     // ── Draft persistence ──────────────────────────────────────────────
@@ -142,7 +130,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     // ── Mobile highlight debounce ──────────────────────────────────────
     useEffect(() => {
-        const timer = window.setTimeout(() => { rebuildPreviewHighlights(content, items); }, tagging.isMobileTagging ? 520 : 180);
+        const timer = window.setTimeout(() => { rebuildPreviewHighlights(); }, tagging.isMobileTagging ? 520 : 180);
         return () => window.clearTimeout(timer);
     }, [content, items, tagging.isMobileTagging]);
 
@@ -453,26 +441,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
                         <div className="relative min-h-[100px] bg-white">
-                            {previewText && (
-                                <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
-                                    {(segmentText(previewText, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
-                                        segment.type === 'text' ? (
-                                            <React.Fragment key={`t:${segment.start}:${index}`}>{segment.text}</React.Fragment>
-                                        ) : (
-                                            <mark key={`h:${segment.start}:${segment.end}:${segment.decoration?.entityId || index}`}
-                                                style={{ backgroundColor: segment.decoration?.color || HIGHLIGHT_COLOR, padding: 0, color: 'transparent' }}>
-                                                {segment.text}
-                                            </mark>
-                                        )
-                                    )}
-                                </div>
-                            )}
                             <textarea
                                 ref={textareaRef}
                                 value={content}
                                 onChange={handleContentChange}
                                 onFocus={() => { adjustTextareaHeight(); if (textareaRef.current) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '220px' : '150px'; }}
-                                onBlur={(e) => { handleBlur(); rebuildPreviewHighlights(e.target.value, items); if (textareaRef.current && !content) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '170px' : '100px'; }}
+                                onBlur={() => { handleBlur(); rebuildPreviewHighlights(); if (textareaRef.current && !content) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '170px' : '100px'; }}
                                 onSelect={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); handleTextSelection(t); }}
                                 onTouchEnd={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
                                 onPointerUp={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
