@@ -1,4 +1,5 @@
 import { ConsumableItem } from '@/lib/social-prototype/store';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 const normalizeValue = (value?: string) => (value || '').trim().toLowerCase();
 const hasReviewContent = (item: Pick<ConsumableItem, 'rating' | 'notes'>) => item.rating !== undefined || !!item.notes?.trim();
@@ -57,3 +58,30 @@ export const countExactReviewMatches = (
     candidate: Pick<ConsumableItem, 'category' | 'title' | 'subtitle'>,
     excludeItemId?: string
 ) => items.filter((item) => item.id !== excludeItemId && isSameReviewTarget(item, candidate)).length;
+
+export const findMostRecentReviewMatchByKey = (
+    items: ConsumableItem[],
+    reviewMatchKey?: string,
+    excludeItemId?: string
+) => {
+    const normalizedKey = normalizeValue(reviewMatchKey);
+    if (!normalizedKey) return undefined;
+
+    const matches = items
+        .filter((item) => item.id !== excludeItemId && normalizeValue(parseItemMeta(item.image).reviewMatchKey) === normalizedKey)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+    const withReview = matches.find(hasReviewContent);
+    if (withReview) return withReview;
+    return matches[0];
+};
+
+export const countReviewMatchesByKey = (
+    items: ConsumableItem[],
+    reviewMatchKey?: string,
+    excludeItemId?: string
+) => {
+    const normalizedKey = normalizeValue(reviewMatchKey);
+    if (!normalizedKey) return 0;
+    return items.filter((item) => item.id !== excludeItemId && normalizeValue(parseItemMeta(item.image).reviewMatchKey) === normalizedKey).length;
+};
