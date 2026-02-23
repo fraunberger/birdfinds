@@ -17,6 +17,7 @@ import { StatusCard } from './StatusCard';
 import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
+import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 
 interface ProfilePageProps {
     userId: string;
@@ -93,9 +94,21 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     }
 
     const categoryItems: Record<string, ConsumableItem[]> = {};
+    const dedupedCategoryItems: Record<string, ConsumableItem[]> = {};
     if (profile?.categories) {
         profile.categories.forEach(cat => {
-            categoryItems[cat] = getUserItemsByCategory(cat, userId);
+            const raw = getUserItemsByCategory(cat, userId);
+            categoryItems[cat] = raw;
+            // Deduplicate for counts and sheets
+            const map = new Map<string, ConsumableItem>();
+            for (const item of raw) {
+                const key = getCanonicalItemKey(item);
+                const existing = map.get(key);
+                if (!existing || item.createdAt > existing.createdAt) {
+                    map.set(key, item);
+                }
+            }
+            dedupedCategoryItems[cat] = Array.from(map.values());
         });
     }
 
@@ -182,7 +195,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 <div className="mt-3 text-[10px] uppercase tracking-widest text-neutral-400">
                     <span>{userStatuses.length} posts</span>
                     <span className="mx-2">•</span>
-                    <span>{Object.values(categoryItems).flat().length} tagged items</span>
+                    <span>{Object.values(dedupedCategoryItems).flat().length} tagged items</span>
                     <span className="mx-2">•</span>
                     <span>{profile.categories?.length || 0} categories</span>
                 </div>
@@ -232,7 +245,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                                 {profile.categories.map(cat => {
                                     const config = getCategoryConfig(cat);
-                                    const count = categoryItems[cat]?.length || 0;
+                                    const count = dedupedCategoryItems[cat]?.length || 0;
                                     const isOpen = openCategory === cat;
                                     return (
                                         <button

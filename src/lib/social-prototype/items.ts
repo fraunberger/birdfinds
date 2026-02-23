@@ -79,3 +79,9 @@ export const hasItemAggregatePage = (category: Category) =>
   || category === "podcast"
   || category === "beer"
   || category === "brewery";
+
+/** Return a stable canonical key for deduplication: `category::slug`. */
+export const getCanonicalItemKey = (
+  item: Pick<ConsumableItem, "category" | "title" | "subtitle">
+): string =>
+  `${item.category}::${getCanonicalItemSlug(item.category, item.title, item.subtitle)}`;

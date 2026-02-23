@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
+import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
@@ -22,11 +23,24 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
     if (!config) return null;
 
+    // Deduplicate items by canonical key, keeping the most recently created version
+    const deduped = (() => {
+        const map = new Map<string, ConsumableItem>();
+        for (const item of items) {
+            const key = getCanonicalItemKey(item);
+            const existing = map.get(key);
+            if (!existing || item.createdAt > existing.createdAt) {
+                map.set(key, item);
+            }
+        }
+        return Array.from(map.values());
+    })();
+
     const sortedItems = sortMode === 'top'
-        ? [...items]
+        ? [...deduped]
             .filter(i => i.rating && i.rating > 0)
             .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        : [...items].sort((a, b) => b.createdAt - a.createdAt);
+        : [...deduped].sort((a, b) => b.createdAt - a.createdAt);
 
     return (
         <div className="font-mono animate-in slide-in-from-right duration-200">
@@ -36,7 +50,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     <span className="text-base">{config.icon}</span>
                     <h3 className="text-xs font-bold uppercase tracking-widest">{config.label}</h3>
                     <span className="text-[10px] text-neutral-400 uppercase tracking-wider">
-                        {items.length} {items.length === 1 ? 'entry' : 'entries'}
+                        {deduped.length} {deduped.length === 1 ? 'entry' : 'entries'}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
