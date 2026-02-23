@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
-import { countReviewMatchesByKey, findMostRecentReviewMatchByKey } from '@/lib/social-prototype/review-matching';
+import {
+    countExactReviewMatches,
+    countReviewMatchesByKey,
+    findMostRecentExactReviewMatch,
+    findMostRecentReviewMatchByKey,
+} from '@/lib/social-prototype/review-matching';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -120,8 +125,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
 
     const sameCategoryItems = getAllItemsByCategory(category);
-    const exactMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const reviewCount = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id) + (existingItem ? 1 : 0);
+    const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
+    const fallbackMatch = findMostRecentExactReviewMatch(sameCategoryItems, draft, existingItem?.id);
+    const exactMatch = keyMatch || fallbackMatch;
+    const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
+    const reviewCount = (reviewMatchCountByKey > 0 ? reviewMatchCountByKey : countExactReviewMatches(sameCategoryItems, draft, existingItem?.id)) + (existingItem ? 1 : 0);
     const activeMatchKey = reviewMatchKey || null;
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
 
