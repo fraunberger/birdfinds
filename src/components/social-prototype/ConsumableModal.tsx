@@ -1,19 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
-import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
+import { Category, ConsumableItem, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
+import { buildItemPath, getCanonicalItemKey, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
-import {
-    countReviewMatchesByKey,
-    findMostRecentReviewMatchByKey,
-} from '@/lib/social-prototype/review-matching';
-import {
-    buildReviewHydrationSource,
-    hydrateDraftFromReview,
-    ReviewHydrationFieldLocks,
-} from '@/lib/social-prototype/review-hydration';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -33,46 +24,12 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-const CATEGORY_CONSUMPTION_LABELS: Record<string, string> = {
-    movie: 'watched',
-    tv: 'watched',
-    music: 'listened',
-    podcast: 'listened',
-    restaurant: 'ate',
-    beer: 'drank',
-    cooking: 'cooked',
-    book: 'read',
-};
-
-function getReviewCountLabel(category: Category, reviewCount: number) {
-    const countLabel = `${reviewCount} ${reviewCount === 1 ? 'time' : 'times'}`;
-    const consumptionLabel = CATEGORY_CONSUMPTION_LABELS[category];
-    if (!consumptionLabel) return `Tagged ${countLabel}`;
-    return `${consumptionLabel} ${countLabel}`;
-}
-
-interface ReviewHistoryResponse {
-    count: number;
-    lastReview: {
-        id: string;
-        category: Category;
-        title: string;
-        subtitle?: string;
-        rating?: number;
-        notes?: string;
-        image?: string;
-        createdAt: string;
-    } | null;
-}
-
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
-    const { getAllItemsByCategory } = useSocialStore();
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
     const recipeUrl = parsedMeta.recipeUrl || '';
     const restaurantLocation = parsedMeta.restaurantLocation || '';
-    const reviewMatchKey = parsedMeta.reviewMatchKey;
 
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
@@ -139,37 +96,42 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── TV episode fetch ───────────────────────────────────────────────
     const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
-    const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
-    const [hydrationLocks, setHydrationLocks] = useState<ReviewHydrationFieldLocks>({ subtitle: false, rating: false, notes: false });
-    const [serverReviewCount, setServerReviewCount] = useState(0);
-    const [serverLastReview, setServerLastReview] = useState<ReviewHistoryResponse['lastReview']>(null);
-    const [isReviewHistoryLoading, setIsReviewHistoryLoading] = useState(false);
 
-    const sameCategoryItems = getAllItemsByCategory(category);
-    const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const hasApiConfirmedMatch = !!reviewMatchKey && (serverReviewCount > 0 || !!serverLastReview);
-    const reviewCount = hasApiConfirmedMatch
-        ? Math.max(serverReviewCount, reviewMatchCountByKey) + (existingItem ? 1 : 0)
-        : 0;
-    const activeMatchKey = reviewMatchKey || null;
-    const reviewCountLabel = getReviewCountLabel(category, reviewCount);
-    const exactMatch = serverLastReview || keyMatch;
-    const hasReviewAndScoreOnCard = draft.rating !== undefined && !!draft.notes.trim();
-    const showRepeatBadge = hasApiConfirmedMatch && reviewCount > 1 && hasReviewAndScoreOnCard;
-    const hydrationSource = buildReviewHydrationSource(activeMatchKey, exactMatch);
+    // ── Repeat-tag detection (client-side, canonical key) ─────────────
+    const repeatInfo = useMemo(() => {
+        if (!allUserItems || !title.trim()) return null;
+        const draftKey = getCanonicalItemKey({ category, title, subtitle });
+        const matches = allUserItems.filter(item => {
+            if (existingItem && item.id === existingItem.id) return false;
+            return getCanonicalItemKey(item) === draftKey;
+        });
+        if (matches.length === 0) return null;
+        const sorted = [...matches].sort((a, b) => b.createdAt - a.createdAt);
+        return {
+            count: matches.length + 1,
+            verb: getRepeatTagVerb(category),
+            latestPrevious: sorted[0],
+        };
+    }, [allUserItems, category, title, subtitle, existingItem]);
 
+    // ── Auto-populate from previous repeat ─────────────────────────────
+    const [hasAutoPopulated, setHasAutoPopulated] = useState(false);
     useEffect(() => {
-        if (!isOpen) return;
-        setHydratedMatchKey(null);
-        setHydrationLocks({ subtitle: false, rating: false, notes: false });
-    }, [activeMatchKey, isOpen]);
+        if (hasAutoPopulated || !repeatInfo?.latestPrevious) return;
+        if (existingItem) return; // don't auto-populate when editing existing
+        const prev = repeatInfo.latestPrevious;
+        setDraft(d => ({
+            ...d,
+            rating: d.rating ?? prev.rating,
+            notes: d.notes || prev.notes || '',
+        }));
+        setHasAutoPopulated(true);
+    }, [repeatInfo, existingItem, hasAutoPopulated]);
 
     useEffect(() => {
         if (!isOpen) return;
         setDraft(buildInitialDraft(initialCategory, existingItem));
-        setHydratedMatchKey(null);
-        setHydrationLocks({ subtitle: false, rating: false, notes: false });
+        setHasAutoPopulated(false);
     }, [existingItem, initialCategory, isOpen]);
 
     useEffect(() => {
@@ -192,58 +154,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         }, 120);
         return () => { controller.abort(); window.clearTimeout(timeoutId); };
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
-
-    useEffect(() => {
-        if (readOnly || !reviewMatchKey) {
-            setServerReviewCount(0);
-            setServerLastReview(null);
-            setIsReviewHistoryLoading(false);
-            return;
-        }
-
-        const params = new URLSearchParams();
-        params.set('reviewMatchKey', reviewMatchKey);
-
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(async () => {
-            try {
-                setIsReviewHistoryLoading(true);
-                const response = await fetch(`/api/social/review-history?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
-                if (!response.ok) {
-                    setServerReviewCount(0);
-                    setServerLastReview(null);
-                    return;
-                }
-                const data = await response.json() as ReviewHistoryResponse;
-                setServerReviewCount(data.count || 0);
-                setServerLastReview(data.lastReview || null);
-            } catch (error) {
-                if (!(error instanceof DOMException && error.name === 'AbortError')) {
-                    console.error('Review history fetch failed:', error);
-                }
-                setServerReviewCount(0);
-                setServerLastReview(null);
-            } finally {
-                setIsReviewHistoryLoading(false);
-            }
-        }, 90);
-
-        return () => {
-            controller.abort();
-            window.clearTimeout(timeoutId);
-        };
-    }, [readOnly, reviewMatchKey]);
-
-    useEffect(() => {
-        if (readOnly || existingItem || !hydrationSource) return;
-        if (hydratedMatchKey === hydrationSource.signature) return;
-
-        setDraft((prev) => {
-            const hydrated = hydrateDraftFromReview(prev, hydrationSource, hydrationLocks, !!hydratedMatchKey);
-            return hydrated.changed ? hydrated.draft : prev;
-        });
-        setHydratedMatchKey(hydrationSource.signature);
-    }, [existingItem, hydratedMatchKey, hydrationLocks, hydrationSource, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
@@ -326,7 +236,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <div className="relative group">
                                 <select
                                     value={category}
-                                    onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }))}
+                                    onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
                                     className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4 min-w-[130px]"
                                 >
                                     {Array.from(new Set([category, ...DEFAULT_CATEGORIES])).map((cat) => {
@@ -368,20 +278,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     type="text"
                                     value={title}
                                     onChange={(e) => {
-                                        setDraft((prev) => ({ ...prev, title: e.target.value, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }));
+                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
                                         if (category === 'podcast' && selectedPodcast) { setSelectedPodcast(null); setPodcastEpisodes([]); }
                                         if (category === 'tv' && selectedTvShow) { setSelectedTvShow(null); setTvEpisodes([]); }
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
-                                {isReviewHistoryLoading && hasApiConfirmedMatch && (
-                                    <div className="mt-2 text-[10px] uppercase tracking-wider text-neutral-500">
-                                        Checking repeat listens...
-                                    </div>
-                                )}
-                                {showRepeatBadge && title.trim() && (
+                                {repeatInfo && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
-                                        {reviewCountLabel}{exactMatch && !existingItem ? ' • previous review loaded' : ''}
+                                        {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
@@ -403,7 +308,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.artist, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl, reviewMatchKey: `music:${r.id}` }) })); setShowMusicResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.artist, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl }) })); setShowMusicResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.artist || 'Unknown artist'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -422,7 +327,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.subtitle || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl, reviewMatchKey: `movie:${r.id}` }) })); setShowMovieResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.subtitle || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl }) })); setShowMovieResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.subtitle || 'Unknown'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -467,7 +372,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
-                                                        <button type="button" onClick={() => { setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) })); }}
+                                                        <button type="button" onClick={() => { setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '' })); }}
                                                             className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
@@ -477,7 +382,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken > 0 && podcastEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: ep.title, subtitle: selectedPodcast.name, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `podcast:${selectedPodcast.id}:${ep.id}` }) })); setShowPodcastPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: ep.title, subtitle: selectedPodcast.name })); setShowPodcastPicker(false); }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.title}</div>
                                                         <div className="text-xs text-neutral-500">{ep.publishedAt || 'Recent episode'}</div>
@@ -525,7 +430,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
-                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', subtitle: '', image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) })); }}
+                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', subtitle: '' })); }}
                                                             className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
@@ -535,7 +440,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: selectedTvShow.name, subtitle: ep.label, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `tv:${selectedTvShow.id}:${ep.id}` }) })); setShowTvPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: selectedTvShow.name, subtitle: ep.label })); setShowTvPicker(false); }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.label}</div>
                                                         <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
@@ -568,7 +473,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         ...parseItemMeta(prev.image),
                                                         imageUrl: nextImageRef,
                                                         restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
-                                                        reviewMatchKey: `restaurant:${place.id}`,
                                                     }),
                                                 }));
                                                 setShowRestaurantResults(false);
@@ -591,7 +495,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         maxHeightClass="max-h-56"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(book) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: book.title, subtitle: book.author || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `book:${book.id}` }) })); setShowBookResults(false); }}
+                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: book.title, subtitle: book.author || prev.subtitle })); setShowBookResults(false); }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{book.title}</div>
                                                 <div className="text-xs text-neutral-500">{book.author || 'Unknown author'}{book.publishedDate ? ` • ${book.publishedDate}` : ''}</div>
@@ -615,7 +519,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             rows={2}
                                             value={subtitle}
                                             onChange={(e) => {
-                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: undefined }) }));
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                                 if (category === 'podcast') setShowPodcastPicker(true);
                                                 if (category === 'tv') setShowTvPicker(true);
                                             }}
@@ -642,7 +546,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             maxHeightClass="max-h-56"
                                             keyExtractor={(r) => r.id}
                                             renderResult={(brewery) => (
-                                                <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, subtitle: brewery.name, image: serializeItemMeta({ ...parseItemMeta(prev.image), reviewMatchKey: `beer:${brewery.id}` }) })); setShowBreweryResults(false); }}
+                                                <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, subtitle: brewery.name })); setShowBreweryResults(false); }}
                                                     className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                     <div className="text-sm text-neutral-900">{brewery.name}</div>
                                                     <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
@@ -696,9 +600,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         type="number" min="0" max="10" step="0.1"
                                         value={rating || ''}
                                         onChange={(e) => {
-                                                setHydrationLocks((prev) => ({ ...prev, rating: true }));
-                                                setDraft((prev) => ({ ...prev, rating: parseFloat(e.target.value) || undefined }));
-                                            }}
+                                            setDraft((prev) => ({ ...prev, rating: parseFloat(e.target.value) || undefined }));
+                                        }}
                                         className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
@@ -741,7 +644,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     </div>
                                 ) : (
                                     <textarea value={subtitle} onChange={(e) => {
-                                        setHydrationLocks((prev) => ({ ...prev, subtitle: true }));
                                         setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                     }}
                                         rows={8} placeholder="One ingredient per line..."
@@ -756,7 +658,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     </div>
                                 ) : (
                                     <textarea value={notes} onChange={(e) => {
-                                        setHydrationLocks((prev) => ({ ...prev, notes: true }));
                                         setDraft((prev) => ({ ...prev, notes: e.target.value }));
                                     }}
                                         rows={8} placeholder="Step-by-step instructions..."
@@ -773,7 +674,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </div>
                             ) : (
                                 <textarea value={notes} onChange={(e) => {
-                                    setHydrationLocks((prev) => ({ ...prev, notes: true }));
                                     setDraft((prev) => ({ ...prev, notes: e.target.value }));
                                 }}
                                     rows={8} placeholder={config.notesPlaceholder || 'Add notes...'}

@@ -11,7 +11,6 @@ export interface ItemMetaData {
     recipeUrl?: string;
     aliases?: string[];
     restaurantLocation?: string;
-    reviewMatchKey?: string;
 }
 
 const META_PREFIX = 'meta:';
@@ -28,7 +27,6 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
             recipeUrl: typeof parsed.recipeUrl === 'string' ? parsed.recipeUrl : undefined,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
             restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
-            reviewMatchKey: typeof parsed.reviewMatchKey === 'string' ? parsed.reviewMatchKey : undefined,
         };
     } catch {
         return {};
@@ -38,13 +36,12 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
 /** Serialize structured metadata back into the `image` column format. */
 export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
-    if (!meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation && !meta.reviewMatchKey && aliases.length === 0) return undefined;
-    if (!meta.recipeUrl && !meta.restaurantLocation && !meta.reviewMatchKey && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
+    if (!meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
         restaurantLocation: meta.restaurantLocation,
-        reviewMatchKey: meta.reviewMatchKey,
         aliases,
     }))}`;
 };

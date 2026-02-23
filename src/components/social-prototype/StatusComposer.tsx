@@ -7,7 +7,7 @@ import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
-import { findMostRecentExactReviewMatch } from '@/lib/social-prototype/review-matching';
+import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
@@ -21,7 +21,7 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, getAllItemsByCategory, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, getAllItemsByCategory, statuses, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -181,11 +181,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [hasUnsavedChanges]);
 
+    // All user items for repeat detection
+    const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
+
     // ── Item callbacks ─────────────────────────────────────────────────
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
         try {
+            const draftKey = getCanonicalItemKey(item);
             const previousItem = existingItem
-                || findMostRecentExactReviewMatch(getAllItemsByCategory(item.category), item);
+                || allUserItems.find(i => getCanonicalItemKey(i) === draftKey);
             let nextImage = item.image;
             if (previousItem) {
                 const previousMeta = parseItemMeta(previousItem.image);
@@ -566,6 +570,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 onDelete={handleDeleteItem}
                 initialCategory={activeCategory}
                 existingItem={existingItem}
+                allUserItems={allUserItems}
             />
         </div>
     );

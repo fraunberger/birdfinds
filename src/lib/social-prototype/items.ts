@@ -85,3 +85,18 @@ export const getCanonicalItemKey = (
   item: Pick<ConsumableItem, "category" | "title" | "subtitle">
 ): string =>
   `${item.category}::${getCanonicalItemSlug(item.category, item.title, item.subtitle)}`;
+
+const REPEAT_TAG_VERBS: Record<string, string> = {
+  movie: "watched",
+  tv: "watched",
+  music: "listened",
+  podcast: "listened",
+  book: "read",
+  restaurant: "visited",
+  beer: "had",
+  cooking: "made",
+};
+
+/** Return the appropriate past-tense verb for a category (e.g. "watched" for movie). */
+export const getRepeatTagVerb = (category: Category): string =>
+  REPEAT_TAG_VERBS[category] || "tagged";

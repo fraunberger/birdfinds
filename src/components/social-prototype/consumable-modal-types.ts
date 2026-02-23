@@ -11,6 +11,7 @@ export interface ConsumableModalProps {
     initialCategory?: Category;
     existingItem?: ConsumableItem;
     readOnly?: boolean;
+    allUserItems?: ConsumableItem[];
 }
 
 // ---------------------------------------------------------------------------
