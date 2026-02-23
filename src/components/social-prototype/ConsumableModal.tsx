@@ -12,6 +12,11 @@ import {
     findMostRecentExactReviewMatch,
     findMostRecentReviewMatchByKey,
 } from '@/lib/social-prototype/review-matching';
+import {
+    buildReviewHydrationSource,
+    hydrateDraftFromReview,
+    ReviewHydrationFieldLocks,
+} from '@/lib/social-prototype/review-hydration';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -138,6 +143,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
     const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
+    const [hydrationLocks, setHydrationLocks] = useState<ReviewHydrationFieldLocks>({ subtitle: false, rating: false, notes: false });
     const [serverReviewCount, setServerReviewCount] = useState(0);
     const [serverLastReview, setServerLastReview] = useState<ReviewHistoryResponse['lastReview']>(null);
 
@@ -157,6 +163,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const activeMatchKey = reviewMatchKey || (fallbackMatchCandidate ? `fallback:${buildReviewMatchKey(fallbackMatchCandidate)}` : null);
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
     const exactMatch = serverLastReview || keyMatch || fallbackMatch;
+    const hydrationSource = buildReviewHydrationSource(activeMatchKey, exactMatch);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setHydratedMatchKey(null);
+        setHydrationLocks({ subtitle: false, rating: false, notes: false });
+    }, [activeMatchKey, isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setDraft(buildInitialDraft(initialCategory, existingItem));
+        setHydratedMatchKey(null);
+        setHydrationLocks({ subtitle: false, rating: false, notes: false });
+    }, [existingItem, initialCategory, isOpen]);
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -224,23 +244,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     }, [category, readOnly, reviewMatchKey, subtitle, title]);
 
     useEffect(() => {
-        if (readOnly || existingItem || !exactMatch || !activeMatchKey) return;
+        if (readOnly || existingItem || !hydrationSource) return;
+        if (hydratedMatchKey === hydrationSource.signature) return;
 
         setDraft((prev) => {
-            const notesAreEmpty = !prev.notes.trim();
-            const shouldHydrate = hydratedMatchKey !== activeMatchKey || prev.rating === undefined || notesAreEmpty;
-            if (!shouldHydrate) return prev;
-
-            return {
-                ...prev,
-                subtitle: prev.subtitle || exactMatch.subtitle || '',
-                rating: prev.rating ?? exactMatch.rating,
-                notes: notesAreEmpty ? (exactMatch.notes ?? '') : prev.notes,
-                image: prev.image || exactMatch.image,
-            };
+            const hydrated = hydrateDraftFromReview(prev, hydrationSource, hydrationLocks, !!hydratedMatchKey);
+            return hydrated.changed ? hydrated.draft : prev;
         });
-        setHydratedMatchKey(activeMatchKey);
-    }, [activeMatchKey, exactMatch, existingItem, hydratedMatchKey, readOnly]);
+        setHydratedMatchKey(hydrationSource.signature);
+    }, [existingItem, hydratedMatchKey, hydrationLocks, hydrationSource, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
@@ -687,7 +699,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     <input
                                         type="number" min="0" max="10" step="0.1"
                                         value={rating || ''}
-                                        onChange={(e) => setDraft((prev) => ({ ...prev, rating: parseFloat(e.target.value) || undefined }))}
+                                        onChange={(e) => {
+                                                setHydrationLocks((prev) => ({ ...prev, rating: true }));
+                                                setDraft((prev) => ({ ...prev, rating: parseFloat(e.target.value) || undefined }));
+                                            }}
                                         className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
@@ -729,7 +744,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {subtitle || <span className="text-neutral-300">No ingredients</span>}
                                     </div>
                                 ) : (
-                                    <textarea value={subtitle} onChange={(e) => setDraft((prev) => ({ ...prev, subtitle: e.target.value }))}
+                                    <textarea value={subtitle} onChange={(e) => {
+                                        setHydrationLocks((prev) => ({ ...prev, subtitle: true }));
+                                        setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                    }}
                                         rows={8} placeholder="One ingredient per line..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300" />
                                 )}
@@ -741,7 +759,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {notes || <span className="text-neutral-300">No instructions</span>}
                                     </div>
                                 ) : (
-                                    <textarea value={notes} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                                    <textarea value={notes} onChange={(e) => {
+                                        setHydrationLocks((prev) => ({ ...prev, notes: true }));
+                                        setDraft((prev) => ({ ...prev, notes: e.target.value }));
+                                    }}
                                         rows={8} placeholder="Step-by-step instructions..."
                                         className="w-full text-sm font-mono outline-none bg-neutral-50 p-3 border border-neutral-200 focus:border-neutral-400 resize-y placeholder:text-neutral-300" />
                                 )}
@@ -755,7 +776,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     {notes || <span className="text-neutral-400 italic">No notes</span>}
                                 </div>
                             ) : (
-                                <textarea value={notes} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                                <textarea value={notes} onChange={(e) => {
+                                    setHydrationLocks((prev) => ({ ...prev, notes: true }));
+                                    setDraft((prev) => ({ ...prev, notes: e.target.value }));
+                                }}
                                     rows={8} placeholder={config.notesPlaceholder || 'Add notes...'}
                                     className="w-full text-sm font-mono outline-none border border-neutral-300 focus:border-neutral-400 p-3 bg-transparent resize-y placeholder:text-neutral-300" />
                             )}
