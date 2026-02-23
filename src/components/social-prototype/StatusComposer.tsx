@@ -7,6 +7,7 @@ import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
+import { findMostRecentExactReviewMatch } from '@/lib/social-prototype/review-matching';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
@@ -20,7 +21,7 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, getAllItemsByCategory, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -182,9 +183,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     // ── Item callbacks ─────────────────────────────────────────────────
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
         try {
+            const previousItem = existingItem
+                || findMostRecentExactReviewMatch(getAllItemsByCategory(item.category), item);
             let nextImage = item.image;
-            if (existingItem) {
-                const previousMeta = parseItemMeta(existingItem.image);
+            if (previousItem) {
+                const previousMeta = parseItemMeta(previousItem.image);
                 const incomingMeta = parseItemMeta(item.image);
                 const meta = {
                     ...previousMeta,
@@ -194,7 +197,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         ...(incomingMeta.aliases || []).map((v) => v.trim()).filter(Boolean),
                     ])),
                 };
-                const oldTitle = existingItem.title.trim();
+                const oldTitle = previousItem.title.trim();
                 const newTitle = item.title.trim();
                 if (oldTitle && newTitle && oldTitle.toLowerCase() !== newTitle.toLowerCase()) {
                     const aliases = new Set([...(meta.aliases || []), oldTitle]);
@@ -202,8 +205,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
                 nextImage = serializeItemMeta(meta);
             }
-            if (existingItem && existingItem.id !== 'temp') {
-                await updateItemInActive(existingItem.id, { ...item, image: nextImage });
+            if (previousItem && previousItem.id !== 'temp') {
+                await updateItemInActive(previousItem.id, { ...item, image: nextImage });
             } else {
                 await addItemToActive({ ...item, image: nextImage });
             }

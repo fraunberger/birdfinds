@@ -2,9 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Category, ConsumableItem, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
+import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
+import { buildReviewMatchKey, countExactReviewMatches, findMostRecentExactReviewMatch } from '@/lib/social-prototype/review-matching';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -25,6 +26,7 @@ import {
 export type { ConsumableModalProps } from './consumable-modal-types';
 
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false }: ConsumableModalProps) {
+    const { getAllItemsByCategory } = useSocialStore();
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
@@ -96,6 +98,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── TV episode fetch ───────────────────────────────────────────────
     const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
+    const [hydratedMatchKey, setHydratedMatchKey] = useState<string | null>(null);
+
+    const sameCategoryItems = getAllItemsByCategory(category);
+    const exactMatch = findMostRecentExactReviewMatch(sameCategoryItems, { category, title, subtitle }, existingItem?.id);
+    const reviewCount = countExactReviewMatches(sameCategoryItems, { category, title, subtitle }, existingItem?.id) + (existingItem ? 1 : 0);
+    const activeMatchKey = buildReviewMatchKey({ category, title, subtitle });
 
     useEffect(() => {
         if (readOnly || category !== 'tv' || !selectedTvShow?.id) {
@@ -117,6 +125,19 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         }, 120);
         return () => { controller.abort(); window.clearTimeout(timeoutId); };
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
+
+    useEffect(() => {
+        if (readOnly || existingItem || !exactMatch) return;
+        if (hydratedMatchKey === activeMatchKey) return;
+        setDraft((prev) => ({
+            ...prev,
+            subtitle: prev.subtitle || exactMatch.subtitle || '',
+            rating: typeof prev.rating === 'number' ? prev.rating : exactMatch.rating,
+            notes: prev.notes.trim() ? prev.notes : (exactMatch.notes || ''),
+            image: prev.image || exactMatch.image,
+        }));
+        setHydratedMatchKey(activeMatchKey);
+    }, [activeMatchKey, exactMatch, existingItem, hydratedMatchKey, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
@@ -247,6 +268,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
+                                {reviewCount > 0 && title.trim() && (
+                                    <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
+                                        Reviewed {reviewCount} {reviewCount === 1 ? 'time' : 'times'}{exactMatch && !existingItem ? ' • previous tag found' : ''}
+                                    </div>
+                                )}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
