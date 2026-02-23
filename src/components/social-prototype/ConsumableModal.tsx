@@ -6,10 +6,7 @@ import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from 
 import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import {
-    buildReviewMatchKey,
-    countExactReviewMatches,
     countReviewMatchesByKey,
-    findMostRecentExactReviewMatch,
     findMostRecentReviewMatchByKey,
 } from '@/lib/social-prototype/review-matching';
 import {
@@ -146,23 +143,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [hydrationLocks, setHydrationLocks] = useState<ReviewHydrationFieldLocks>({ subtitle: false, rating: false, notes: false });
     const [serverReviewCount, setServerReviewCount] = useState(0);
     const [serverLastReview, setServerLastReview] = useState<ReviewHistoryResponse['lastReview']>(null);
+    const [isReviewHistoryLoading, setIsReviewHistoryLoading] = useState(false);
 
     const sameCategoryItems = getAllItemsByCategory(category);
     const keyMatch = findMostRecentReviewMatchByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
     const reviewMatchCountByKey = countReviewMatchesByKey(sameCategoryItems, reviewMatchKey, existingItem?.id);
-    const fallbackMatchCandidate = title.trim()
-        ? { category, title, subtitle }
-        : null;
-    const fallbackMatch = fallbackMatchCandidate
-        ? findMostRecentExactReviewMatch(sameCategoryItems, fallbackMatchCandidate, existingItem?.id)
-        : undefined;
-    const fallbackReviewCount = fallbackMatchCandidate
-        ? countExactReviewMatches(sameCategoryItems, fallbackMatchCandidate, existingItem?.id)
+    const hasApiConfirmedMatch = !!reviewMatchKey;
+    const reviewCount = hasApiConfirmedMatch
+        ? Math.max(serverReviewCount, reviewMatchCountByKey) + (existingItem ? 1 : 0)
         : 0;
-    const reviewCount = Math.max(serverReviewCount, reviewMatchCountByKey, fallbackReviewCount) + (existingItem ? 1 : 0);
-    const activeMatchKey = reviewMatchKey || (fallbackMatchCandidate ? `fallback:${buildReviewMatchKey(fallbackMatchCandidate)}` : null);
+    const activeMatchKey = reviewMatchKey || null;
     const reviewCountLabel = getReviewCountLabel(category, reviewCount);
-    const exactMatch = serverLastReview || keyMatch || fallbackMatch;
+    const exactMatch = serverLastReview || keyMatch;
+    const hasReviewAndScoreOnCard = draft.rating !== undefined && !!draft.notes.trim();
+    const showRepeatBadge = hasApiConfirmedMatch && reviewCount > 1 && hasReviewAndScoreOnCard;
     const hydrationSource = buildReviewHydrationSource(activeMatchKey, exactMatch);
 
     useEffect(() => {
@@ -200,25 +194,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
     useEffect(() => {
-        const normalizedTitle = title.trim();
-        if (readOnly || (!reviewMatchKey && !normalizedTitle)) {
+        if (readOnly || !reviewMatchKey) {
             setServerReviewCount(0);
             setServerLastReview(null);
+            setIsReviewHistoryLoading(false);
             return;
         }
 
         const params = new URLSearchParams();
-        if (reviewMatchKey) params.set('reviewMatchKey', reviewMatchKey);
-        if (normalizedTitle) {
-            params.set('category', category);
-            params.set('title', normalizedTitle);
-            const normalizedSubtitle = subtitle.trim();
-            if (normalizedSubtitle) params.set('subtitle', normalizedSubtitle);
-        }
+        params.set('reviewMatchKey', reviewMatchKey);
 
         const controller = new AbortController();
         const timeoutId = window.setTimeout(async () => {
             try {
+                setIsReviewHistoryLoading(true);
                 const response = await fetch(`/api/social/review-history?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
                 if (!response.ok) {
                     setServerReviewCount(0);
@@ -234,6 +223,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 }
                 setServerReviewCount(0);
                 setServerLastReview(null);
+            } finally {
+                setIsReviewHistoryLoading(false);
             }
         }, 90);
 
@@ -241,7 +232,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             controller.abort();
             window.clearTimeout(timeoutId);
         };
-    }, [category, readOnly, reviewMatchKey, subtitle, title]);
+    }, [readOnly, reviewMatchKey]);
 
     useEffect(() => {
         if (readOnly || existingItem || !hydrationSource) return;
@@ -383,7 +374,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
-                                {reviewCount > 1 && title.trim() && (
+                                {isReviewHistoryLoading && hasApiConfirmedMatch && (
+                                    <div className="mt-2 text-[10px] uppercase tracking-wider text-neutral-500">
+                                        Checking repeat listens...
+                                    </div>
+                                )}
+                                {showRepeatBadge && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
                                         {reviewCountLabel}{exactMatch && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
