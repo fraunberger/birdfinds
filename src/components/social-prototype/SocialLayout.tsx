@@ -24,7 +24,7 @@ export function SocialLayout() {
   const router = useRouter();
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, isAdmin } = useUserProfile();
+  const { profile, loading: profileLoading, isAdmin, hasPublishedPost: hasPublishedPostEver } = useUserProfile();
   const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded, resetAndRefresh } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
@@ -32,7 +32,7 @@ export function SocialLayout() {
   const [isEntryMode, setIsEntryMode] = React.useState(false);
   const hasUsername = !!profile?.username?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
-  const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
+  const hasPublishedPost = hasPublishedPostEver || statuses.some((status) => status.published && status.id !== "temp-optimistic");
   const stepOneComplete = !!user && hasUsername;
   const stepTwoComplete = stepOneComplete && hasCategories;
   const stepThreeComplete = stepTwoComplete && hasPublishedPost;

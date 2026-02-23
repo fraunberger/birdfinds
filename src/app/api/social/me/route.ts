@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ clerkUserId: null, linkedUserId: null, profile: null, isAdmin: false });
+      return NextResponse.json({ clerkUserId: null, linkedUserId: null, profile: null, isAdmin: false, hasPublishedPost: false });
     }
 
     const linkedUserId = await getOrCreateLinkedSupabaseUser();
@@ -24,6 +24,7 @@ export async function GET() {
         linkedUserId: null,
         profile: null,
         isAdmin: adminIds.includes(userId),
+        hasPublishedPost: false,
       });
     }
 
@@ -34,6 +35,14 @@ export async function GET() {
       .eq("id", linkedUserId)
       .maybeSingle();
 
+    const { data: publishedStatuses } = await supabaseAdmin
+      .from("social_statuses")
+      .select("id")
+      .eq("user_id", linkedUserId)
+      .eq("published", true)
+      .is("deleted_at", null)
+      .limit(1);
+
     const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
     const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
     const isAdmin = adminClerkIds.includes(userId) || adminLinkedIds.includes(linkedUserId);
@@ -43,6 +52,7 @@ export async function GET() {
       linkedUserId,
       profile: profile || null,
       isAdmin,
+      hasPublishedPost: Boolean(publishedStatuses?.length),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
