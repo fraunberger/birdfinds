@@ -205,8 +205,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
                 nextImage = serializeItemMeta(meta);
             }
-            if (previousItem && previousItem.id !== 'temp') {
-                await updateItemInActive(previousItem.id, { ...item, image: nextImage });
+            if (existingItem && existingItem.id !== 'temp') {
+                await updateItemInActive(existingItem.id, { ...item, image: nextImage });
             } else {
                 await addItemToActive({ ...item, image: nextImage });
             }
