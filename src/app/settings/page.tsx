@@ -4,18 +4,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { ProfileVisibility, useUserProfile } from "@/lib/social-prototype/store";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
+  const { user: clerkUser } = useUser();
   const { openUserProfile } = useClerk();
   const { profile, updateProfile } = useUserProfile();
   const [visibility, setVisibility] = useState<ProfileVisibility>("public");
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
+  const [credentialsError, setCredentialsError] = useState<string | null>(null);
+
+  const canManagePassword = clerkUser?.passwordEnabled ?? false;
 
   useEffect(() => {
     setVisibility(profile?.visibility || (profile?.isPrivate ? "private" : "public"));
@@ -42,6 +46,7 @@ export default function SettingsPage() {
   };
 
   const openAccountSettings = async (startPath?: "email-addresses" | "security") => {
+    setCredentialsError(null);
     try {
       if (startPath) {
         await openUserProfile({ __experimental_startPath: startPath });
@@ -49,7 +54,11 @@ export default function SettingsPage() {
       }
       await openUserProfile();
     } catch {
-      await openUserProfile();
+      try {
+        await openUserProfile();
+      } catch {
+        setCredentialsError("Unable to open Clerk account settings right now.");
+      }
     }
   };
 
@@ -157,13 +166,20 @@ export default function SettingsPage() {
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
-              onClick={() => openAccountSettings("security")}
+              onClick={() => (canManagePassword ? openAccountSettings("security") : openAccountSettings())}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Change Password
             </button>
-            <p className="mt-2 text-xs text-neutral-600">Opens Clerk security popup for login password only.</p>
+            <p className="mt-2 text-xs text-neutral-600">
+              {canManagePassword
+                ? "Opens Clerk security popup for login password only."
+                : "Your account is using Google sign-in, so password changes are managed in Google. This opens general Clerk account settings."}
+            </p>
           </div>
+          {credentialsError ? (
+            <p className="text-[10px] uppercase tracking-widest text-red-600">{credentialsError}</p>
+          ) : null}
         </main>
       </div>
     </div>
