@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
 
   const canManagePassword = clerkUser?.passwordEnabled ?? false;
+  const canManageEmail = canManagePassword;
 
   useEffect(() => {
     setVisibility(profile?.visibility || (profile?.isPrivate ? "private" : "public"));
@@ -155,12 +156,16 @@ export default function SettingsPage() {
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
-              onClick={() => openAccountSettings("email-addresses")}
+              onClick={() => (canManageEmail ? openAccountSettings("email-addresses") : openAccountSettings())}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Change Login Username/Email
             </button>
-            <p className="mt-2 text-xs text-neutral-600">Opens Clerk account popup for login username/email only.</p>
+            <p className="mt-2 text-xs text-neutral-600">
+              {canManageEmail
+                ? "Opens Clerk account popup for login username/email only."
+                : "Your account is managed by Google sign-in, so login email changes must be made in Google. This opens general Clerk account settings."}
+            </p>
           </div>
 
           <div className="border border-neutral-300 p-3">
