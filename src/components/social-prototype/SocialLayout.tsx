@@ -23,8 +23,8 @@ export function SocialLayout() {
   const router = useRouter();
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, isAdmin } = useUserProfile();
-  const { setActiveDate, resetAndRefresh } = useSocialStore();
+  const { profile, loading: profileLoading, isAdmin, hasPublishedPost } = useUserProfile();
+  const { setActiveDate, resetAndRefresh, statuses } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
@@ -36,6 +36,8 @@ export function SocialLayout() {
   const stepThreeComplete = !!user && hasCategories;
   const onboardingComplete = stepOneComplete && stepTwoComplete && stepThreeComplete;
   const needsOnboarding = !!user && !onboardingComplete;
+  const hasPublishedPostInFeed = hasPublishedPost || statuses.some((status) => status.published && status.id !== "temp-optimistic");
+  const needsFirstPost = !!user && onboardingComplete && !hasPublishedPostInFeed;
   const showOnboardingChecklist = !!user && needsOnboarding;
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -278,9 +280,31 @@ export function SocialLayout() {
 
           {user && onboardingComplete && (
             <>
-              <StatusComposer
-                userCategories={profile?.categories}
-              />
+              {needsFirstPost && (
+                <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Next Step</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+                    <button
+                      onClick={() => {
+                        const target = document.getElementById("first-post-composer");
+                        if (target) {
+                          target.scrollIntoView({ behavior: "smooth", block: "start" });
+                        } else {
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                      className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+                    >
+                      Write First Post
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div id="first-post-composer">
+                <StatusComposer
+                  userCategories={profile?.categories}
+                />
+              </div>
 
             </>
           )}

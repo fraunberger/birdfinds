@@ -26,11 +26,28 @@ export default function SettingsPage() {
     setVisibilityError(null);
     setSavingVisibility(true);
     try {
-      await updateProfile({ visibility: nextVisibility, isPrivate: nextVisibility === "private" });
+      await updateProfile({
+        username: profile?.username || user?.username || user?.email?.split("@")[0] || "",
+        avatarUrl: profile?.avatarUrl,
+        categories: profile?.categories || [],
+        visibility: nextVisibility,
+        isPrivate: nextVisibility === "private",
+        categoryConfigs: profile?.categoryConfigs || {},
+      });
     } catch (error) {
       setVisibilityError(error instanceof Error ? error.message : "Unable to update visibility");
     } finally {
       setSavingVisibility(false);
+    }
+  };
+
+  const openAccountSettings = async () => {
+    try {
+      await openUserProfile();
+    } catch {
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
     }
   };
 
@@ -127,21 +144,23 @@ export default function SettingsPage() {
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
             <button
-              onClick={() => openUserProfile({ __experimental_startPath: "email-addresses" })}
+              onClick={openAccountSettings}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
-              Open Email Settings
+              Open Account Settings
             </button>
+            <p className="mt-2 text-xs text-neutral-600">Update email from the account panel.</p>
           </div>
 
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Password</p>
             <button
-              onClick={() => openUserProfile({ __experimental_startPath: "security" })}
+              onClick={openAccountSettings}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
-              Open Password Settings
+              Open Account Settings
             </button>
+            <p className="mt-2 text-xs text-neutral-600">Change password from the account panel.</p>
           </div>
         </main>
       </div>
