@@ -10,15 +10,12 @@ import { TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 // Helpers
 // ---------------------------------------------------------------------------
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
-const REVIEWED_NOTE_TEXT = 'reviewed already';
 
 const normalizeForMatch = (value: string) => value
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
-
-const isReviewedAlreadyLine = (line: string) => normalizeForMatch(line).replace(/[!?.,:;]+$/g, '') === REVIEWED_NOTE_TEXT;
 
 const isMatchingItemTerm = (term: string, title: string) => normalizeForMatch(term) === normalizeForMatch(title);
 
@@ -48,8 +45,6 @@ export interface UseTaggingStateOptions {
     updateActiveStatus: (text: string) => Promise<string | void>;
     /** Add a new item row. */
     addItemToActive: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
-    /** Update an existing item row. */
-    updateItemInActive: (itemId: string, item: Partial<Omit<ConsumableItem, 'id' | 'createdAt'>>) => Promise<void>;
 }
 
 export interface TaggingState {
@@ -98,7 +93,6 @@ export function useTaggingState({
     setContentForActive,
     updateActiveStatus,
     addItemToActive,
-    updateItemInActive,
 }: UseTaggingStateOptions): TaggingState {
     const [isMobileTagging, setIsMobileTagging] = useState(false);
     const [selectionStart, setSelectionStart] = useState(0);
@@ -114,22 +108,6 @@ export function useTaggingState({
     const inFlightRef = useRef(false);
     const recentKeyRef = useRef<{ key: string; at: number } | null>(null);
     const lastSelectionRef = useRef<{ text: string; at: number } | null>(null);
-
-    const markReviewedAlready = useCallback(async (item: ConsumableItem) => {
-        const rawNotes = item.notes?.trim() || '';
-        const lines = rawNotes ? rawNotes.split('\n') : [];
-        const hasReviewedAlready = lines.some((line) => isReviewedAlreadyLine(line.trim()));
-        if (hasReviewedAlready) {
-            const normalizedLines = lines.map((line) => (isReviewedAlreadyLine(line.trim()) ? REVIEWED_NOTE_TEXT : line));
-            const normalizedNotes = normalizedLines.join('\n');
-            if (normalizedNotes !== rawNotes) {
-                await updateItemInActive(item.id, { notes: normalizedNotes });
-            }
-            return;
-        }
-        const nextNotes = rawNotes ? `${rawNotes}\n${REVIEWED_NOTE_TEXT}` : REVIEWED_NOTE_TEXT;
-        await updateItemInActive(item.id, { notes: nextNotes });
-    }, [updateItemInActive]);
 
     // Mobile detection
     useEffect(() => {
@@ -228,8 +206,6 @@ export function useTaggingState({
                 try {
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
-                    } else {
-                        await markReviewedAlready(existing);
                     }
                     const nextContent = insertTagMarkerAtRange(content || '', selectionStart, selectionEnd);
                     if (nextContent !== (content || '')) {
@@ -270,8 +246,6 @@ export function useTaggingState({
                 try {
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
-                    } else {
-                        await markReviewedAlready(existing);
                     }
                     // Remove the @ prefix from content, keep just the title text
                     const currentContent = content || '';
@@ -296,7 +270,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd, markReviewedAlready]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {
@@ -321,8 +295,6 @@ export function useTaggingState({
         try {
             if (!existing) {
                 await addItemToActive({ category: quickAddCategory, title, rating: undefined, subtitle: '', notes: '' });
-            } else {
-                await markReviewedAlready(existing);
             }
             // Insert title into content at the end (or append with space)
             const currentContent = content || '';
@@ -338,7 +310,7 @@ export function useTaggingState({
             inFlightRef.current = false;
             setBusy(false);
         }
-    }, [quickAddTitle, quickAddCategory, content, items, cancelQuickAdd, addItemToActive, setContentForActive, updateActiveStatus, markReviewedAlready]);
+    }, [quickAddTitle, quickAddCategory, content, items, cancelQuickAdd, addItemToActive, setContentForActive, updateActiveStatus]);
 
     return {
         isMobileTagging,

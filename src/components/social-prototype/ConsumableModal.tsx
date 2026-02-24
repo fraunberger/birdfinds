@@ -2,9 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Category, ConsumableItem, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
+import { Category, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
 import { buildItemPath, getCanonicalItemKey, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
-import { parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
+import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -100,9 +100,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim()) return null;
+        const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
         const matches = allUserItems.filter(item => {
             if (existingItem && item.id === existingItem.id) return false;
+            if (draftExternalKey) {
+                return getItemExternalIdentityKey(item.category, item.image) === draftExternalKey;
+            }
             return getCanonicalItemKey(item) === draftKey;
         });
         if (matches.length === 0) return null;
@@ -112,7 +116,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             verb: getRepeatTagVerb(category),
             latestPrevious: sorted[0],
         };
-    }, [allUserItems, category, title, subtitle, existingItem]);
+    }, [allUserItems, category, title, subtitle, existingItem, draft.image]);
 
     // ── Auto-populate from previous repeat ─────────────────────────────
     const [populatedFromId, setPopulatedFromId] = useState<string | null>(null);
@@ -122,11 +126,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         const prev = repeatInfo.latestPrevious;
         // Only re-populate if this is a different previous item than last time
         if (populatedFromId === prev.id) return;
-        setDraft(d => ({
-            ...d,
-            rating: d.rating ?? prev.rating,
-            notes: d.notes || prev.notes || '',
-        }));
+        setDraft(d => {
+            const nextRating = (d.rating === undefined || d.rating === null) ? prev.rating : d.rating;
+            const nextNotes = (!d.notes || d.notes.trim() === '') ? (prev.notes || '') : d.notes;
+            return { ...d, rating: nextRating, notes: nextNotes };
+        });
         setPopulatedFromId(prev.id);
     }, [repeatInfo, existingItem, populatedFromId]);
 
@@ -310,7 +314,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.artist, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl }) })); setShowMusicResults(false); }}
+                                            <button type="button" onClick={() => {
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: r.title,
+                                                    subtitle: r.artist,
+                                                    image: serializeItemMeta({
+                                                        ...parseItemMeta(prev.image),
+                                                        imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
+                                                        externalSource: 'musicbrainz',
+                                                        externalId: r.id,
+                                                    }),
+                                                }));
+                                                setShowMusicResults(false);
+                                            }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.artist || 'Unknown artist'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -329,7 +346,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         emptyLabel="No results"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(r) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: r.title, subtitle: r.subtitle || prev.subtitle, image: serializeItemMeta({ ...parseItemMeta(prev.image), imageUrl: r.image || parseItemMeta(prev.image).imageUrl }) })); setShowMovieResults(false); }}
+                                            <button type="button" onClick={() => {
+                                                const source = r.id.startsWith('tt') ? 'imdb' : 'itunes';
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: r.title,
+                                                    subtitle: r.subtitle || prev.subtitle,
+                                                    image: serializeItemMeta({
+                                                        ...parseItemMeta(prev.image),
+                                                        imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
+                                                        externalSource: source,
+                                                        externalId: r.id,
+                                                    }),
+                                                }));
+                                                setShowMovieResults(false);
+                                            }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{r.title}</div>
                                                 <div className="text-xs text-neutral-500">{r.subtitle || 'Unknown'}{r.releaseDate ? ` • ${r.releaseDate}` : ''}</div>
@@ -354,7 +385,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         setSelectedPodcast(show);
                                                         setPodcastEpisodes([]);
                                                         setPodcastEpisodeSearchToken(0);
-                                                        setDraft((prev) => ({ ...prev, title: show.name, subtitle: '' }));
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            title: show.name,
+                                                            subtitle: '',
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                imageUrl: show.image || parseItemMeta(prev.image).imageUrl,
+                                                                externalSource: 'itunes-podcast-show',
+                                                                externalId: show.id,
+                                                            }),
+                                                        }));
                                                     }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{show.name}</div>
                                                         <div className="text-xs text-neutral-500">{show.author || 'Unknown'}</div>
@@ -384,7 +425,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodeSearchToken > 0 && podcastEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingEpisodes && podcastEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: ep.title, subtitle: selectedPodcast.name })); setShowPodcastPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => {
+                                                        const episodeIdentity = `${selectedPodcast.id}:${ep.id}`;
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            title: ep.title,
+                                                            subtitle: selectedPodcast.name,
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                imageUrl: selectedPodcast.image || parseItemMeta(prev.image).imageUrl,
+                                                                externalSource: 'itunes-podcast-episode',
+                                                                externalId: episodeIdentity,
+                                                            }),
+                                                        }));
+                                                        setShowPodcastPicker(false);
+                                                    }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.title}</div>
                                                         <div className="text-xs text-neutral-500">{ep.publishedAt || 'Recent episode'}</div>
@@ -411,7 +466,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         setSelectedTvShow(show);
                                                         setTvEpisodes([]);
                                                         setTvEpisodeSearchToken(0);
-                                                        setDraft((prev) => ({ ...prev, title: show.name, subtitle: '' }));
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            title: show.name,
+                                                            subtitle: '',
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                imageUrl: show.image || parseItemMeta(prev.image).imageUrl,
+                                                                externalSource: 'tvmaze-show',
+                                                                externalId: show.id,
+                                                            }),
+                                                        }));
                                                         setShowTvPicker(true);
                                                     }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{show.name}</div>
@@ -442,7 +507,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: selectedTvShow.name, subtitle: ep.label })); setShowTvPicker(false); }}
+                                                    <button key={ep.id} type="button" onClick={() => {
+                                                        const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            title: selectedTvShow.name,
+                                                            subtitle: ep.label,
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                imageUrl: selectedTvShow.image || parseItemMeta(prev.image).imageUrl,
+                                                                externalSource: 'tvmaze-episode',
+                                                                externalId: episodeIdentity,
+                                                            }),
+                                                        }));
+                                                        setShowTvPicker(false);
+                                                    }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{ep.label}</div>
                                                         <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
@@ -475,6 +554,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         ...parseItemMeta(prev.image),
                                                         imageUrl: nextImageRef,
                                                         restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        externalSource: 'google-places',
+                                                        externalId: place.id,
                                                     }),
                                                 }));
                                                 setShowRestaurantResults(false);
@@ -497,7 +578,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         maxHeightClass="max-h-56"
                                         keyExtractor={(r) => r.id}
                                         renderResult={(book) => (
-                                            <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, title: book.title, subtitle: book.author || prev.subtitle })); setShowBookResults(false); }}
+                                            <button type="button" onClick={() => {
+                                                const source = /^OL\d+W$/i.test(book.id) ? 'openlibrary' : 'googlebooks';
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: book.title,
+                                                    subtitle: book.author || prev.subtitle,
+                                                    image: serializeItemMeta({
+                                                        ...parseItemMeta(prev.image),
+                                                        externalSource: source,
+                                                        externalId: book.id,
+                                                    }),
+                                                }));
+                                                setShowBookResults(false);
+                                            }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{book.title}</div>
                                                 <div className="text-xs text-neutral-500">{book.author || 'Unknown author'}{book.publishedDate ? ` • ${book.publishedDate}` : ''}</div>
@@ -548,7 +642,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             maxHeightClass="max-h-56"
                                             keyExtractor={(r) => r.id}
                                             renderResult={(brewery) => (
-                                                <button type="button" onClick={() => { setDraft((prev) => ({ ...prev, subtitle: brewery.name })); setShowBreweryResults(false); }}
+                                                <button type="button" onClick={() => {
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        subtitle: brewery.name,
+                                                        image: serializeItemMeta({
+                                                            ...parseItemMeta(prev.image),
+                                                            externalSource: 'openbrewerydb',
+                                                            externalId: brewery.id,
+                                                        }),
+                                                    }));
+                                                    setShowBreweryResults(false);
+                                                }}
                                                     className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                     <div className="text-sm text-neutral-900">{brewery.name}</div>
                                                     <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>

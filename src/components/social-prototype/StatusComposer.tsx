@@ -6,7 +6,7 @@ import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
-import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
+import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
@@ -21,7 +21,7 @@ const getErrorMessage = (error: unknown) => (error instanceof Error ? error.mess
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, getAllItemsByCategory, statuses, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,7 +68,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setContentForActive,
         updateActiveStatus,
         addItemToActive,
-        updateItemInActive,
     });
 
     // ── Preview highlights ─────────────────────────────────────────────
@@ -188,10 +187,16 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
         try {
             const draftKey = getCanonicalItemKey(item);
+            const incomingExternalKey = getItemExternalIdentityKey(item.category, item.image);
             const previousItem = existingItem
-                || allUserItems.find(i => getCanonicalItemKey(i) === draftKey);
+                || allUserItems.find((candidate) => {
+                    if (incomingExternalKey) {
+                        return getItemExternalIdentityKey(candidate.category, candidate.image) === incomingExternalKey;
+                    }
+                    return getCanonicalItemKey(candidate) === draftKey;
+                });
             let nextImage = item.image;
-            if (previousItem) {
+            if (previousItem && (existingItem || incomingExternalKey)) {
                 const previousMeta = parseItemMeta(previousItem.image);
                 const incomingMeta = parseItemMeta(item.image);
                 const meta = {
@@ -204,7 +209,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 };
                 const oldTitle = previousItem.title.trim();
                 const newTitle = item.title.trim();
-                if (oldTitle && newTitle && oldTitle.toLowerCase() !== newTitle.toLowerCase()) {
+                if (existingItem && oldTitle && newTitle && oldTitle.toLowerCase() !== newTitle.toLowerCase()) {
                     const aliases = new Set([...(meta.aliases || []), oldTitle]);
                     meta.aliases = Array.from(aliases);
                 }

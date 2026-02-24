@@ -11,6 +11,8 @@ export interface ItemMetaData {
     recipeUrl?: string;
     aliases?: string[];
     restaurantLocation?: string;
+    externalSource?: string;
+    externalId?: string;
 }
 
 const META_PREFIX = 'meta:';
@@ -27,6 +29,8 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
             recipeUrl: typeof parsed.recipeUrl === 'string' ? parsed.recipeUrl : undefined,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
             restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
+            externalSource: typeof parsed.externalSource === 'string' ? parsed.externalSource : undefined,
+            externalId: typeof parsed.externalId === 'string' ? parsed.externalId : undefined,
         };
     } catch {
         return {};
@@ -37,12 +41,16 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
 export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
     if (!meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
-    if (!meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0 && meta.imageUrl) return meta.imageUrl;
+    const externalSource = meta.externalSource?.trim();
+    const externalId = meta.externalId?.trim();
+    if (!meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
         restaurantLocation: meta.restaurantLocation,
         aliases,
+        externalSource,
+        externalId,
     }))}`;
 };
 
@@ -83,4 +91,14 @@ export const toGoogleMapsLink = (raw?: string, title?: string, subtitle?: string
     const query = [title || '', meta.restaurantLocation || subtitle || ''].join(' ').trim();
     if (!query) return null;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
+const normalizeIdentityPart = (value?: string) => (value || '').trim().toLowerCase();
+
+export const getItemExternalIdentityKey = (category: string, raw?: string): string | null => {
+    const meta = parseItemMeta(raw);
+    const source = normalizeIdentityPart(meta.externalSource);
+    const id = normalizeIdentityPart(meta.externalId);
+    if (!source || !id) return null;
+    return `${normalizeIdentityPart(category)}::${source}::${id}`;
 };
