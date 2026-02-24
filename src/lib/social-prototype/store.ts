@@ -14,6 +14,8 @@ export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaura
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
 export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';
+export const NON_PILE_CATEGORIES: Category[] = ['link'];
+
 
 export interface ConsumableItem {
     id: string;
@@ -202,6 +204,7 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#f7756a', icon: '' },
     podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#b78ef5', icon: '' },
     book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#6ab4f7', icon: '' },
+    link: { id: 'link', label: 'Link', shortLabel: 'LINK', titleLabel: 'Link Title', subtitleLabel: 'Context', subtitlePlaceholder: 'Optional context', ratingLabel: 'Rating', notesLabel: 'Notes', notesPlaceholder: 'Add notes about this link...', color: '#94a3b8', icon: '' },
 };
 
 let ACTIVE_CATEGORY_CONFIG_OVERRIDES: Record<string, CategoryConfigOverride> = {};
@@ -742,10 +745,12 @@ class SocialStore {
     }
 
     getAllItemsByCategory(category: Category): ConsumableItem[] {
+        if (NON_PILE_CATEGORIES.includes(category)) return [];
         return this.state.statuses.flatMap(s => s.items).filter(i => i.category === category);
     }
 
     getUserItemsByCategory(category: Category, userId: string): ConsumableItem[] {
+        if (NON_PILE_CATEGORIES.includes(category)) return [];
         return this.state.allStatuses
             .filter(s => s.userId === userId)
             .flatMap(s => s.items)

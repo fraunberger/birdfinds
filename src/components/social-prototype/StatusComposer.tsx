@@ -51,6 +51,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         ? userCategories
         : Object.keys(CATEGORY_CONFIGS) as Category[];
     const activeCategoryConfigs = activeCategories.map(c => getCategoryConfig(c));
+    const toolbarCategoryConfigs = activeCategoryConfigs.some((cat) => cat.id === 'link')
+        ? activeCategoryConfigs
+        : [...activeCategoryConfigs, getCategoryConfig('link')];
     const draftsStorageKey = `birdfinds:composer:drafts:v2:${user?.id || 'anon'}`;
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
@@ -414,6 +417,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             <p>Select text in the editor, then tap a category button to tag it.</p>
                             <p className="mt-1">Or type @item in the editor, then tap a category to tag everything after the @.</p>
                             <p className="mt-1">Or tap a category with no selection to type a new item name.</p>
+                            <p className="mt-1">Use the LINK tag for article-style links with notes (not tracked in pile categories).</p>
                             <p className="mt-1">Use the table LINK button to connect selected words to an existing item.</p>
                         </div>
                     )}
@@ -422,7 +426,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         {/* ── Inline Category Toolbar ── */}
                         <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
                             <div className="flex items-stretch min-w-max shrink-0">
-                                {activeCategoryConfigs.map(cat => {
+                                {toolbarCategoryConfigs.map(cat => {
                                     const isActive = tagging.quickAddCategory === cat.id;
                                     const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
                                     return (

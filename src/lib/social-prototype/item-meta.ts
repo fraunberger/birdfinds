@@ -9,6 +9,7 @@
 export interface ItemMetaData {
     imageUrl?: string;
     recipeUrl?: string;
+    linkUrl?: string;
     aliases?: string[];
     restaurantLocation?: string;
     externalSource?: string;
@@ -27,6 +28,7 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
         return {
             imageUrl: parsed.imageUrl,
             recipeUrl: typeof parsed.recipeUrl === 'string' ? parsed.recipeUrl : undefined,
+            linkUrl: typeof parsed.linkUrl === 'string' ? parsed.linkUrl : undefined,
             aliases: Array.isArray(parsed.aliases) ? parsed.aliases.filter(Boolean) : [],
             restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
             externalSource: typeof parsed.externalSource === 'string' ? parsed.externalSource : undefined,
@@ -40,13 +42,14 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
 /** Serialize structured metadata back into the `image` column format. */
 export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
-    if (!meta.imageUrl && !meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
     const externalSource = meta.externalSource?.trim();
     const externalId = meta.externalId?.trim();
-    if (!meta.recipeUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && meta.imageUrl) return meta.imageUrl;
+    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
+        linkUrl: meta.linkUrl,
         restaurantLocation: meta.restaurantLocation,
         aliases,
         externalSource,

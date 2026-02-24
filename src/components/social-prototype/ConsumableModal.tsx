@@ -29,6 +29,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
     const recipeUrl = parsedMeta.recipeUrl || '';
+    const linkUrl = parsedMeta.linkUrl || '';
     const restaurantLocation = parsedMeta.restaurantLocation || '';
 
     // ── Search visibility & token state ────────────────────────────────
@@ -200,6 +201,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant')
         ? toGoogleMapsLink(draft.image || existingItem?.image, title, subtitle)
         : null;
+    const linkCardHref = (existingItem?.category === 'link' || category === 'link') && linkUrl ? linkUrl : null;
 
     // ── Keyboard shortcuts ─────────────────────────────────────────────
     useEffect(() => {
@@ -707,6 +709,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box */}
+                        {category !== 'link' && (
                         <div className="flex-shrink-0 pt-6">
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
@@ -728,7 +731,35 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
+
+                    {category === 'link' && (
+                        <div>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Hyperlink</label>
+                            {readOnly ? (
+                                linkUrl ? (
+                                    <a href={linkUrl} target="_blank" rel="noreferrer" className="text-xs text-neutral-700 underline hover:text-neutral-900 break-all">{linkUrl}</a>
+                                ) : (
+                                    <div className="text-sm font-mono text-neutral-300">No link added</div>
+                                )
+                            ) : (
+                                <input
+                                    type="url"
+                                    value={linkUrl}
+                                    onChange={(e) => {
+                                        const next = e.target.value;
+                                        setDraft((prev) => {
+                                            const meta = parseItemMeta(prev.image);
+                                            return { ...prev, image: serializeItemMeta({ ...meta, linkUrl: next.trim() || undefined }) };
+                                        });
+                                    }}
+                                    placeholder="https://..."
+                                    className="w-full text-xs font-mono outline-none border border-neutral-300 focus:border-neutral-500 p-2 bg-white"
+                                />
+                            )}
+                        </div>
+                    )}
 
                     {/* Notes / Cooking layout */}
                     {category === 'cooking' ? (
@@ -812,6 +843,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                     </div>
                     <div className="flex gap-3">
+                        {linkCardHref && (
+                            <a href={linkCardHref} target="_blank" rel="noreferrer"
+                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500">
+                                Open Link
+                            </a>
+                        )}
                         {restaurantMapHref && (
                             <a href={restaurantMapHref} target="_blank" rel="noreferrer"
                                 className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500">
