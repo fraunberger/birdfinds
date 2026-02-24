@@ -24,7 +24,7 @@ export function SocialLayout() {
   const router = useRouter();
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, isAdmin, hasPublishedPost: hasPublishedPostEver } = useUserProfile();
+  const { profile, loading: profileLoading, isAdmin } = useUserProfile();
   const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded, resetAndRefresh } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
@@ -33,7 +33,7 @@ export function SocialLayout() {
   const hasUsername = !!profile?.username?.trim();
   const hasAvatar = !!profile?.avatarUrl?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
-  const hasPublishedPost = hasPublishedPostEver || statuses.some((status) => status.published && status.id !== "temp-optimistic");
+  const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
   const stepOneComplete = !!user && hasUsername && hasAvatar;
   const stepTwoComplete = stepOneComplete && hasCategories;
   const stepThreeComplete = stepTwoComplete && hasPublishedPost;
@@ -280,8 +280,8 @@ export function SocialLayout() {
               </ol>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
                 {(needsOnboarding || needsCategorySetup) && (
-                  <Link href="/settings" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
-                    Open Settings
+                  <Link href="/settings/profile-setup" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+                    Get Started
                   </Link>
                 )}
                 {needsFirstPost && !needsOnboarding && !needsCategorySetup && (

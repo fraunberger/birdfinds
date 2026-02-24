@@ -23,12 +23,8 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [saving, setSaving] = useState(false);
-    const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const lastSavedSignatureRef = useRef<string>('');
-    const autoSaveTimerRef = useRef<number | null>(null);
-    const saveIndicatorTimerRef = useRef<number | null>(null);
     const inFlightSaveRef = useRef<Promise<void> | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const avatarObjectUrlRef = useRef<string | null>(null);
@@ -48,13 +44,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             setSelectedCategories(profile.categories || []);
             setVisibility(profile.visibility || (profile.isPrivate ? 'private' : 'public'));
             setCategoryConfigs(profile.categoryConfigs || {});
-            lastSavedSignatureRef.current = JSON.stringify({
-                username: profile.username || '',
-                avatarUrl: profile.avatarUrl || '',
-                categories: profile.categories || [],
-                visibility: profile.visibility || (profile.isPrivate ? 'private' : 'public'),
-                categoryConfigs: profile.categoryConfigs || {},
-            });
         }
     }, [profile]);
 
@@ -221,13 +210,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 isPrivate: visibility === 'private',
                 categoryConfigs,
             });
-            lastSavedSignatureRef.current = JSON.stringify({
-                username: username.trim(),
-                avatarUrl: avatarUrl || '',
-                categories: selectedCategories,
-                visibility,
-                categoryConfigs,
-            });
             afterSave?.();
         };
 
@@ -236,7 +218,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             await inFlightSaveRef.current;
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to save profile');
-            setAutoSaveState('error');
         } finally {
             inFlightSaveRef.current = null;
             setSaving(false);
@@ -246,52 +227,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const handleSave = async () => {
         await persistProfile(onComplete);
     };
-
-    useEffect(() => {
-        if (!profile) return; // onboarding still uses explicit save
-        if (!username.trim()) return;
-        if (isCropping || avatarUploading) return;
-
-        const nextSignature = JSON.stringify({
-            username: username.trim(),
-            avatarUrl: avatarUrl || '',
-            categories: selectedCategories,
-            visibility,
-            categoryConfigs,
-        });
-
-        if (nextSignature === lastSavedSignatureRef.current) return;
-
-        if (autoSaveTimerRef.current) {
-            window.clearTimeout(autoSaveTimerRef.current);
-        }
-
-        autoSaveTimerRef.current = window.setTimeout(async () => {
-            if (saveIndicatorTimerRef.current) {
-                window.clearTimeout(saveIndicatorTimerRef.current);
-            }
-            saveIndicatorTimerRef.current = window.setTimeout(() => {
-                setAutoSaveState('saving');
-            }, 350);
-            await persistProfile();
-            if (saveIndicatorTimerRef.current) {
-                window.clearTimeout(saveIndicatorTimerRef.current);
-                saveIndicatorTimerRef.current = null;
-            }
-            setAutoSaveState((prev) => (prev === 'error' ? 'error' : 'idle'));
-        }, 900);
-
-        return () => {
-            if (autoSaveTimerRef.current) {
-                window.clearTimeout(autoSaveTimerRef.current);
-                autoSaveTimerRef.current = null;
-            }
-            if (saveIndicatorTimerRef.current) {
-                window.clearTimeout(saveIndicatorTimerRef.current);
-                saveIndicatorTimerRef.current = null;
-            }
-        };
-    }, [profile, username, avatarUrl, selectedCategories, visibility, categoryConfigs, isCropping, avatarUploading]);
 
     const handleSignOut = async () => {
         await signOut();
@@ -307,6 +242,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     }
 
     const editingConfig = editingCategory ? buildEditableConfig(editingCategory) : null;
+    const needsFirstTimeSetup = !profile?.username?.trim() || !profile?.avatarUrl?.trim() || !(profile?.categories?.length);
 
     return (
         <div className="font-mono max-w-md mx-auto relative">
@@ -359,7 +295,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             )}
 
             <h2 className="text-lg font-bold uppercase tracking-widest text-center mb-8 border-b border-neutral-300 pb-3">
-                {profile ? 'Settings' : 'Set Up Your Profile'}
+                {profile ? 'Profile Setup' : 'Set Up Your Profile'}
             </h2>
 
             {editingCategory && editingConfig && (
@@ -677,16 +613,12 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                 </button>
             ) : (
                 <div className="mb-6">
-                    <div className="text-center text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
-                        {autoSaveState === 'saving' && 'Saving changes...'}
-                        {(autoSaveState === 'idle' || autoSaveState === 'error') && 'Auto-save enabled'}
-                    </div>
                     <button
                         onClick={handleSave}
                         disabled={saving || !username.trim()}
                         className="w-full bg-neutral-800 text-white py-3 text-xs font-bold uppercase tracking-widest hover:bg-neutral-700 disabled:opacity-50"
                     >
-                        {saving ? 'Saving...' : 'Save & Exit'}
+                        {saving ? 'Saving...' : needsFirstTimeSetup ? 'Get Started' : 'Save & Exit'}
                     </button>
                 </div>
             )}

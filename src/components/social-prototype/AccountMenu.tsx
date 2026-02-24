@@ -56,6 +56,13 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
             Feed
           </Link>
           <Link
+            href="/settings/profile-setup"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+          >
+            Profile Setup
+          </Link>
+          <Link
             href="/settings"
             onClick={() => setOpen(false)}
             className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
