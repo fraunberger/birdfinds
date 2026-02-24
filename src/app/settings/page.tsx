@@ -7,12 +7,19 @@ import { useAuth } from "@/lib/auth";
 import { useClerk } from "@clerk/nextjs";
 import { useUserProfile } from "@/lib/social-prototype/store";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
+import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { openUserProfile } = useClerk();
   const { profile } = useUserProfile();
+  const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
+  const pileHref = profile?.username
+    ? `/pile/${encodeURIComponent(profile.username)}`
+    : profile?.id
+      ? `/pile/${encodeURIComponent(profile.id)}`
+      : "/settings";
 
   if (loading) {
     return (
@@ -52,29 +59,27 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-3">
             <HeaderSearch />
-            <span className="text-xs uppercase tracking-widest text-neutral-400">Settings</span>
+            <AccountMenu
+              pileHref={pileHref}
+              username={username}
+              avatarUrl={profile?.avatarUrl}
+            />
           </div>
         </header>
 
         <main className="flex-grow space-y-4">
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Username</p>
+            <p className="text-xs mt-1 text-neutral-700">@{username}</p>
+          </div>
+
           <Link
             href="/settings/profile-setup"
             className="block border border-neutral-300 p-3 hover:bg-neutral-50"
           >
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Profile Setup</p>
-            <p className="text-xs mt-1">Edit avatar, categories, profile visibility, and habits.</p>
+            <p className="text-xs mt-1">Edit username, avatar, categories, profile visibility, and habits.</p>
           </Link>
-
-          <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Username</p>
-            <p className="text-xs mt-1 text-neutral-700">Current: @{profile?.username || user.username || "unknown"}</p>
-            <Link
-              href="/settings/profile-setup"
-              className="inline-block mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
-            >
-              Edit in Profile Setup
-            </Link>
-          </div>
 
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
