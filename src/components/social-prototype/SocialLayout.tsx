@@ -31,9 +31,10 @@ export function SocialLayout() {
   const reportCountRef = React.useRef<number | null>(null);
   const [isEntryMode, setIsEntryMode] = React.useState(false);
   const hasUsername = !!profile?.username?.trim();
+  const hasAvatar = !!profile?.avatarUrl?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
   const hasPublishedPost = hasPublishedPostEver || statuses.some((status) => status.published && status.id !== "temp-optimistic");
-  const stepOneComplete = !!user && hasUsername;
+  const stepOneComplete = !!user && hasUsername && hasAvatar;
   const stepTwoComplete = stepOneComplete && hasCategories;
   const stepThreeComplete = stepTwoComplete && hasPublishedPost;
   const needsOnboarding = !!user && !stepOneComplete;
@@ -261,7 +262,14 @@ export function SocialLayout() {
               <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
               <ol className="mt-2 space-y-1 text-xs">
                 <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepOneComplete ? "✓" : "□"} 1. Set username and avatar
+                  {stepOneComplete ? "✓" : "□"} 1.{" "}
+                  {hasUsername && !hasAvatar ? (
+                    <>
+                      <span className="line-through text-neutral-500">Set username</span> and add avatar
+                    </>
+                  ) : (
+                    "Set username and avatar"
+                  )}
                 </li>
                 <li className={stepTwoComplete ? "text-green-700" : "text-neutral-800"}>
                   {stepTwoComplete ? "✓" : "□"} 2. Choose categories to track
