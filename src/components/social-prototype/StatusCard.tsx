@@ -9,6 +9,7 @@ import { buildItemPath, hasItemAggregatePage } from '@/lib/social-prototype/item
 import { useAuth } from '@/lib/auth';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 interface StatusCardProps {
     status: Status;
@@ -286,6 +287,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
                             {status.items.map(item => {
                                 const config = getCategoryConfig(item.category);
+                                const itemMeta = parseItemMeta(item.image);
+                                const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
                                 return (
                                     <div
                                         key={item.id}
@@ -310,6 +313,18 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                             >
                                                 ↗
                                             </Link>
+                                        )}
+                                        {linkHref && (
+                                            <a
+                                                href={linkHref}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                title="Open hyperlink"
+                                                aria-label="Open hyperlink"
+                                            >
+                                                ↗
+                                            </a>
                                         )}
                                         {item.rating ? (
                                             <span className="text-neutral-500 font-mono ml-1">
