@@ -4,12 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { UserSetup } from "@/components/social-prototype/UserSetup";
+import { useClerk } from "@clerk/nextjs";
+import { useUserProfile } from "@/lib/social-prototype/store";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
+  const { openUserProfile } = useClerk();
+  const { profile } = useUserProfile();
 
   if (loading) {
     return (
@@ -52,12 +55,61 @@ export default function SettingsPage() {
             <span className="text-xs uppercase tracking-widest text-neutral-400">Settings</span>
           </div>
         </header>
-        <main className="flex-grow">
-          <UserSetup
-            onComplete={() => {
-              router.push("/");
-            }}
-          />
+
+        <main className="flex-grow space-y-4">
+          <Link
+            href="/settings/profile-setup"
+            className="block border border-neutral-300 p-3 hover:bg-neutral-50"
+          >
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Profile Setup</p>
+            <p className="text-xs mt-1">Edit avatar, categories, profile visibility, and habits.</p>
+          </Link>
+
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Username</p>
+            <p className="text-xs mt-1 text-neutral-700">Current: @{profile?.username || user.username || "unknown"}</p>
+            <Link
+              href="/settings/profile-setup"
+              className="inline-block mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+            >
+              Edit in Profile Setup
+            </Link>
+          </div>
+
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
+            <p className="text-xs mt-1 text-neutral-700">{user.email || "No email available"}</p>
+            <button
+              onClick={() => openUserProfile()}
+              className="mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+            >
+              Manage Email
+            </button>
+          </div>
+
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Password</p>
+            <button
+              onClick={() => openUserProfile()}
+              className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+            >
+              Open Password Settings
+            </button>
+          </div>
+
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Sign Out</p>
+            <button
+              onClick={async () => {
+                await signOut();
+                router.push("/");
+                router.refresh();
+              }}
+              className="mt-2 text-[10px] uppercase tracking-widest border border-red-300 text-red-700 px-2 py-1 hover:bg-red-50"
+            >
+              Sign Out
+            </button>
+          </div>
         </main>
       </div>
     </div>
