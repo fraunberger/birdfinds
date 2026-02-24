@@ -86,8 +86,8 @@ export function FeatureWalkthrough({ isSignedIn }: FeatureWalkthroughProps) {
             <Link href="/settings" className="text-neutral-600 hover:text-neutral-900 underline">
               Settings
             </Link>
-            <Link href="/apps" className="text-neutral-600 hover:text-neutral-900 underline">
-              Apps
+            <Link href="/pileated_woodpecker" className="text-neutral-600 hover:text-neutral-900 underline">
+              Election App
             </Link>
           </>
         ) : (

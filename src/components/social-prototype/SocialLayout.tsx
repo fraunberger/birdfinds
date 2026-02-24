@@ -304,10 +304,10 @@ export function SocialLayout() {
         <footer className="py-8 text-center text-xs text-neutral-300 mt-12 border-t border-neutral-200 pb-24 sm:pb-8">
           <div className="mb-3">
             <Link
-              href="/apps"
+              href="/pileated_woodpecker"
               className="inline-block border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
             >
-              Apps
+              Election App
             </Link>
           </div>
           <span className="uppercase tracking-widest">Copyright Birdfinds {new Date().getFullYear()}</span>
