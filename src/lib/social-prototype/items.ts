@@ -102,7 +102,7 @@ const REPEAT_TAG_VERBS: Record<string, string> = {
   podcast: "listened",
   book: "read",
   restaurant: "visited",
-  beer: "had",
+  beer: "drank",
   cooking: "made",
 };
 

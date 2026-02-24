@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
-import { getCanonicalItemKey } from '@/lib/social-prototype/items';
+import { getCanonicalItemKey, getRepeatTagVerb } from '@/lib/social-prototype/items';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
@@ -15,6 +15,12 @@ interface CategorySheetProps {
 
 type SortMode = 'latest' | 'top';
 
+interface AggregatedItem {
+    key: string;
+    latest: ConsumableItem;
+    count: number;
+}
+
 export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
@@ -23,24 +29,32 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
     if (!config) return null;
 
-    // Deduplicate items by canonical key, keeping the most recently created version
-    const deduped = (() => {
-        const map = new Map<string, ConsumableItem>();
+    // Aggregate items by canonical key (keep latest row + total times tagged).
+    const aggregatedItems = (() => {
+        const map = new Map<string, AggregatedItem>();
         for (const item of items) {
             const key = getCanonicalItemKey(item);
             const existing = map.get(key);
-            if (!existing || item.createdAt > existing.createdAt) {
-                map.set(key, item);
+            if (!existing) {
+                map.set(key, { key, latest: item, count: 1 });
+                continue;
+            }
+            existing.count += 1;
+            if (item.createdAt > existing.latest.createdAt) {
+                existing.latest = item;
             }
         }
         return Array.from(map.values());
     })();
 
+    const totalTaggedCount = items.length;
+    const repeatVerb = getRepeatTagVerb(category);
+
     const sortedItems = sortMode === 'top'
-        ? [...deduped]
-            .filter(i => i.rating && i.rating > 0)
-            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        : [...deduped].sort((a, b) => b.createdAt - a.createdAt);
+        ? [...aggregatedItems]
+            .filter((entry) => entry.latest.rating && entry.latest.rating > 0)
+            .sort((a, b) => (b.latest.rating || 0) - (a.latest.rating || 0))
+        : [...aggregatedItems].sort((a, b) => b.latest.createdAt - a.latest.createdAt);
 
     return (
         <div className="font-mono animate-in slide-in-from-right duration-200">
@@ -50,7 +64,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     <span className="text-base">{config.icon}</span>
                     <h3 className="text-xs font-bold uppercase tracking-widest">{config.label}</h3>
                     <span className="text-[10px] text-neutral-400 uppercase tracking-wider">
-                        {deduped.length} {deduped.length === 1 ? 'entry' : 'entries'}
+                        {aggregatedItems.length} {aggregatedItems.length === 1 ? 'entry' : 'entries'} • {totalTaggedCount} total tags
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -99,10 +113,10 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 </div>
             ) : (
                 <div className="space-y-1.5">
-                    {sortedItems.map((item, idx) => (
+                    {sortedItems.map((entry, idx) => (
                         <button
-                            key={item.id}
-                            onClick={() => setSelectedItem(item)}
+                            key={entry.key}
+                            onClick={() => setSelectedItem(entry.latest)}
                             className="w-full text-left group"
                         >
                             <div className="flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
@@ -115,23 +129,28 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
                                 {/* Main info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-bold">{item.title}</div>
-                                    {item.subtitle && (
-                                        <div className="text-[11px] text-neutral-600 mt-0.5">
-                                            {item.subtitle.split('\n')[0]}
+                                    <div className="text-xs font-bold">{entry.latest.title}</div>
+                                    {entry.count > 1 && (
+                                        <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
+                                            {repeatVerb} {entry.count} times
                                         </div>
                                     )}
-                                    {item.notes && (
+                                    {entry.latest.subtitle && (
+                                        <div className="text-[11px] text-neutral-600 mt-0.5">
+                                            {entry.latest.subtitle.split('\n')[0]}
+                                        </div>
+                                    )}
+                                    {entry.latest.notes && (
                                         <div className="text-[10px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
-                                            {item.notes}
+                                            {entry.latest.notes}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Rating /10 — prominent on the right */}
-                                {item.rating && item.rating > 0 && (
+                                {entry.latest.rating && entry.latest.rating > 0 && (
                                     <div className="flex-shrink-0 text-right">
-                                        <span className="text-sm font-bold text-neutral-800">{item.rating}</span>
+                                        <span className="text-sm font-bold text-neutral-800">{entry.latest.rating}</span>
                                         <span className="text-[9px] text-neutral-400">/10</span>
                                     </div>
                                 )}

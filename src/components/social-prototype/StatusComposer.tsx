@@ -422,7 +422,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     return (
                                         <button
                                             key={cat.id}
-                                            onClick={() => tagging.handleCategoryTap(cat.id)}
+                                            onClick={() => {
+                                                // Clear selection-driven table link mode immediately on tag button press.
+                                                setSelectedPlainText('');
+                                                recentSelectionRef.current = null;
+                                                tagging.handleCategoryTap(cat.id);
+                                            }}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onTouchStart={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
