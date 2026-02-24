@@ -7,9 +7,11 @@ import Cropper, { Point, Area } from 'react-easy-crop';
 
 interface UserSetupProps {
     onComplete: () => void;
+    isOnboarding?: boolean;
+    showPrivacy?: boolean;
 }
 
-export function UserSetup({ onComplete }: UserSetupProps) {
+export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true }: UserSetupProps) {
     const { profile, saveProfile, uploadAvatar, loading } = useUserProfile();
     const { habits, addHabit, removeHabit } = useHabits();
     const { signOut } = useAuth(); // Importing signOut
@@ -35,7 +37,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
     const [isCropping, setIsCropping] = useState(false);
-    const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (profile) {
@@ -69,7 +70,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         }
 
         setError(null);
-        setPendingAvatarFile(file);
         if (avatarObjectUrlRef.current) {
             URL.revokeObjectURL(avatarObjectUrlRef.current);
         }
@@ -87,7 +87,6 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         setIsCropping(false);
         setCropImageSrc(null);
         setCroppedAreaPixels(null);
-        setPendingAvatarFile(null);
         setZoom(1);
         setCrop({ x: 0, y: 0 });
     };
@@ -190,7 +189,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
         setNewHabitName('');
     };
 
-    const persistProfile = async (afterSave?: () => void) => {
+    const persistProfile = useCallback(async (afterSave?: () => void) => {
         if (!username.trim()) {
             setError('Username is required');
             return;
@@ -222,7 +221,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             inFlightSaveRef.current = null;
             setSaving(false);
         }
-    };
+    }, [avatarUrl, categoryConfigs, saveProfile, selectedCategories, username, visibility]);
 
     const handleSave = async () => {
         await persistProfile(onComplete);
@@ -295,7 +294,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             )}
 
             <h2 className="text-lg font-bold uppercase tracking-widest text-center mb-8 border-b border-neutral-300 pb-3">
-                {profile ? 'Profile Setup' : 'Set Up Your Profile'}
+                {isOnboarding ? 'Set Up Your Profile' : 'Profile Setup'}
             </h2>
 
             {editingCategory && editingConfig && (
@@ -414,6 +413,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
                     className="w-24 h-24 rounded-full bg-neutral-200 border-2 border-neutral-300 overflow-hidden flex items-center justify-center hover:border-neutral-500 transition-colors relative"
                 >
                     {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                         <span className="text-neutral-400 text-2xl">+</span>
@@ -548,52 +548,54 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             </div>
 
             {/* Privacy */}
-            <div className="mb-8">
-                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-3">
-                    Privacy
-                </label>
-                <div className="space-y-2">
-                    <button
-                        onClick={() => setVisibility('public')}
-                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'public'
-                            ? 'border-neutral-800 bg-neutral-800 text-white'
-                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
-                            }`}
-                    >
-                        <span className="text-sm">Public</span>
-                        <span className="uppercase tracking-wider font-bold">Public Mode</span>
-                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
-                            Anyone can view
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setVisibility('accounts')}
-                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'accounts'
-                            ? 'border-neutral-800 bg-neutral-800 text-white'
-                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
-                            }`}
-                    >
-                        <span className="text-sm">Accounts</span>
-                        <span className="uppercase tracking-wider font-bold">Accounts Only</span>
-                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
-                            Signed-in users only
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setVisibility('private')}
-                        className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'private'
-                            ? 'border-neutral-800 bg-neutral-800 text-white'
-                            : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
-                            }`}
-                    >
-                        <span className="text-sm">Private</span>
-                        <span className="uppercase tracking-wider font-bold">Private Mode</span>
-                        <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
-                            Only you can view
-                        </span>
-                    </button>
+            {showPrivacy && (
+                <div className="mb-8">
+                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-3">
+                        Privacy
+                    </label>
+                    <div className="space-y-2">
+                        <button
+                            onClick={() => setVisibility('public')}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'public'
+                                ? 'border-neutral-800 bg-neutral-800 text-white'
+                                : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                                }`}
+                        >
+                            <span className="text-sm">Public</span>
+                            <span className="uppercase tracking-wider font-bold">Public Mode</span>
+                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                                Anyone can view
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setVisibility('accounts')}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'accounts'
+                                ? 'border-neutral-800 bg-neutral-800 text-white'
+                                : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                                }`}
+                        >
+                            <span className="text-sm">Accounts</span>
+                            <span className="uppercase tracking-wider font-bold">Accounts Only</span>
+                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                                Signed-in users only
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setVisibility('private')}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 border text-xs transition-all ${visibility === 'private'
+                                ? 'border-neutral-800 bg-neutral-800 text-white'
+                                : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
+                                }`}
+                        >
+                            <span className="text-sm">Private</span>
+                            <span className="uppercase tracking-wider font-bold">Private Mode</span>
+                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                                Only you can view
+                            </span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Error */}
             {error && (
@@ -603,7 +605,7 @@ export function UserSetup({ onComplete }: UserSetupProps) {
             )}
 
             {/* Save */}
-            {!profile ? (
+            {isOnboarding ? (
                 <button
                     onClick={handleSave}
                     disabled={saving || !username.trim()}

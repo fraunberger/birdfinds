@@ -13,6 +13,10 @@ export default function ProfileSetupPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { profile } = useUserProfile();
+  const hasUsername = !!(profile?.username?.trim() || user?.username?.trim() || user?.email?.split("@")[0]?.trim());
+  const hasAvatar = !!profile?.avatarUrl?.trim();
+  const hasCategories = !!profile?.categories && profile.categories.length > 0;
+  const isOnboarding = !hasUsername || !hasAvatar || !hasCategories;
 
   const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
   const pileHref = profile?.username
@@ -71,6 +75,8 @@ export default function ProfileSetupPage() {
             {`${username}'s`} Profile Setup
           </h1>
           <UserSetup
+            isOnboarding={isOnboarding}
+            showPrivacy={isOnboarding}
             onComplete={() => {
               router.push("/");
             }}

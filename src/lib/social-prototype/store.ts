@@ -16,7 +16,7 @@ export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
 export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';
 export const NON_PILE_CATEGORIES: Category[] = ['link'];
-
+export const PROFILE_UPDATED_EVENT = 'birdfinds:profile-updated';
 
 export interface ConsumableItem {
     id: string;
@@ -950,6 +950,9 @@ export function useUserProfile() {
             categoryConfigs: updates.categoryConfigs,
         });
         await fetchProfile();
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
+        }
     };
 
 
@@ -958,6 +961,15 @@ export function useUserProfile() {
         if (authLoading) return;
         setLoading(true);
         void fetchProfile();
+        if (typeof window === 'undefined') return;
+        const handleProfileUpdated = () => {
+            setLoading(true);
+            void fetchProfile();
+        };
+        window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+        return () => {
+            window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+        };
     }, [authLoading, user?.id]);
 
     return {

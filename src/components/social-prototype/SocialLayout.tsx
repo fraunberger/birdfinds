@@ -13,7 +13,6 @@ import { useAuth } from "@/lib/auth";
 import { useSocialStore, useUserProfile } from "@/lib/social-prototype/store";
 import { SocialFeed } from "./SocialFeed";
 import { StatusComposer } from "./StatusComposer";
-import { HabitChecklist } from "./HabitChecklist";
 import { AccountMenu } from "./AccountMenu";
 import { HeaderSearch } from "./HeaderSearch";
 import { pushToast } from "@/lib/social-prototype/toast";
@@ -25,22 +24,19 @@ export function SocialLayout() {
   const [showAbout, setShowAbout] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin } = useUserProfile();
-  const { activeDate, setActiveDate, statuses, isLoaded: socialLoaded, resetAndRefresh } = useSocialStore();
+  const { setActiveDate, resetAndRefresh } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
-  const [isEntryMode, setIsEntryMode] = React.useState(false);
-  const hasUsername = !!profile?.username?.trim();
+  const hasUsername = !!(profile?.username?.trim() || user?.username?.trim() || user?.email?.split("@")[0]?.trim());
   const hasAvatar = !!profile?.avatarUrl?.trim();
   const hasCategories = !!profile?.categories && profile.categories.length > 0;
-  const hasPublishedPost = statuses.some((status) => status.published && status.id !== "temp-optimistic");
-  const stepOneComplete = !!user && hasUsername && hasAvatar;
-  const stepTwoComplete = stepOneComplete && hasCategories;
-  const stepThreeComplete = stepTwoComplete && hasPublishedPost;
-  const needsOnboarding = !!user && !stepOneComplete;
-  const needsCategorySetup = !!user && !stepTwoComplete;
-  const needsFirstPost = !!user && !stepThreeComplete;
-  const showOnboardingChecklist = !!user && socialLoaded && (needsOnboarding || needsCategorySetup || needsFirstPost);
+  const stepOneComplete = !!user && hasUsername;
+  const stepTwoComplete = !!user && hasAvatar;
+  const stepThreeComplete = !!user && hasCategories;
+  const onboardingComplete = stepOneComplete && stepTwoComplete && stepThreeComplete;
+  const needsOnboarding = !!user && !onboardingComplete;
+  const showOnboardingChecklist = !!user && needsOnboarding;
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const syncAboutFromLocation = () => {
@@ -164,6 +160,7 @@ export function SocialLayout() {
               <>
                 <span className="hidden sm:flex items-center gap-2">
                   {profile?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-neutral-300" />
                   ) : (
                     <span className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-[10px] font-bold text-neutral-500 border border-neutral-300">
@@ -262,45 +259,27 @@ export function SocialLayout() {
               <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
               <ol className="mt-2 space-y-1 text-xs">
                 <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepOneComplete ? "✓" : "□"} 1.{" "}
-                  {hasUsername && !hasAvatar ? (
-                    <>
-                      <span className="line-through text-neutral-500">Set username</span> and add avatar
-                    </>
-                  ) : (
-                    "Set username and avatar"
-                  )}
+                  {stepOneComplete ? "✓" : "□"} 1. Username ready
                 </li>
                 <li className={stepTwoComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepTwoComplete ? "✓" : "□"} 2. Choose categories to track
+                  {stepTwoComplete ? "✓" : "□"} 2. Add avatar
                 </li>
                 <li className={stepThreeComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepThreeComplete ? "✓" : "□"} 3. Publish your first post
+                  {stepThreeComplete ? "✓" : "□"} 3. Choose categories
                 </li>
               </ol>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
-                {(needsOnboarding || needsCategorySetup) && (
-                  <Link href="/settings/profile-setup" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
-                    Get Started
-                  </Link>
-                )}
-                {needsFirstPost && !needsOnboarding && !needsCategorySetup && (
-                  <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                    className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
-                  >
-                    Write First Post
-                  </button>
-                )}
+                <Link href="/settings/profile-setup" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+                  Get Started
+                </Link>
               </div>
             </div>
           )}
 
-          {user && !needsOnboarding && (
+          {user && onboardingComplete && (
             <>
               <StatusComposer
                 userCategories={profile?.categories}
-                onEntryModeChange={setIsEntryMode}
               />
 
             </>

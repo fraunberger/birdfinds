@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useClerk } from "@clerk/nextjs";
 import { ProfileVisibility, useUserProfile } from "@/lib/social-prototype/store";
@@ -33,6 +33,7 @@ export default function SettingsPage() {
       setSavingVisibility(false);
     }
   };
+
   const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
   const pileHref = profile?.username
     ? `/pile/${encodeURIComponent(profile.username)}`
