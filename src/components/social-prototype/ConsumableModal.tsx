@@ -111,10 +111,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         });
         if (matches.length === 0) return null;
         const sorted = [...matches].sort((a, b) => b.createdAt - a.createdAt);
+        const latestWithReviewData = sorted.find((item) => {
+            const hasRating = item.rating !== undefined && item.rating !== null;
+            const hasNotes = !!item.notes?.trim();
+            return hasRating || hasNotes;
+        });
         return {
             count: matches.length + 1,
             verb: getRepeatTagVerb(category),
-            latestPrevious: sorted[0],
+            latestPrevious: latestWithReviewData || sorted[0],
         };
     }, [allUserItems, category, title, subtitle, existingItem, draft.image]);
 
@@ -122,17 +127,24 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [populatedFromId, setPopulatedFromId] = useState<string | null>(null);
     useEffect(() => {
         if (!repeatInfo?.latestPrevious) return;
-        if (existingItem) return; // don't auto-populate when editing existing
         const prev = repeatInfo.latestPrevious;
         // Only re-populate if this is a different previous item than last time
         if (populatedFromId === prev.id) return;
-        setDraft(d => {
-            const nextRating = (d.rating === undefined || d.rating === null) ? prev.rating : d.rating;
-            const nextNotes = (!d.notes || d.notes.trim() === '') ? (prev.notes || '') : d.notes;
-            return { ...d, rating: nextRating, notes: nextNotes };
-        });
+
+        const shouldApplyRating = (rating === undefined || rating === null) && (prev.rating !== undefined && prev.rating !== null);
+        const shouldApplyNotes = (!notes || notes.trim() === '') && !!prev.notes?.trim();
+        if (!shouldApplyRating && !shouldApplyNotes) {
+            setPopulatedFromId(prev.id);
+            return;
+        }
+
+        setDraft((d) => ({
+            ...d,
+            rating: shouldApplyRating ? prev.rating : d.rating,
+            notes: shouldApplyNotes ? (prev.notes || '') : d.notes,
+        }));
         setPopulatedFromId(prev.id);
-    }, [repeatInfo, existingItem, populatedFromId]);
+    }, [repeatInfo, populatedFromId, rating, notes]);
 
     useEffect(() => {
         if (!isOpen) return;
