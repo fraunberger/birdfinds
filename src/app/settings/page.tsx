@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useClerk } from "@clerk/nextjs";
 import { useUserProfile } from "@/lib/social-prototype/store";
@@ -10,8 +9,7 @@ import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const { openUserProfile } = useClerk();
   const { profile } = useUserProfile();
   const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
@@ -68,11 +66,6 @@ export default function SettingsPage() {
         </header>
 
         <main className="flex-grow space-y-4">
-          <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Username</p>
-            <p className="text-xs mt-1 text-neutral-700">@{username}</p>
-          </div>
-
           <Link
             href="/settings/profile-setup"
             className="block border border-neutral-300 p-3 hover:bg-neutral-50"
@@ -83,10 +76,12 @@ export default function SettingsPage() {
 
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
-            <p className="text-xs mt-1 text-neutral-700">{user.email || "No email available"}</p>
-            <p className="text-[10px] mt-3 text-neutral-500">
-              Email is managed in Clerk account settings.
-            </p>
+            <button
+              onClick={() => openUserProfile({ __experimental_startPath: "/email-addresses" })}
+              className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+            >
+              Open Email Settings
+            </button>
           </div>
 
           <div className="border border-neutral-300 p-3">
@@ -96,20 +91,6 @@ export default function SettingsPage() {
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Open Password Settings
-            </button>
-          </div>
-
-          <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Sign Out</p>
-            <button
-              onClick={async () => {
-                await signOut();
-                router.push("/");
-                router.refresh();
-              }}
-              className="mt-2 text-[10px] uppercase tracking-widest border border-red-300 text-red-700 px-2 py-1 hover:bg-red-50"
-            >
-              Sign Out
             </button>
           </div>
         </main>
