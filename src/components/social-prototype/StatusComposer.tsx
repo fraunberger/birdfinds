@@ -5,7 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import { decorationsEqual, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
@@ -81,8 +81,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
             priority: 1,
         }));
-        setPreviewText(textValue);
-        setPreviewDecorations(parseHighlights(textValue, entities) as typeof previewDecorations);
+        const nextDecorations = parseHighlights(textValue, entities) as typeof previewDecorations;
+        setPreviewText((prev) => (prev === textValue ? prev : textValue));
+        setPreviewDecorations((prev) => (decorationsEqual(prev, nextDecorations) ? prev : nextDecorations));
     }, []);
 
     // ── Draft persistence ──────────────────────────────────────────────
@@ -145,10 +146,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
     }, [setActiveDate]);
 
-    // ── Mobile highlight debounce ──────────────────────────────────────
+    // ── Live highlight syncing ─────────────────────────────────────────
     useEffect(() => {
-        const timer = window.setTimeout(() => { rebuildPreviewHighlights(content, items); }, tagging.isMobileTagging ? 520 : 180);
-        return () => window.clearTimeout(timer);
+        let frameId = 0;
+        const timer = window.setTimeout(() => {
+            frameId = window.requestAnimationFrame(() => {
+                rebuildPreviewHighlights(content, items);
+            });
+        }, tagging.isMobileTagging ? 90 : 32);
+
+        return () => {
+            window.clearTimeout(timer);
+            if (frameId) window.cancelAnimationFrame(frameId);
+        };
     }, [content, items, tagging.isMobileTagging, rebuildPreviewHighlights]);
 
     // ── Content change handler ─────────────────────────────────────────
