@@ -172,12 +172,6 @@ export async function getOrCreateLinkedSupabaseUser() {
   const targetEmail = email || null;
 
   if (!supabaseUserId) {
-    // In migration mode, avoid silently creating shadow accounts.
-    if (!targetEmail && process.env.NODE_ENV === "production") {
-      throw new Error(
-        `No linked profile for Clerk user ${clerkUserId}. Add row to clerk_user_links in Supabase.`
-      );
-    }
     try {
       supabaseUserId = await createSupabaseAuthUser(
         targetEmail || `clerk_${clerkUserId}@users.birdfinds.local`
