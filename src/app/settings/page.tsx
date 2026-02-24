@@ -79,18 +79,15 @@ export default function SettingsPage() {
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
             <p className="text-xs mt-1 text-neutral-700">{user.email || "No email available"}</p>
-            <button
-              onClick={() => openUserProfile()}
-              className="mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
-            >
-              Manage Email
-            </button>
+            <p className="text-[10px] mt-3 text-neutral-500">
+              Email is managed in Clerk account settings.
+            </p>
           </div>
 
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Password</p>
             <button
-              onClick={() => openUserProfile()}
+              onClick={() => openUserProfile({ __experimental_startPath: "/security" })}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Open Password Settings
