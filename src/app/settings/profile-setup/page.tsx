@@ -6,10 +6,20 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { UserSetup } from "@/components/social-prototype/UserSetup";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
+import { AccountMenu } from "@/components/social-prototype/AccountMenu";
+import { useUserProfile } from "@/lib/social-prototype/store";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { profile } = useUserProfile();
+
+  const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
+  const pileHref = profile?.username
+    ? `/pile/${encodeURIComponent(profile.username)}`
+    : profile?.id
+      ? `/pile/${encodeURIComponent(profile.id)}`
+      : "/settings";
 
   if (loading) {
     return (
@@ -49,10 +59,17 @@ export default function ProfileSetupPage() {
           </div>
           <div className="flex items-center gap-3">
             <HeaderSearch />
-            <span className="text-xs uppercase tracking-widest text-neutral-400">Profile Setup</span>
+            <AccountMenu
+              pileHref={pileHref}
+              username={username}
+              avatarUrl={profile?.avatarUrl}
+            />
           </div>
         </header>
         <main className="flex-grow">
+          <h1 className="mb-4 text-xs uppercase tracking-widest text-neutral-500">
+            {`${username}'s`} Profile Setup
+          </h1>
           <UserSetup
             onComplete={() => {
               router.push("/");
