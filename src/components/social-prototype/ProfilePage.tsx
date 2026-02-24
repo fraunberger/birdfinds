@@ -14,6 +14,7 @@ import {
     PILE_CATEGORY_STATUS_DATE
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
+import { StatusComposer } from './StatusComposer';
 import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
@@ -285,6 +286,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     {/* Status Feed (hidden when category sheet is open) */}
                     {!openCategory && (
                         <div>
+                            {isOwnProfile && (
+                                <div className="mb-4">
+                                    <StatusComposer userCategories={profile.categories || []} />
+                                </div>
+                            )}
                             <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
                                 Posts
                             </h3>
@@ -318,7 +324,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 {sortedFilteredStatuses.length === 0 ? (
                                     <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
                                         {isOwnProfile
-                                            ? 'No posts yet. Use the composer on Feed to publish your first one.'
+                                            ? 'No posts yet. Use the composer above to publish your first one.'
                                             : 'No posts in this view yet.'}
                                     </div>
                                 ) : (

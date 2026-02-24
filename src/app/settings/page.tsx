@@ -4,14 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { useUserProfile } from "@/lib/social-prototype/store";
 import { UserSetup } from "@/components/social-prototype/UserSetup";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { profile } = useUserProfile();
 
   if (loading) {
     return (
@@ -57,7 +55,7 @@ export default function SettingsPage() {
         <main className="flex-grow">
           <UserSetup
             onComplete={() => {
-              router.push(profile?.username ? `/pile/${encodeURIComponent(profile.username)}` : "/");
+              router.push("/");
             }}
           />
         </main>
