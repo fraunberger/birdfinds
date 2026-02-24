@@ -43,7 +43,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
-    const highlightFrameRef = useRef<number>(0);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
 
@@ -57,10 +56,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = useMemo(() => activeStatus?.items ?? [], [activeStatus?.items]);
 
-    const setContentForActive = (value: string) => {
+    const setContentForActive = useCallback((value: string) => {
         if (draftStatus === 'error') setDraftStatus('saved');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
-    };
+    }, [activeContentKey, draftStatus]);
 
     // ── Tagging state (extracted hook) ─────────────────────────────────
     const tagging = useTaggingState({
@@ -86,6 +85,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setPreviewText((prev) => (prev === textValue ? prev : textValue));
         setPreviewDecorations((prev) => (decorationsEqual(prev, nextDecorations) ? prev : nextDecorations));
     }, []);
+
+    const setComposerContent = useCallback((nextContent: string, itemList: ConsumableItem[] = items) => {
+        setContentForActive(nextContent);
+        setPreviewText(nextContent);
+        rebuildPreviewHighlights(nextContent, itemList);
+    }, [items, rebuildPreviewHighlights, setContentForActive]);
 
     // ── Draft persistence ──────────────────────────────────────────────
     useEffect(() => { setContentDrafts({}); }, [draftsStorageKey]);
@@ -147,31 +152,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
     }, [setActiveDate]);
 
-    // ── Live highlight syncing (snappy, frame-bound) ───────────────────
-    const schedulePreviewHighlightRebuild = useCallback((textValue: string, itemList: ConsumableItem[]) => {
-        if (highlightFrameRef.current) window.cancelAnimationFrame(highlightFrameRef.current);
-        highlightFrameRef.current = window.requestAnimationFrame(() => {
-            rebuildPreviewHighlights(textValue, itemList);
-            highlightFrameRef.current = 0;
-        });
-    }, [rebuildPreviewHighlights]);
-
     useEffect(() => {
-        schedulePreviewHighlightRebuild(content, items);
-        return () => {
-            if (highlightFrameRef.current) {
-                window.cancelAnimationFrame(highlightFrameRef.current);
-                highlightFrameRef.current = 0;
-            }
-        };
-    }, [content, items, schedulePreviewHighlightRebuild]);
+        rebuildPreviewHighlights(content, items);
+    }, [content, items, rebuildPreviewHighlights]);
 
     // ── Content change handler ─────────────────────────────────────────
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
-        setContentForActive(val);
-        setPreviewText(val);
-        schedulePreviewHighlightRebuild(val, items);
+        setComposerContent(val, items);
         adjustTextareaHeight();
         // Track @ prefix for inline tagging
         const cursorPos = e.target.selectionStart || 0;
@@ -275,7 +263,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             const before = currentContent.slice(0, tagging.atPrefixPos);
             const after = currentContent.slice(tagging.atPrefixPos + 1 + tagging.atPrefixText.length);
             const nextContent = `${before}${TAG_MARKER}${typedText}${after}`;
-            setContentForActive(nextContent);
+            setComposerContent(nextContent);
             await updateActiveStatus(nextContent);
             tagging.clearAtPrefix();
             setIsExpanded(true);
@@ -316,7 +304,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 && currentContent.slice(Math.max(0, start - TAG_MARKER.length), start) !== TAG_MARKER
             ) {
                 const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(start)}`;
-                setContentForActive(nextContent);
+                setComposerContent(nextContent);
                 await updateActiveStatus(nextContent);
             }
             setSelectedPlainText('');
@@ -334,7 +322,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         const insertion = `${needsLeadingSpace ? ' ' : ''}${TAG_MARKER}${item.title}${needsTrailingSpace ? ' ' : ''}`;
         const nextContent = `${before}${insertion}${after}`;
 
-        setContentForActive(nextContent);
+        setComposerContent(nextContent);
         setIsExpanded(true);
         setTimeout(() => {
             const target = textareaRef.current;
