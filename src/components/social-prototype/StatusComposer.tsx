@@ -43,6 +43,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
+    const highlightFrameRef = useRef<number>(0);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
 
@@ -146,25 +147,31 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
     }, [setActiveDate]);
 
-    // ── Live highlight syncing ─────────────────────────────────────────
-    useEffect(() => {
-        let frameId = 0;
-        const timer = window.setTimeout(() => {
-            frameId = window.requestAnimationFrame(() => {
-                rebuildPreviewHighlights(content, items);
-            });
-        }, tagging.isMobileTagging ? 90 : 32);
+    // ── Live highlight syncing (snappy, frame-bound) ───────────────────
+    const schedulePreviewHighlightRebuild = useCallback((textValue: string, itemList: ConsumableItem[]) => {
+        if (highlightFrameRef.current) window.cancelAnimationFrame(highlightFrameRef.current);
+        highlightFrameRef.current = window.requestAnimationFrame(() => {
+            rebuildPreviewHighlights(textValue, itemList);
+            highlightFrameRef.current = 0;
+        });
+    }, [rebuildPreviewHighlights]);
 
+    useEffect(() => {
+        schedulePreviewHighlightRebuild(content, items);
         return () => {
-            window.clearTimeout(timer);
-            if (frameId) window.cancelAnimationFrame(frameId);
+            if (highlightFrameRef.current) {
+                window.cancelAnimationFrame(highlightFrameRef.current);
+                highlightFrameRef.current = 0;
+            }
         };
-    }, [content, items, tagging.isMobileTagging, rebuildPreviewHighlights]);
+    }, [content, items, schedulePreviewHighlightRebuild]);
 
     // ── Content change handler ─────────────────────────────────────────
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
         setContentForActive(val);
+        setPreviewText(val);
+        schedulePreviewHighlightRebuild(val, items);
         adjustTextareaHeight();
         // Track @ prefix for inline tagging
         const cursorPos = e.target.selectionStart || 0;
