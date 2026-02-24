@@ -10,7 +10,7 @@ import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 
 export default function SettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const { user: clerkUser } = useUser();
   const { openUserProfile } = useClerk();
   const { profile, updateProfile } = useUserProfile();
@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   const canManagePassword = clerkUser?.passwordEnabled ?? false;
   const canManageEmail = canManagePassword;
@@ -60,6 +62,37 @@ export default function SettingsPage() {
       } catch {
         setCredentialsError("Unable to open Clerk account settings right now.");
       }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deletingAccount) return;
+    const typed = typeof window !== "undefined"
+      ? window.prompt('This permanently deletes your account and data. Type "DELETE" to confirm.')
+      : null;
+    if (typed !== "DELETE") return;
+
+    setDeleteAccountError(null);
+    setDeletingAccount(true);
+    try {
+      const response = await fetch("/api/social/account", { method: "DELETE" });
+      const raw = await response.text();
+      let payload: { error?: string } = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
+      if (!response.ok) {
+        throw new Error(payload.error || raw || "Failed to delete account");
+      }
+      await signOut();
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+    } catch (error) {
+      setDeleteAccountError(error instanceof Error ? error.message : "Failed to delete account");
+      setDeletingAccount(false);
     }
   };
 
@@ -182,9 +215,27 @@ export default function SettingsPage() {
                 : "Your account is using Google sign-in, so password changes are managed in Google. This opens general Clerk account settings."}
             </p>
           </div>
+
           {credentialsError ? (
             <p className="text-[10px] uppercase tracking-widest text-red-600">{credentialsError}</p>
           ) : null}
+
+          <div className="border border-red-200 bg-red-50 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-red-700">Danger Zone</p>
+            <p className="mt-2 text-xs text-red-700">
+              Delete account removes your account from Clerk and Supabase (profile, posts, comments, habits, follows, and links).
+            </p>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="mt-3 text-[10px] uppercase tracking-widest border border-red-300 px-2 py-1 text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              {deletingAccount ? "Deleting..." : "Delete Account"}
+            </button>
+            {deleteAccountError ? (
+              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-700">{deleteAccountError}</p>
+            ) : null}
+          </div>
         </main>
       </div>
     </div>
