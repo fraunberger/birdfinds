@@ -2,16 +2,37 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useClerk } from "@clerk/nextjs";
-import { useUserProfile } from "@/lib/social-prototype/store";
+import { ProfileVisibility, useUserProfile } from "@/lib/social-prototype/store";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
   const { openUserProfile } = useClerk();
-  const { profile } = useUserProfile();
+  const { profile, updateProfile } = useUserProfile();
+  const [visibility, setVisibility] = useState<ProfileVisibility>("public");
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [visibilityError, setVisibilityError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVisibility(profile?.visibility || (profile?.isPrivate ? "private" : "public"));
+  }, [profile?.visibility, profile?.isPrivate]);
+
+  const saveVisibility = async (nextVisibility: ProfileVisibility) => {
+    setVisibility(nextVisibility);
+    setVisibilityError(null);
+    setSavingVisibility(true);
+    try {
+      await updateProfile({ visibility: nextVisibility, isPrivate: nextVisibility === "private" });
+    } catch (error) {
+      setVisibilityError(error instanceof Error ? error.message : "Unable to update visibility");
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
   const username = profile?.username || user?.username || user?.email?.split("@")[0] || "Account";
   const pileHref = profile?.username
     ? `/pile/${encodeURIComponent(profile.username)}`
@@ -75,9 +96,37 @@ export default function SettingsPage() {
           </Link>
 
           <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Profile Visibility</p>
+            <div className="mt-2 space-y-2">
+              {([
+                { value: "public", label: "Public", description: "Anyone can view your profile." },
+                { value: "accounts", label: "Accounts only", description: "Only signed-in accounts can view your profile." },
+                { value: "private", label: "Private", description: "Only you can view your profile." },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={savingVisibility}
+                  onClick={() => saveVisibility(option.value)}
+                  className={`w-full text-left border px-2 py-2 transition-colors ${visibility === option.value
+                    ? "border-neutral-800 bg-neutral-100"
+                    : "border-neutral-300 hover:bg-neutral-50"
+                    } ${savingVisibility ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <p className="text-[10px] uppercase tracking-widest">{option.label}</p>
+                  <p className="text-xs text-neutral-600 mt-1">{option.description}</p>
+                </button>
+              ))}
+            </div>
+            {visibilityError ? (
+              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-600">{visibilityError}</p>
+            ) : null}
+          </div>
+
+          <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
             <button
-              onClick={() => openUserProfile({ __experimental_startPath: "/email-addresses" })}
+              onClick={() => openUserProfile({ __experimental_startPath: "email-addresses" })}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Open Email Settings
@@ -87,7 +136,7 @@ export default function SettingsPage() {
           <div className="border border-neutral-300 p-3">
             <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Password</p>
             <button
-              onClick={() => openUserProfile({ __experimental_startPath: "/security" })}
+              onClick={() => openUserProfile({ __experimental_startPath: "security" })}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Open Password Settings
