@@ -168,7 +168,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
-    const isTableLinkingMode = isAtPrefixLinking || selectedPlainText.trim().length > 0;
+    const hasTableItems = items.length > 0;
+    const isTableLinkingMode = hasTableItems && (isAtPrefixLinking || selectedPlainText.trim().length > 0);
 
     useEffect(() => {
         const onBeforeUnload = (event: BeforeUnloadEvent) => {

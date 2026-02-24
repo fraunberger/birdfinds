@@ -15,7 +15,17 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
     const [editingNote, setEditingNote] = useState<string | null>(null);
     const [noteText, setNoteText] = useState('');
 
-    if (loading || habits.length === 0) return null;
+    if (loading) {
+        return (
+            <div className={vertical ? 'flex flex-col gap-1 min-h-[30px]' : 'min-h-[34px] flex items-center'}>
+                <div className="text-[10px] uppercase tracking-widest text-neutral-300">
+                    Loading habits...
+                </div>
+            </div>
+        );
+    }
+
+    if (habits.length === 0) return null;
 
     const getHabitNote = (habitId: string): string => {
         const log = logs.find(l => l.habitId === habitId && l.date === date);
