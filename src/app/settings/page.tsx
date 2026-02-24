@@ -41,13 +41,15 @@ export default function SettingsPage() {
     }
   };
 
-  const openAccountSettings = async () => {
+  const openAccountSettings = async (startPath?: "email-addresses" | "security") => {
     try {
+      if (startPath) {
+        await openUserProfile({ __experimental_startPath: startPath });
+        return;
+      }
       await openUserProfile();
     } catch {
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
-      }
+      await openUserProfile();
     }
   };
 
@@ -142,25 +144,25 @@ export default function SettingsPage() {
           </div>
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Email</p>
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
-              onClick={openAccountSettings}
+              onClick={() => openAccountSettings("email-addresses")}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
-              Open Account Settings
+              Change Login Username/Email
             </button>
-            <p className="mt-2 text-xs text-neutral-600">Update email from the account panel.</p>
+            <p className="mt-2 text-xs text-neutral-600">Opens Clerk account popup for login username/email only.</p>
           </div>
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Change Password</p>
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
-              onClick={openAccountSettings}
+              onClick={() => openAccountSettings("security")}
               className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
-              Open Account Settings
+              Change Password
             </button>
-            <p className="mt-2 text-xs text-neutral-600">Change password from the account panel.</p>
+            <p className="mt-2 text-xs text-neutral-600">Opens Clerk security popup for login password only.</p>
           </div>
         </main>
       </div>

@@ -292,6 +292,9 @@ export function SocialLayout() {
                         } else {
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }
+                        window.setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent("birdpile:edit-entry", { detail: {} }));
+                        }, 120);
                       }}
                       className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
                     >
