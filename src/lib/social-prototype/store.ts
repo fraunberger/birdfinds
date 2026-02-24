@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 
 // ============================================================
 // Types
@@ -834,6 +835,7 @@ function getTodayDateString() {
 // ============================================================
 
 export function useUserProfile() {
+    const { user, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [hasPublishedPost, setHasPublishedPost] = useState(false);
@@ -953,8 +955,10 @@ export function useUserProfile() {
 
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        if (authLoading) return;
+        setLoading(true);
+        void fetchProfile();
+    }, [authLoading, user?.id]);
 
     return {
         profile,
