@@ -36,7 +36,7 @@ interface ComposerItemTableProps {
     /** Whether table row taps should link instead of opening modal. */
     isLinkingMode?: boolean;
     /** Remove an item from the post. */
-    onRemoveItem: (itemId: string) => void;
+    onRemoveItem: (itemId: string) => Promise<void> | void;
     /** Add a new quick-add item. */
     onAddItem: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
 }
@@ -59,9 +59,11 @@ export function ComposerItemTable({
     };
 
     const lastRowActionRef = useRef<{ itemId: string; at: number } | null>(null);
+    const removingItemIdsRef = useRef<Set<string>>(new Set());
     const [quickAddTitle, setQuickAddTitle] = useState('');
     const [quickAddCategory, setQuickAddCategory] = useState<Category>(activeCategoryConfigs[0]?.id as Category || 'movie');
     const [isQuickAdding, setIsQuickAdding] = useState(false);
+    const [removingItemIds, setRemovingItemIds] = useState<Set<string>>(new Set());
 
     // Sort items by first occurrence position in the post text
     const sortedItems = useMemo(() => {
@@ -112,6 +114,29 @@ export function ComposerItemTable({
         }
     };
 
+    const handleRemoveItem = async (
+        e: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>,
+        itemId: string,
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (removingItemIdsRef.current.has(itemId)) return;
+        removingItemIdsRef.current.add(itemId);
+        setRemovingItemIds((prev) => new Set(prev).add(itemId));
+        try {
+            await Promise.resolve(onRemoveItem(itemId));
+        } catch (error: unknown) {
+            pushToast({ message: `Failed to remove item: ${getErrorMessage(error)}`, tone: 'error' });
+        } finally {
+            removingItemIdsRef.current.delete(itemId);
+            setRemovingItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(itemId);
+                return next;
+            });
+        }
+    };
+
     return (
         <div className={`border bg-white overflow-x-auto transition-colors ${isLinkingMode ? 'border-amber-500 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]' : 'border-neutral-300'}`}>
             {isLinkingMode && (
@@ -131,6 +156,7 @@ export function ComposerItemTable({
                 <tbody>
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
+                        const isRemoving = removingItemIds.has(item.id);
                         return (
                             <tr
                                 key={item.id}
@@ -174,10 +200,15 @@ export function ComposerItemTable({
                                         </button>
                                     )}
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); onRemoveItem(item.id); }}
-                                        className="text-neutral-400 hover:text-neutral-600 p-1"
+                                        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onPointerUp={(e) => void handleRemoveItem(e, item.id)}
+                                        onClick={(e) => void handleRemoveItem(e, item.id)}
+                                        disabled={isRemoving}
+                                        aria-label={`Delete ${item.title}`}
+                                        title={`Delete ${item.title}`}
+                                        className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[12px] leading-none"
                                     >
-                                        ×
+                                        {isRemoving ? '…' : '×'}
                                     </button>
                                 </td>
                             </tr>

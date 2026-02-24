@@ -21,11 +21,21 @@ interface AggregatedItem {
     count: number;
 }
 
+const isEpisodeCategory = (category: Category) => category === 'tv' || category === 'podcast';
+
+const getEpisodeSeriesLabel = (category: Category, item: ConsumableItem) => {
+    if (category === 'tv') return item.title.trim();
+    if (category === 'podcast') return (item.subtitle || '').trim();
+    return '';
+};
+
 export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [episodeSeriesFilter, setEpisodeSeriesFilter] = useState<string>('all');
+    const [episodeTextFilter, setEpisodeTextFilter] = useState('');
 
     if (!config) return null;
 
@@ -49,12 +59,35 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
     const totalTaggedCount = items.length;
     const repeatVerb = getRepeatTagVerb(category);
+    const episodeFilteringEnabled = isEpisodeCategory(category);
+
+    const episodeSeriesOptions = (() => {
+        if (!episodeFilteringEnabled) return [] as string[];
+        const names = new Set<string>();
+        for (const entry of aggregatedItems) {
+            const label = getEpisodeSeriesLabel(category, entry.latest);
+            if (label) names.add(label);
+        }
+        return Array.from(names).sort((a, b) => a.localeCompare(b));
+    })();
+
+    const filteredItems = (() => {
+        if (!episodeFilteringEnabled) return aggregatedItems;
+        const query = episodeTextFilter.trim().toLowerCase();
+        return aggregatedItems.filter((entry) => {
+            const series = getEpisodeSeriesLabel(category, entry.latest);
+            if (episodeSeriesFilter !== 'all' && series !== episodeSeriesFilter) return false;
+            if (!query) return true;
+            const haystack = `${entry.latest.title} ${entry.latest.subtitle || ''} ${entry.latest.notes || ''}`.toLowerCase();
+            return haystack.includes(query);
+        });
+    })();
 
     const sortedItems = sortMode === 'top'
-        ? [...aggregatedItems]
+        ? [...filteredItems]
             .filter((entry) => entry.latest.rating && entry.latest.rating > 0)
             .sort((a, b) => (b.latest.rating || 0) - (a.latest.rating || 0))
-        : [...aggregatedItems].sort((a, b) => b.latest.createdAt - a.latest.createdAt);
+        : [...filteredItems].sort((a, b) => b.latest.createdAt - a.latest.createdAt);
 
     return (
         <div className="font-mono animate-in slide-in-from-right duration-200">
@@ -105,6 +138,30 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     </button>
                 </div>
             </div>
+
+            {episodeFilteringEnabled && (
+                <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select
+                        value={episodeSeriesFilter}
+                        onChange={(e) => setEpisodeSeriesFilter(e.target.value)}
+                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
+                    >
+                        <option value="all">All Series</option>
+                        {episodeSeriesOptions.map((series) => (
+                            <option key={series} value={series}>
+                                {series}
+                            </option>
+                        ))}
+                    </select>
+                    <input
+                        type="text"
+                        value={episodeTextFilter}
+                        onChange={(e) => setEpisodeTextFilter(e.target.value)}
+                        placeholder={category === 'tv' ? 'Filter episodes...' : 'Filter podcast episodes...'}
+                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-700 placeholder:text-neutral-400"
+                    />
+                </div>
+            )}
 
             {/* Items */}
             {sortedItems.length === 0 ? (
