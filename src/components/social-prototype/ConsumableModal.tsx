@@ -615,7 +615,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                             </div>
                             {/* Subtitle */}
-                            {category !== 'cooking' && (
+                            {category !== 'cooking' && category !== 'link' && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         {config.subtitleLabel}
