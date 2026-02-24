@@ -115,23 +115,25 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     }, [allUserItems, category, title, subtitle, existingItem]);
 
     // ── Auto-populate from previous repeat ─────────────────────────────
-    const [hasAutoPopulated, setHasAutoPopulated] = useState(false);
+    const [populatedFromId, setPopulatedFromId] = useState<string | null>(null);
     useEffect(() => {
-        if (hasAutoPopulated || !repeatInfo?.latestPrevious) return;
+        if (!repeatInfo?.latestPrevious) return;
         if (existingItem) return; // don't auto-populate when editing existing
         const prev = repeatInfo.latestPrevious;
+        // Only re-populate if this is a different previous item than last time
+        if (populatedFromId === prev.id) return;
         setDraft(d => ({
             ...d,
             rating: d.rating ?? prev.rating,
             notes: d.notes || prev.notes || '',
         }));
-        setHasAutoPopulated(true);
-    }, [repeatInfo, existingItem, hasAutoPopulated]);
+        setPopulatedFromId(prev.id);
+    }, [repeatInfo, existingItem, populatedFromId]);
 
     useEffect(() => {
         if (!isOpen) return;
         setDraft(buildInitialDraft(initialCategory, existingItem));
-        setHasAutoPopulated(false);
+        setPopulatedFromId(null);
     }, [existingItem, initialCategory, isOpen]);
 
     useEffect(() => {

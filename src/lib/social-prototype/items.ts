@@ -42,15 +42,24 @@ export const getCanonicalItemSlug = (
   }
 
   if (category === "tv") {
-    return normalizedTitle || "item";
+    // Include show name + episode subtitle for proper per-episode matching
+    return [normalizedTitle, normalizedSubtitle]
+      .filter(Boolean)
+      .join("-") || normalizedTitle || "item";
   }
 
   if (category === "podcast") {
-    return normalizedSubtitle || normalizedTitle || "item";
+    // Include show name (subtitle) + episode title for per-episode matching
+    return [normalizedSubtitle, normalizedTitle]
+      .filter(Boolean)
+      .join("-") || normalizedTitle || "item";
   }
 
   if (category === "beer" || category === "brewery") {
-    return normalizedSubtitle || normalizedTitle || "item";
+    // Include beer name (title) + brewery (subtitle) for proper matching
+    return [normalizedTitle, normalizedSubtitle]
+      .filter(Boolean)
+      .join("-") || normalizedTitle || "item";
   }
 
   return buildItemSlug(title, subtitle);
