@@ -155,50 +155,73 @@ interface MeResponse {
     } | null;
 }
 
+const FEED_PAGE_SIZE = 15;
+const JOURNAL_PAGE_SIZE = 15;
+const LINKED_ME_CACHE_TTL_MS = 1500;
+let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
+let linkedMeInFlight: Promise<MeResponse> | null = null;
+
 async function getLinkedMe(): Promise<MeResponse> {
     const empty: MeResponse = { clerkUserId: null, linkedUserId: null, profile: null };
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const now = Date.now();
+    if (linkedMeCache && linkedMeCache.expiresAt > now) {
+        return linkedMeCache.value;
+    }
+    if (linkedMeInFlight) {
+        return linkedMeInFlight;
+    }
 
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-        try {
-            const response = await fetch('/api/social/me', { cache: 'no-store' });
-            const raw = await response.text();
-            if (!response.ok || !raw) {
-                if (attempt < 3) {
+    linkedMeInFlight = (async () => {
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+            try {
+                const response = await fetch('/api/social/me', { cache: 'no-store' });
+                const raw = await response.text();
+                if (!response.ok || !raw) {
+                    if (attempt < 3) {
+                        await sleep(120 * (attempt + 1));
+                        continue;
+                    }
+                    linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                    return empty;
+                }
+                let parsed: MeResponse;
+                try {
+                    parsed = JSON.parse(raw) as MeResponse;
+                } catch {
+                    if (attempt < 3) {
+                        await sleep(120 * (attempt + 1));
+                        continue;
+                    }
+                    linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                    return empty;
+                }
+
+                // New signups can briefly race before Clerk->Supabase link creation finalizes.
+                // Retry quickly so composer does not open while unlinked.
+                if (parsed.clerkUserId && !parsed.linkedUserId && attempt < 3) {
                     await sleep(120 * (attempt + 1));
                     continue;
                 }
-                return empty;
-            }
-            let parsed: MeResponse;
-            try {
-                parsed = JSON.parse(raw) as MeResponse;
+                linkedMeCache = { value: parsed, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                return parsed;
             } catch {
                 if (attempt < 3) {
                     await sleep(120 * (attempt + 1));
                     continue;
                 }
+                linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
                 return empty;
             }
-
-            // New signups can briefly race before Clerk->Supabase link creation finalizes.
-            // Retry quickly so composer does not open while unlinked.
-            if (parsed.clerkUserId && !parsed.linkedUserId && attempt < 3) {
-                await sleep(120 * (attempt + 1));
-                continue;
-            }
-
-            return parsed;
-        } catch {
-            if (attempt < 3) {
-                await sleep(120 * (attempt + 1));
-                continue;
-            }
-            return empty;
         }
+        linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+        return empty;
+    })();
+    try {
+        return await linkedMeInFlight;
+    } finally {
+        linkedMeInFlight = null;
     }
-
-    return empty;
 }
 
 async function socialWrite(action: string, payload: Record<string, unknown> = {}) {
@@ -381,18 +404,33 @@ class SocialStore {
         try {
             const me = await getLinkedMe();
             const linkedUserId = me.linkedUserId;
+            const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
 
-            // Fetch recent statuses (capped at 200, soft-deletes filtered at DB level)
-            const { data: statusData, error: statusError } = await supabase
-                .from('social_statuses')
-                .select('*')
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false })
-                .limit(200);
+            const [journalResp, feedResp] = await Promise.all([
+                linkedUserId
+                    ? supabase
+                        .from('social_statuses')
+                        .select(statusSelect)
+                        .is('deleted_at', null)
+                        .eq('user_id', linkedUserId)
+                        .order('created_at', { ascending: false })
+                        .limit(JOURNAL_PAGE_SIZE)
+                    : Promise.resolve({ data: [], error: null }),
+                supabase
+                    .from('social_statuses')
+                    .select(statusSelect)
+                    .is('deleted_at', null)
+                    .eq('published', true)
+                    .order('created_at', { ascending: false })
+                    .limit(FEED_PAGE_SIZE),
+            ]);
+            if (journalResp.error) throw journalResp.error;
+            if (feedResp.error) throw feedResp.error;
 
-            if (statusError) throw statusError;
-
-            const statusRows = (statusData || []) as StatusRow[];
+            const mergedStatusRows = new Map<string, StatusRow>();
+            ((journalResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
+            ((feedResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
+            const statusRows = Array.from(mergedStatusRows.values());
             const statusIds = statusRows.map((s) => s.id);
 
             // Scope items + comments to only fetched status IDs
@@ -402,14 +440,14 @@ class SocialStore {
             if (statusIds.length > 0) {
                 const { data: items, error: itemError } = await supabase
                     .from('social_items')
-                    .select('*')
+                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at')
                     .in('status_id', statusIds);
                 if (itemError) throw itemError;
                 itemData = items || [];
 
                 const { data: commentData, error: commentError } = await supabase
                     .from('social_comments')
-                    .select('*')
+                    .select('id,status_id,user_id,content,created_at,deleted_at')
                     .is('deleted_at', null)
                     .in('status_id', statusIds);
                 comments = commentError ? [] : ((commentData || []) as CommentRow[]);
@@ -477,28 +515,22 @@ class SocialStore {
 
             // Filter for current user (Journal view). If link resolution fails, never fall back
             // to global statuses here; that can leak another user's entry into composer.
-            const userStatuses = linkedUserId ? combined.filter(s => s.userId === linkedUserId) : [];
+            const userStatuses = linkedUserId
+                ? combined.filter(s => s.userId === linkedUserId).sort((a, b) => b.createdAt - a.createdAt)
+                : [];
 
             // Fetch Current User's Muted List
-            let mutedUsers: string[] = [];
-            if (linkedUserId) {
-                const { data: myProfile } = await supabase
-                    .from('user_profiles')
-                    .select('muted_users')
-                    .eq('id', linkedUserId)
-                    .single();
-                if (myProfile?.muted_users) {
-                    mutedUsers = myProfile.muted_users || [];
-                }
-            }
+            const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
 
             // Filter out muted users from allStatuses (Feed)
-            const visibleStatuses = combined.filter(s => s.userId && !mutedUsers.includes(s.userId));
+            const visibleStatuses = combined
+                .filter(s => s.userId && !mutedUsers.includes(s.userId))
+                .sort((a, b) => b.createdAt - a.createdAt);
 
             this.state = {
                 ...this.state,
                 allStatuses: visibleStatuses,
-                statuses: userStatuses.sort((a, b) => b.date.localeCompare(a.date)), // Sort journal by date
+                statuses: userStatuses,
                 mutedUsers,
                 isLoaded: true
             };
@@ -515,7 +547,7 @@ class SocialStore {
     private _fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     private debouncedFetch = () => {
         if (this._fetchDebounceTimer) clearTimeout(this._fetchDebounceTimer);
-        this._fetchDebounceTimer = setTimeout(() => this.fetchStatuses(), 500);
+        this._fetchDebounceTimer = setTimeout(() => this.fetchStatuses(), 1800);
     };
 
     setupSubscription() {

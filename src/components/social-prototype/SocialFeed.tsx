@@ -32,7 +32,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         const fetchProfiles = async () => {
             const { data } = await supabase
                 .from('user_profiles')
-                .select('*')
+                .select('id,username,avatar_url,categories,visibility,is_private')
                 .in('id', missing);
 
             if (data) {
@@ -60,10 +60,10 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     useEffect(() => {
         if (!isLoaded || !user) return;
         const fetchSuggestions = async () => {
-            const excluded = new Set([user.id, ...following]);
+            const excluded = new Set([profile?.id, ...following].filter(Boolean) as string[]);
             const { data } = await supabase
                 .from('user_profiles')
-                .select('*')
+                .select('id,username,avatar_url,categories,visibility,is_private')
                 .limit(12);
             const suggestions = (data || [])
                 .filter((profile) => {
@@ -83,7 +83,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
             setSuggestedUsers(suggestions);
         };
         fetchSuggestions();
-    }, [isLoaded, user, following]);
+    }, [isLoaded, user, following, profile?.id]);
 
     if (!isLoaded) {
         return <div className="h-40 bg-neutral-100 mb-4 border border-neutral-300" />;
