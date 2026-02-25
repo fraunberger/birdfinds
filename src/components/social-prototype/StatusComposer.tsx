@@ -29,6 +29,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
+    const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -172,8 +173,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const handleBlur = () => { /* No-op. Content stays local until user explicitly posts. */ };
 
-    const hasUnsavedChanges = !!content.trim() && content.trim() !== (activeStatus?.content || '').trim() && !activeStatus?.published;
-    const hasDraftChanges = content.trim() !== (activeStatus?.content || '').trim();
+    const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
+    const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
@@ -189,6 +190,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         window.addEventListener('beforeunload', onBeforeUnload);
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        setHasItemDraftChanges(false);
+    }, [activeDate, activeStatus?.id]);
 
     // All user items for repeat detection
     const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
@@ -230,6 +235,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             } else {
                 await addItemToActive({ ...item, image: nextImage });
             }
+            setHasItemDraftChanges(true);
             setExistingItem(undefined);
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
@@ -237,7 +243,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     };
 
     const handleDeleteItem = async () => {
-        if (existingItem) { await removeItemFromActive(existingItem.id); setExistingItem(undefined); }
+        if (existingItem) {
+            await removeItemFromActive(existingItem.id);
+            setHasItemDraftChanges(true);
+            setExistingItem(undefined);
+        }
     };
 
     const openModal = (item: ConsumableItem) => {
@@ -258,6 +268,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             aliases.add(normalizedPhrase);
             const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
             await updateItemInActive(item.id, { image: nextImage });
+            setHasItemDraftChanges(true);
         };
 
         if (isAtPrefixLinking) {
@@ -317,6 +328,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(insertionStart)}`;
                 setComposerContent(nextContent);
                 await updateActiveStatus(nextContent);
+                setHasItemDraftChanges(true);
             }
             setSelectedPlainText('');
             recentSelectionRef.current = null;
@@ -550,18 +562,22 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 setIsPosting(true);
                                 try {
                                     let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                    const trimmedContent = content.trim();
+                                    const normalizedContent = normalizeTaggedTextForFeed(content);
+                                    const hasAnyText = normalizedContent.trim().length > 0;
+                                    const hasContentChanges = normalizedContent !== (activeStatus?.content || '');
                                     const hasTaggedItems = items.length > 0;
+                                    const hasExistingStatus = !!statusId;
 
-                                    if (trimmedContent) {
-                                        statusId = await updateActiveStatus(normalizeTaggedTextForFeed(trimmedContent)) || statusId;
+                                    if (hasContentChanges) {
+                                        statusId = await updateActiveStatus(normalizedContent) || statusId;
                                     } else if (hasTaggedItems) {
                                         statusId = statusId || await ensureActiveStatus();
                                     }
 
-                                    if (statusId) {
+                                    if (statusId && (hasAnyText || hasTaggedItems || hasExistingStatus)) {
                                         await togglePublished(statusId, true);
                                         setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
+                                        setHasItemDraftChanges(false);
                                         setIsExpanded(false);
                                     } else {
                                         pushToast({ message: 'Add some text or tagged items before posting.', tone: 'error' });
@@ -589,8 +605,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}
-                        onRemoveItem={removeItemFromActive}
-                        onAddItem={addItemToActive}
+                        onRemoveItem={async (id) => {
+                            await removeItemFromActive(id);
+                            setHasItemDraftChanges(true);
+                        }}
+                        onAddItem={async (item) => {
+                            await addItemToActive(item);
+                            setHasItemDraftChanges(true);
+                        }}
                     />
                 </div>
             )}
