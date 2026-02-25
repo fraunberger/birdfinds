@@ -317,10 +317,10 @@ export function useTaggingState({
             if (!existing) {
                 await addItemToActive({ category: quickAddCategory, title, rating: undefined, subtitle: '', notes: '' });
             }
-            // Insert title into content at the end (or append with space)
+            // Insert highlighted title into content at the end (or append with space)
             const currentContent = content || '';
             const needsSpace = currentContent.length > 0 && !/\s$/.test(currentContent);
-            const newContent = currentContent + (needsSpace ? ' ' : '') + title;
+            const newContent = `${currentContent}${needsSpace ? ' ' : ''}${TAG_MARKER}${title}`;
             setContentForActive(newContent);
             await updateActiveStatus(newContent);
             recentKeyRef.current = { key: mentionKey, at: Date.now() };
