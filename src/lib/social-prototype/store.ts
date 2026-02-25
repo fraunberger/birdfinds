@@ -859,6 +859,7 @@ export function useSocialStore() {
         ...state,
         setActiveDate: (d: string) => socialStore.setActiveDate(d),
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
+        ensureActiveStatus: () => socialStore.ensureActiveStatus(),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
         addItemToStatus: (statusId: string, i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToStatus(statusId, i),
         addItemToPileCategory: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToPileCategory(i),

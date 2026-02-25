@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
 import { parseItemMeta } from '@/lib/social-prototype/item-meta';
+import { normalizeTaggedTextForFeed } from '@/lib/social-prototype/highlighting.mjs';
 
 interface StatusCardProps {
     status: Status;
@@ -140,7 +141,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const renderContent = () => {
         if (!status.content) return null;
 
-        const text = status.content;
+        const text = normalizeTaggedTextForFeed(status.content);
         const matches = findMatches(text);
         const parts: React.ReactNode[] = [];
         let cursor = 0;

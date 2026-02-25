@@ -5,7 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { decorationsEqual, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import { decorationsEqual, normalizeTaggedTextForFeed, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
@@ -22,7 +22,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -551,15 +551,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 try {
                                     let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
                                     const trimmedContent = content.trim();
+                                    const hasTaggedItems = items.length > 0;
+
                                     if (trimmedContent) {
-                                        statusId = await updateActiveStatus(trimmedContent) || statusId;
+                                        statusId = await updateActiveStatus(normalizeTaggedTextForFeed(trimmedContent)) || statusId;
+                                    } else if (hasTaggedItems) {
+                                        statusId = statusId || await ensureActiveStatus();
                                     }
+
                                     if (statusId) {
                                         await togglePublished(statusId, true);
                                         setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
                                         setIsExpanded(false);
                                     } else {
-                                        pushToast({ message: 'Write something before posting.', tone: 'error' });
+                                        pushToast({ message: 'Add some text or tagged items before posting.', tone: 'error' });
                                     }
                                 } catch (error) {
                                     pushToast({ message: error instanceof Error ? error.message : 'Failed to post update', tone: 'error' });
