@@ -20,6 +20,12 @@ const normalizeForMatch = (value: string) => value
 const isMatchingItemTerm = (term: string, title: string) => normalizeForMatch(term) === normalizeForMatch(title);
 
 const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
+const isAtPrefixBoundary = (value: string, atIndex: number) => {
+    if (atIndex === 0) return true;
+    const previousChar = value[atIndex - 1];
+    // Allow mentions after whitespace or punctuation, but avoid triggering for emails/words.
+    return !/[\p{L}\p{N}_@]/u.test(previousChar);
+};
 
 const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
     if (start < 0 || end <= start || end > content.length) return content;
@@ -157,8 +163,7 @@ export function useTaggingState({
 
     // ── Track @ prefix in content ──────────────────────────────────────
     const trackAtPrefix = useCallback((value: string, cursorPos: number) => {
-        // Look backwards from cursor for an unmatched @
-        // The @ must not be preceded by a non-whitespace char (or be at start)
+        // Look backwards from cursor for a mention @ trigger.
         if (cursorPos <= 0) { clearAtPrefix(); return; }
 
         // Search backwards from cursor to find the most recent @
@@ -166,8 +171,7 @@ export function useTaggingState({
         for (let i = cursorPos - 1; i >= 0; i--) {
             if (value[i] === '\n') break; // don't cross line boundaries
             if (value[i] === '@') {
-                // @ must be at start of string or preceded by whitespace
-                if (i === 0 || /\s/.test(value[i - 1])) {
+                if (isAtPrefixBoundary(value, i)) {
                     atPos = i;
                 }
                 break;
