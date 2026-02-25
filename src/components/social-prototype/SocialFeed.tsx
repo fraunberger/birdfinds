@@ -17,6 +17,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { allStatuses, setActiveDate, isLoaded } = useSocialStore();
     const { following, follow } = useFollows();
     const [mode, setMode] = useState<'all' | 'following'>('all');
+    const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
     const [suggestedUsers, setSuggestedUsers] = useState<UserProfile[]>([]);
 
@@ -109,14 +110,14 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const feedStatuses: Status[] = mode === 'all'
         ? publishedStatuses
         : publishedStatuses.filter((s) => s.userId && (s.userId === linkedUserId || following.includes(s.userId)));
-
     // Sort by date descending, then by tag count descending within same date
     feedStatuses.sort((a, b) => {
         const dateCmp = b.date.localeCompare(a.date);
         if (dateCmp !== 0) return dateCmp;
         return (b.items?.length || 0) - (a.items?.length || 0);
     });
-    const visibleFeedStatuses = feedStatuses.slice(0, FEED_PAGE_SIZE);
+    const visibleFeedStatuses = feedStatuses.slice(0, visibleCount);
+    const hasMoreStatuses = feedStatuses.length > visibleFeedStatuses.length;
     const followingPostCountToday = publishedStatuses.filter((status) => {
         if (!status.userId || !following.includes(status.userId)) return false;
         return status.date === getTodayDateString();
@@ -131,7 +132,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                 </h2>
                 <div className="flex text-xs gap-0 border border-neutral-300">
                     <button
-                        onClick={() => setMode('all')}
+                        onClick={() => { setMode('all'); setVisibleCount(FEED_PAGE_SIZE); }}
                         className={`px-3 py-1 uppercase tracking-wider transition-colors ${mode === 'all'
                             ? 'bg-neutral-800 text-white'
                             : 'text-neutral-500 hover:bg-neutral-100'
@@ -140,7 +141,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                         Public Feed
                     </button>
                     <button
-                        onClick={() => setMode('following')}
+                        onClick={() => { setMode('following'); setVisibleCount(FEED_PAGE_SIZE); }}
                         className={`px-3 py-1 uppercase tracking-wider transition-colors border-l border-neutral-300 ${mode === 'following'
                             ? 'bg-neutral-800 text-white'
                             : 'text-neutral-500 hover:bg-neutral-100'
@@ -216,6 +217,18 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                         />
                     );
                 })}
+
+                {hasMoreStatuses && (
+                    <div className="pt-1">
+                        <button
+                            type="button"
+                            onClick={() => setVisibleCount((current) => current + FEED_PAGE_SIZE)}
+                            className="w-full border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-600 hover:bg-neutral-100"
+                        >
+                            View more
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
