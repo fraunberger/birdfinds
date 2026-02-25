@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSocialStore, Status, ConsumableItem, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
+import { normalizeTaggedTextForFeed } from '@/lib/social-prototype/highlighting.mjs';
 
 export function Feed() {
     const { statuses, activeDate } = useSocialStore();
@@ -15,7 +16,7 @@ export function Feed() {
     const renderContent = (status: Status) => {
         if (!status.content) return null;
 
-        let html = status.content
+        let html = normalizeTaggedTextForFeed(status.content)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
