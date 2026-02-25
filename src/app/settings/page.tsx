@@ -129,7 +129,7 @@ export default function SettingsPage() {
       <div className="max-w-2xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
         <header className="flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="relative w-14 h-9 block hover:opacity-80 transition-opacity">
+            <Link href="/" className="relative w-16 h-10 block hover:opacity-80 transition-opacity">
               <Image src="/logo.svg" alt="BirdFinds" fill className="object-contain" priority />
             </Link>
             <Link

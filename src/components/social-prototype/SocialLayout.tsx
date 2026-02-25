@@ -151,7 +151,7 @@ export function SocialLayout() {
       <div className="max-w-2xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
         <header className="flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
           <div className="flex items-center gap-4">
-            <Link href="/" onClick={handleReset} className="relative w-14 h-9 block hover:opacity-80 transition-opacity">
+            <Link href="/" onClick={handleReset} className="relative w-16 h-10 block hover:opacity-80 transition-opacity">
               <Image src="/logo.svg" alt="BirdFinds" fill className="object-contain" priority />
             </Link>
             <span className="text-xs uppercase tracking-widest text-neutral-500">Feed</span>
@@ -323,6 +323,16 @@ export function SocialLayout() {
             >
               Election App
             </Link>
+          </div>
+          <div className="mb-3">
+            <a
+              href="https://birdpile.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+            >
+              Visit the Birdpile
+            </a>
           </div>
           <span className="uppercase tracking-widest">Copyright Birdfinds {new Date().getFullYear()}</span>
         </footer>

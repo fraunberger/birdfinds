@@ -14,6 +14,8 @@ interface AccountMenuProps {
 }
 
 export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, reportCount = 0 }: AccountMenuProps) {
+  void username;
+  void avatarUrl;
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -93,6 +95,15 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
           >
             About Birdfinds
           </button>
+          <a
+            href="https://birdpile.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+          >
+            Visit the Birdpile
+          </a>
           <button
             onClick={async () => {
               await signOut();
