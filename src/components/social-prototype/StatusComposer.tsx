@@ -459,7 +459,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                 tagging.handleCategoryTap(cat.id);
                                             }}
                                             onMouseDown={(e) => e.preventDefault()}
-                                            onTouchStart={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
                                             title={cat.label}
                                             className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${isActive
