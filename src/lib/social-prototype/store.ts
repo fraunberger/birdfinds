@@ -155,7 +155,8 @@ interface MeResponse {
     } | null;
 }
 
-const FEED_PAGE_SIZE = 15;
+export const FEED_PAGE_SIZE = 15;
+const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 4;
 const JOURNAL_PAGE_SIZE = 15;
 const LINKED_ME_CACHE_TTL_MS = 1500;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
@@ -422,7 +423,8 @@ class SocialStore {
                     .is('deleted_at', null)
                     .eq('published', true)
                     .order('created_at', { ascending: false })
-                    .limit(FEED_PAGE_SIZE),
+                    // Over-fetch so visibility filtering can still yield a full page.
+                    .limit(FEED_FETCH_SIZE),
             ]);
             if (journalResp.error) throw journalResp.error;
             if (feedResp.error) throw feedResp.error;
