@@ -220,20 +220,20 @@ export default function SettingsPage() {
             <p className="text-[10px] uppercase tracking-widest text-red-600">{credentialsError}</p>
           ) : null}
 
-          <div className="border border-red-200 bg-red-50 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-red-700">Danger Zone</p>
-            <p className="mt-2 text-xs text-red-700">
-              Delete account removes your account from Clerk and Supabase (profile, posts, comments, habits, follows, and links).
+          <div className="border border-neutral-300 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Delete Account</p>
+            <p className="mt-2 text-xs text-neutral-600">
+              Permanently delete your account and all your data.
             </p>
             <button
               onClick={handleDeleteAccount}
               disabled={deletingAccount}
-              className="mt-3 text-[10px] uppercase tracking-widest border border-red-300 px-2 py-1 text-red-700 hover:bg-red-100 disabled:opacity-50"
+              className="mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50"
             >
               {deletingAccount ? "Deleting..." : "Delete Account"}
             </button>
             {deleteAccountError ? (
-              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-700">{deleteAccountError}</p>
+              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-600">{deleteAccountError}</p>
             ) : null}
           </div>
         </main>
