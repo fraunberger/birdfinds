@@ -19,8 +19,17 @@ const normalizeForMatch = (value: string) => value
 
 const isMatchingItemTerm = (term: string, title: string) => normalizeForMatch(term) === normalizeForMatch(title);
 
+const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
+
 const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
     if (start < 0 || end <= start || end > content.length) return content;
+
+    if (content[start] === '@') {
+        const withoutAt = `${content.slice(0, start)}${content.slice(start + 1)}`;
+        if (withoutAt.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return withoutAt;
+        return `${withoutAt.slice(0, start)}${TAG_MARKER}${withoutAt.slice(start)}`;
+    }
+
     if (content.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return content;
     return `${content.slice(0, start)}${TAG_MARKER}${content.slice(start)}`;
 };
@@ -190,7 +199,11 @@ export function useTaggingState({
         const effectiveSelectionText = selectedText.trim() || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
         const hasSelection = effectiveSelectionText.length > 0;
         if (hasSelection) {
-            const title = effectiveSelectionText;
+            const title = stripLeadingAtSymbol(effectiveSelectionText);
+            if (!title) {
+                clearSelection();
+                return;
+            }
             const mentionKey = `${category}:${title.toLowerCase()}`;
             const now = Date.now();
             if (recentKeyRef.current && recentKeyRef.current.key === mentionKey && (now - recentKeyRef.current.at) < 2500) return;
@@ -227,7 +240,11 @@ export function useTaggingState({
 
         // Priority 2: Has @ prefix typed (Flow @)
         if (atPrefixPos >= 0 && atPrefixText.trim().length > 0) {
-            const title = atPrefixText.trim();
+            const title = stripLeadingAtSymbol(atPrefixText);
+            if (!title) {
+                clearAtPrefix();
+                return;
+            }
             const mentionKey = `${category}:${title.toLowerCase()}`;
             const now = Date.now();
             if (recentKeyRef.current && recentKeyRef.current.key === mentionKey && (now - recentKeyRef.current.at) < 2500) {

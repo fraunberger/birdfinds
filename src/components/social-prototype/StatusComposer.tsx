@@ -18,6 +18,7 @@ interface StatusComposerProps {
 }
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
@@ -260,7 +261,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         };
 
         if (isAtPrefixLinking) {
-            const typedText = tagging.atPrefixText.trim();
+            const typedText = stripLeadingAtSymbol(tagging.atPrefixText);
+            if (!typedText) {
+                tagging.clearAtPrefix();
+                return;
+            }
             await ensureAliasLinked(typedText);
             const currentContent = content || '';
             const before = currentContent.slice(0, tagging.atPrefixPos);
@@ -287,7 +292,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             && (Date.now() - recentSelection.at) < 3000
             ? recentSelection.text.trim()
             : '';
-        const phrase = selectedPlainText.trim() || mobileFallbackPhrase;
+        const rawPhrase = selectedPlainText.trim() || mobileFallbackPhrase;
+        const phrase = stripLeadingAtSymbol(rawPhrase);
 
         if (tagging.isMobileTagging && !phrase) {
             pushToast({ message: 'Select text or type @ to link from mobile.', tone: 'error' });
@@ -303,10 +309,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 start >= 0
                 && end > start
                 && end <= currentContent.length
-                && currentContent.slice(start, end).trim() === phrase
+                && stripLeadingAtSymbol(currentContent.slice(start, end)) === phrase
                 && currentContent.slice(Math.max(0, start - TAG_MARKER.length), start) !== TAG_MARKER
             ) {
-                const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(start)}`;
+                const hasLeadingAt = currentContent[start] === '@';
+                const insertionStart = hasLeadingAt ? start + 1 : start;
+                const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(insertionStart)}`;
                 setComposerContent(nextContent);
                 await updateActiveStatus(nextContent);
             }
