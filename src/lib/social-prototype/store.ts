@@ -156,20 +156,49 @@ interface MeResponse {
 }
 
 async function getLinkedMe(): Promise<MeResponse> {
-    try {
-        const response = await fetch('/api/social/me', { cache: 'no-store' });
-        const raw = await response.text();
-        if (!response.ok || !raw) {
-            return { clerkUserId: null, linkedUserId: null, profile: null };
-        }
+    const empty: MeResponse = { clerkUserId: null, linkedUserId: null, profile: null };
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
         try {
-            return JSON.parse(raw) as MeResponse;
+            const response = await fetch('/api/social/me', { cache: 'no-store' });
+            const raw = await response.text();
+            if (!response.ok || !raw) {
+                if (attempt < 3) {
+                    await sleep(120 * (attempt + 1));
+                    continue;
+                }
+                return empty;
+            }
+            let parsed: MeResponse;
+            try {
+                parsed = JSON.parse(raw) as MeResponse;
+            } catch {
+                if (attempt < 3) {
+                    await sleep(120 * (attempt + 1));
+                    continue;
+                }
+                return empty;
+            }
+
+            // New signups can briefly race before Clerk->Supabase link creation finalizes.
+            // Retry quickly so composer does not open while unlinked.
+            if (parsed.clerkUserId && !parsed.linkedUserId && attempt < 3) {
+                await sleep(120 * (attempt + 1));
+                continue;
+            }
+
+            return parsed;
         } catch {
-            return { clerkUserId: null, linkedUserId: null, profile: null };
+            if (attempt < 3) {
+                await sleep(120 * (attempt + 1));
+                continue;
+            }
+            return empty;
         }
-    } catch {
-        return { clerkUserId: null, linkedUserId: null, profile: null };
     }
+
+    return empty;
 }
 
 async function socialWrite(action: string, payload: Record<string, unknown> = {}) {
@@ -448,8 +477,9 @@ class SocialStore {
                     })),
             }));
 
-            // Filter for current user (Journal view)
-            const userStatuses = linkedUserId ? combined.filter(s => s.userId === linkedUserId) : combined;
+            // Filter for current user (Journal view). If link resolution fails, never fall back
+            // to global statuses here; that can leak another user's entry into composer.
+            const userStatuses = linkedUserId ? combined.filter(s => s.userId === linkedUserId) : [];
 
             // Fetch Current User's Muted List
             let mutedUsers: string[] = [];
