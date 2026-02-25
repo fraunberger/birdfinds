@@ -346,7 +346,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "social.profile.upsert") {
-      const username = payload.username ? String(payload.username).trim() : "";
+      const { data: existingProfile } = await supabaseAdmin
+        .from("user_profiles")
+        .select("username, avatar_url, categories, visibility, is_private, category_configs")
+        .eq("id", linkedUserId)
+        .maybeSingle();
+
+      const usernameCandidate = payload.username ? String(payload.username).trim() : "";
+      const username = usernameCandidate || existingProfile?.username || "";
       if (!username) {
         return NextResponse.json({ error: "Username is required" }, { status: 400 });
       }
@@ -364,17 +371,23 @@ export async function POST(req: NextRequest) {
       const visibility =
         visibilityRaw === "public" || visibilityRaw === "accounts" || visibilityRaw === "private"
           ? visibilityRaw
-          : undefined;
-      const isPrivate = visibility ? visibility === "private" : typeof payload.isPrivate === "boolean" ? payload.isPrivate : undefined;
+          : (existingProfile?.visibility || undefined);
+      const isPrivate = visibility
+        ? visibility === "private"
+        : typeof payload.isPrivate === "boolean"
+          ? payload.isPrivate
+          : (existingProfile?.is_private || false);
       const categories = Array.isArray(payload.categories)
         ? payload.categories.map((value) => String(value).trim()).filter(Boolean)
-        : undefined;
+        : (existingProfile?.categories || undefined);
       const categoryConfigs = payload.categoryConfigs && typeof payload.categoryConfigs === "object"
         ? payload.categoryConfigs
-        : undefined;
-      const avatarUrl = payload.avatarUrl == null || payload.avatarUrl === ""
-        ? null
-        : truncate(String(payload.avatarUrl), MAX_AVATAR_URL);
+        : (existingProfile?.category_configs || undefined);
+      const avatarUrl = payload.avatarUrl === undefined
+        ? (existingProfile?.avatar_url ?? null)
+        : payload.avatarUrl == null || payload.avatarUrl === ""
+          ? null
+          : truncate(String(payload.avatarUrl), MAX_AVATAR_URL);
 
       const { error } = await supabaseAdmin
         .from("user_profiles")

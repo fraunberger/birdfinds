@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
@@ -312,8 +312,6 @@ class SocialStore {
         mutedUsers: []
     };
     private listeners = new Set<() => void>();
-    private initialized = false;
-
     constructor() {
         if (typeof window !== 'undefined') {
             // Auto-fetch on client side init
@@ -970,14 +968,31 @@ export function useUserProfile() {
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
-        const visibility = updates.visibility || (updates.isPrivate ? 'private' : undefined);
+        const resolvedUsername = (updates.username
+            || profile?.username
+            || user?.username
+            || user?.email?.split("@")[0]
+            || "").trim();
+        if (!resolvedUsername) {
+            throw new Error("Username is required");
+        }
+
+        const visibility = updates.visibility
+            || (updates.isPrivate ? 'private' : undefined)
+            || profile?.visibility
+            || (profile?.isPrivate ? 'private' : 'public');
+
+        const categories = updates.categories ?? profile?.categories ?? [];
+        const categoryConfigs = updates.categoryConfigs ?? profile?.categoryConfigs ?? {};
+        const avatarUrl = updates.avatarUrl !== undefined ? updates.avatarUrl : profile?.avatarUrl;
+
         await socialWrite('social.profile.upsert', {
-            username: updates.username,
-            avatarUrl: updates.avatarUrl,
-            categories: updates.categories,
-            isPrivate: updates.isPrivate,
+            username: resolvedUsername,
+            avatarUrl,
+            categories,
+            isPrivate: visibility === 'private',
             visibility,
-            categoryConfigs: updates.categoryConfigs,
+            categoryConfigs,
         });
         await fetchProfile();
         if (typeof window !== 'undefined') {
@@ -1019,12 +1034,17 @@ export function useHabits(userId?: string) {
     const [habitLogs, setHabitLogs] = useState<HabitLogRow[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchHabits = async () => {
+    const fetchHabits = useCallback(async () => {
         // If userId provided, fetch for that user, otherwise current user
         let targetId = userId;
         if (!targetId) {
             const me = await getLinkedMe();
-            if (!me.linkedUserId) return;
+            if (!me.linkedUserId) {
+                setHabits([]);
+                setHabitLogs([]);
+                setLoading(false);
+                return;
+            }
             targetId = me.linkedUserId;
         }
 
@@ -1051,7 +1071,7 @@ export function useHabits(userId?: string) {
         setHabitLogs(logsData || []);
 
         setLoading(false);
-    };
+    }, [userId]);
 
     const addHabit = async (name: string, icon: string = '') => {
         await socialWrite('social.habit.add', { name, icon });
@@ -1093,8 +1113,12 @@ export function useHabits(userId?: string) {
         return habitLogs.some(l => l.habit_id === habitId && l.date === date && l.completed);
     };
 
-    // Initial fetch, dep on userId
-    useState(() => { fetchHabits(); });
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void fetchHabits();
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [fetchHabits]);
 
     return {
         habits,
@@ -1111,9 +1135,12 @@ export function useHabits(userId?: string) {
 export function useFollows() {
     const [following, setFollowing] = useState<string[]>([]);
 
-    const fetchFollows = async () => {
+    const fetchFollows = useCallback(async () => {
         const me = await getLinkedMe();
-        if (!me.linkedUserId) return;
+        if (!me.linkedUserId) {
+            setFollowing([]);
+            return;
+        }
 
         const { data } = await supabase
             .from('follows')
@@ -1121,14 +1148,19 @@ export function useFollows() {
             .eq('follower_id', me.linkedUserId);
 
         setFollowing((data || []).map((f: FollowRow) => f.following_id));
-    };
+    }, []);
 
     const toggleFollow = async (targetUserId: string) => {
         await socialWrite('social.follow.toggle', { targetUserId });
         await fetchFollows();
     };
 
-    useState(() => { fetchFollows(); });
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void fetchFollows();
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [fetchFollows]);
 
     return {
         following,
@@ -1144,8 +1176,12 @@ export function usePublicProfile(userId: string) {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetch = async () => {
-        if (!userId) return;
+    const fetch = useCallback(async () => {
+        if (!userId) {
+            setProfile(null);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const { data } = await supabase
             .from('user_profiles')
@@ -1167,8 +1203,13 @@ export function usePublicProfile(userId: string) {
             });
         }
         setLoading(false);
-    };
+    }, [userId]);
 
-    useState(() => { fetch(); });
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void fetch();
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [fetch]);
     return { profile, loading };
 }
