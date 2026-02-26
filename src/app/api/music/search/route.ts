@@ -48,6 +48,19 @@ function tokenizeQuery(query: string): string[] {
         .filter((token) => token.length > 1);
 }
 
+function escapeMusicBrainzTerm(value: string): string {
+    return value.replace(/[+\-!(){}\[\]^"~*?:\/|&]/g, '\\$&');
+}
+
+function buildMusicBrainzQuery(query: string): string {
+    const normalized = query.trim();
+    const escaped = escapeMusicBrainzTerm(normalized);
+
+    // Prefer Spotify-like behavior for broad title searches: prioritize exact title hits,
+    // then near-title matches, while still allowing artist-field matches.
+    return `releasegroup:"${escaped}"^8 OR releasegroup:${escaped}^4 OR artist:${escaped}^2`;
+}
+
 function getArtistNames(item: MusicBrainzReleaseGroup): string {
     return (item['artist-credit'] || [])
         .map((credit) => credit.name || credit.artist?.name || '')
@@ -63,7 +76,7 @@ function getTextMatchScore(item: MusicBrainzReleaseGroup, query: string): number
 
     let score = 0;
 
-    if (title === normalizedQuery) score += 120;
+    if (title === normalizedQuery) score += 180;
     else if (title.startsWith(normalizedQuery)) score += 80;
     else if (title.includes(normalizedQuery)) score += 55;
 
@@ -103,7 +116,7 @@ function getCompositeScore(item: MusicBrainzReleaseGroup, query: string): number
     const recencyBonus = getReleaseRecencyBonus(item);
     const secondaryTypePenalty = getSecondaryTypePenalty(item);
 
-    return musicBrainzScore * 4 + textMatchScore + recencyBonus - secondaryTypePenalty;
+    return musicBrainzScore * 2 + textMatchScore * 3 + recencyBonus - secondaryTypePenalty;
 }
 
 export async function GET(request: Request) {
@@ -121,12 +134,9 @@ export async function GET(request: Request) {
 
     try {
         const upstreamUrl = new URL('https://musicbrainz.org/ws/2/release-group');
-        upstreamUrl.searchParams.set('query', query);
+        upstreamUrl.searchParams.set('query', buildMusicBrainzQuery(query));
         upstreamUrl.searchParams.set('fmt', 'json');
-        // Pull a wider candidate set from MusicBrainz before applying our local ranking.
-        // Broad one-word searches (like "worlds") can otherwise miss obvious matches
-        // when the upstream limit is too tight.
-        upstreamUrl.searchParams.set('limit', '50');
+        upstreamUrl.searchParams.set('limit', '12');
 
         const response = await fetch(upstreamUrl.toString(), {
             headers: {
