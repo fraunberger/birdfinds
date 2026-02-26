@@ -123,7 +123,10 @@ export async function GET(request: Request) {
         const upstreamUrl = new URL('https://musicbrainz.org/ws/2/release-group');
         upstreamUrl.searchParams.set('query', query);
         upstreamUrl.searchParams.set('fmt', 'json');
-        upstreamUrl.searchParams.set('limit', '12');
+        // Pull a wider candidate set from MusicBrainz before applying our local ranking.
+        // Broad one-word searches (like "worlds") can otherwise miss obvious matches
+        // when the upstream limit is too tight.
+        upstreamUrl.searchParams.set('limit', '50');
 
         const response = await fetch(upstreamUrl.toString(), {
             headers: {
