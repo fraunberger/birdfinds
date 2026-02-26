@@ -5,7 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { decorationsEqual, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import { decorationsEqual, normalizeTaggedTextForFeed, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
@@ -18,16 +18,18 @@ interface StatusComposerProps {
 }
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
+const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
+    const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -171,8 +173,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const handleBlur = () => { /* No-op. Content stays local until user explicitly posts. */ };
 
-    const hasUnsavedChanges = !!content.trim() && content.trim() !== (activeStatus?.content || '').trim() && !activeStatus?.published;
-    const hasDraftChanges = content.trim() !== (activeStatus?.content || '').trim();
+    const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
+    const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
@@ -188,6 +190,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         window.addEventListener('beforeunload', onBeforeUnload);
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        setHasItemDraftChanges(false);
+    }, [activeDate, activeStatus?.id]);
 
     // All user items for repeat detection
     const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
@@ -229,6 +235,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             } else {
                 await addItemToActive({ ...item, image: nextImage });
             }
+            setHasItemDraftChanges(true);
             setExistingItem(undefined);
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
@@ -236,7 +243,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     };
 
     const handleDeleteItem = async () => {
-        if (existingItem) { await removeItemFromActive(existingItem.id); setExistingItem(undefined); }
+        if (existingItem) {
+            await removeItemFromActive(existingItem.id);
+            setHasItemDraftChanges(true);
+            setExistingItem(undefined);
+        }
     };
 
     const openModal = (item: ConsumableItem) => {
@@ -257,10 +268,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             aliases.add(normalizedPhrase);
             const nextImage = serializeItemMeta({ ...meta, aliases: Array.from(aliases) });
             await updateItemInActive(item.id, { image: nextImage });
+            setHasItemDraftChanges(true);
         };
 
         if (isAtPrefixLinking) {
-            const typedText = tagging.atPrefixText.trim();
+            const typedText = stripLeadingAtSymbol(tagging.atPrefixText);
+            if (!typedText) {
+                tagging.clearAtPrefix();
+                return;
+            }
             await ensureAliasLinked(typedText);
             const currentContent = content || '';
             const before = currentContent.slice(0, tagging.atPrefixPos);
@@ -287,7 +303,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             && (Date.now() - recentSelection.at) < 3000
             ? recentSelection.text.trim()
             : '';
-        const phrase = selectedPlainText.trim() || mobileFallbackPhrase;
+        const rawPhrase = selectedPlainText.trim() || mobileFallbackPhrase;
+        const phrase = stripLeadingAtSymbol(rawPhrase);
 
         if (tagging.isMobileTagging && !phrase) {
             pushToast({ message: 'Select text or type @ to link from mobile.', tone: 'error' });
@@ -303,12 +320,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 start >= 0
                 && end > start
                 && end <= currentContent.length
-                && currentContent.slice(start, end).trim() === phrase
+                && stripLeadingAtSymbol(currentContent.slice(start, end)) === phrase
                 && currentContent.slice(Math.max(0, start - TAG_MARKER.length), start) !== TAG_MARKER
             ) {
-                const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(start)}`;
+                const hasLeadingAt = currentContent[start] === '@';
+                const insertionStart = hasLeadingAt ? start + 1 : start;
+                const nextContent = `${currentContent.slice(0, start)}${TAG_MARKER}${currentContent.slice(insertionStart)}`;
                 setComposerContent(nextContent);
                 await updateActiveStatus(nextContent);
+                setHasItemDraftChanges(true);
             }
             setSelectedPlainText('');
             recentSelectionRef.current = null;
@@ -439,7 +459,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                 tagging.handleCategoryTap(cat.id);
                                             }}
                                             onMouseDown={(e) => e.preventDefault()}
-                                            onTouchStart={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
                                             title={cat.label}
                                             className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${isActive
@@ -542,16 +561,25 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 setIsPosting(true);
                                 try {
                                     let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
-                                    const trimmedContent = content.trim();
-                                    if (trimmedContent) {
-                                        statusId = await updateActiveStatus(trimmedContent) || statusId;
+                                    const normalizedContent = normalizeTaggedTextForFeed(content);
+                                    const hasAnyText = normalizedContent.trim().length > 0;
+                                    const hasContentChanges = normalizedContent !== (activeStatus?.content || '');
+                                    const hasTaggedItems = items.length > 0;
+                                    const hasExistingStatus = !!statusId;
+
+                                    if (hasContentChanges) {
+                                        statusId = await updateActiveStatus(normalizedContent) || statusId;
+                                    } else if (hasTaggedItems) {
+                                        statusId = statusId || await ensureActiveStatus();
                                     }
-                                    if (statusId) {
+
+                                    if (statusId && (hasAnyText || hasTaggedItems || hasExistingStatus)) {
                                         await togglePublished(statusId, true);
                                         setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
+                                        setHasItemDraftChanges(false);
                                         setIsExpanded(false);
                                     } else {
-                                        pushToast({ message: 'Write something before posting.', tone: 'error' });
+                                        pushToast({ message: 'Add some text or tagged items before posting.', tone: 'error' });
                                     }
                                 } catch (error) {
                                     pushToast({ message: error instanceof Error ? error.message : 'Failed to post update', tone: 'error' });
@@ -576,8 +604,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}
-                        onRemoveItem={removeItemFromActive}
-                        onAddItem={addItemToActive}
+                        onRemoveItem={async (id) => {
+                            await removeItemFromActive(id);
+                            setHasItemDraftChanges(true);
+                        }}
+                        onAddItem={async (item) => {
+                            await addItemToActive(item);
+                            setHasItemDraftChanges(true);
+                        }}
                     />
                 </div>
             )}

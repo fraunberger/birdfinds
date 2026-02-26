@@ -155,7 +155,8 @@ interface MeResponse {
     } | null;
 }
 
-const FEED_PAGE_SIZE = 15;
+export const FEED_PAGE_SIZE = 15;
+const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 4;
 const JOURNAL_PAGE_SIZE = 15;
 const LINKED_ME_CACHE_TTL_MS = 1500;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
@@ -422,7 +423,8 @@ class SocialStore {
                     .is('deleted_at', null)
                     .eq('published', true)
                     .order('created_at', { ascending: false })
-                    .limit(FEED_PAGE_SIZE),
+                    // Over-fetch so visibility filtering can still yield a full page.
+                    .limit(FEED_FETCH_SIZE),
             ]);
             if (journalResp.error) throw journalResp.error;
             if (feedResp.error) throw feedResp.error;
@@ -857,6 +859,7 @@ export function useSocialStore() {
         ...state,
         setActiveDate: (d: string) => socialStore.setActiveDate(d),
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
+        ensureActiveStatus: () => socialStore.ensureActiveStatus(),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),
         addItemToStatus: (statusId: string, i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToStatus(statusId, i),
         addItemToPileCategory: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToPileCategory(i),
@@ -932,7 +935,7 @@ export function useUserProfile() {
                 ? { data: fromMe, error: null }
                 : await supabase
                     .from('user_profiles')
-                    .select('id, username, avatar_url, categories, visibility, is_private, created_at, muted_users, category_configs')
+                    .select('id,username,avatar_url,categories,visibility,is_private,created_at,muted_users,category_configs')
                     .eq('id', linkedUserId)
                     .single();
 
@@ -1082,7 +1085,7 @@ export function useHabits(userId?: string) {
 
         const { data } = await supabase
             .from('user_habits')
-            .select('id, user_id, name, icon, sort_order')
+            .select('id,user_id,name,icon,sort_order')
             .eq('user_id', targetId)
             .order('sort_order');
 
@@ -1101,9 +1104,8 @@ export function useHabits(userId?: string) {
 
         const { data: logsData } = await supabase
             .from('habit_logs')
-            .select('habit_id, date, completed, notes')
-            .eq('user_id', targetId)
-            .gte('date', since);
+            .select('habit_id,date,completed,notes')
+            .eq('user_id', targetId);
 
         setHabitLogs(logsData || []);
 
@@ -1222,7 +1224,7 @@ export function usePublicProfile(userId: string) {
         setLoading(true);
         const { data } = await supabase
             .from('user_profiles')
-            .select('id, username, avatar_url, categories, visibility, is_private, created_at, category_configs')
+            .select('id,username,avatar_url,categories,visibility,is_private,created_at,muted_users,category_configs')
             .eq('id', userId)
             .single();
 

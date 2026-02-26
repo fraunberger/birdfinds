@@ -7,6 +7,17 @@
 const DEFAULT_PARSE_DELAY_MS = 140;
 export const TAG_MARKER = "\u2063";
 
+/**
+ * Remove accidental @ symbols directly attached to tagged terms.
+ * Keeps @ symbols that are part of the actual term text.
+ * @param {string} text
+ * @returns {string}
+ */
+export function normalizeTaggedTextForFeed(text) {
+  if (!text) return "";
+  return text.replace(new RegExp(`@${escapeRegex(TAG_MARKER)}`, "g"), TAG_MARKER);
+}
+
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeTerms = (terms) =>

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   decorationsEqual,
+  normalizeTaggedTextForFeed,
   parseHighlights,
   resolveOverlappingHighlights,
   segmentText,
@@ -125,4 +126,12 @@ test("parseHighlights ignores untagged duplicate words", () => {
   assert.equal(decorations.length, 1);
   assert.equal(decorations[0].displayText, "Nebraska");
   assert.equal(text.slice(decorations[0].start, decorations[0].end), "Nebraska");
+});
+
+
+test("normalizeTaggedTextForFeed removes accidental @ before tagged markers", () => {
+  const text = `I loved @${TAG_MARKER}Dune and ${TAG_MARKER}@home`;
+  const normalized = normalizeTaggedTextForFeed(text);
+
+  assert.equal(normalized, `I loved ${TAG_MARKER}Dune and ${TAG_MARKER}@home`);
 });

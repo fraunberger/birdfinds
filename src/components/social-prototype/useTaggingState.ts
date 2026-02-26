@@ -19,8 +19,23 @@ const normalizeForMatch = (value: string) => value
 
 const isMatchingItemTerm = (term: string, title: string) => normalizeForMatch(term) === normalizeForMatch(title);
 
+const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
+const isAtPrefixBoundary = (value: string, atIndex: number) => {
+    if (atIndex === 0) return true;
+    const previousChar = value[atIndex - 1];
+    // Allow mentions after whitespace or punctuation, but avoid triggering for emails/words.
+    return !/[\p{L}\p{N}_@]/u.test(previousChar);
+};
+
 const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
     if (start < 0 || end <= start || end > content.length) return content;
+
+    if (content[start] === '@') {
+        const withoutAt = `${content.slice(0, start)}${content.slice(start + 1)}`;
+        if (withoutAt.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return withoutAt;
+        return `${withoutAt.slice(0, start)}${TAG_MARKER}${withoutAt.slice(start)}`;
+    }
+
     if (content.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return content;
     return `${content.slice(0, start)}${TAG_MARKER}${content.slice(start)}`;
 };
@@ -148,8 +163,7 @@ export function useTaggingState({
 
     // ── Track @ prefix in content ──────────────────────────────────────
     const trackAtPrefix = useCallback((value: string, cursorPos: number) => {
-        // Look backwards from cursor for an unmatched @
-        // The @ must not be preceded by a non-whitespace char (or be at start)
+        // Look backwards from cursor for a mention @ trigger.
         if (cursorPos <= 0) { clearAtPrefix(); return; }
 
         // Search backwards from cursor to find the most recent @
@@ -157,8 +171,7 @@ export function useTaggingState({
         for (let i = cursorPos - 1; i >= 0; i--) {
             if (value[i] === '\n') break; // don't cross line boundaries
             if (value[i] === '@') {
-                // @ must be at start of string or preceded by whitespace
-                if (i === 0 || /\s/.test(value[i - 1])) {
+                if (isAtPrefixBoundary(value, i)) {
                     atPos = i;
                 }
                 break;
@@ -190,7 +203,11 @@ export function useTaggingState({
         const effectiveSelectionText = selectedText.trim() || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
         const hasSelection = effectiveSelectionText.length > 0;
         if (hasSelection) {
-            const title = effectiveSelectionText;
+            const title = stripLeadingAtSymbol(effectiveSelectionText);
+            if (!title) {
+                clearSelection();
+                return;
+            }
             const mentionKey = `${category}:${title.toLowerCase()}`;
             const now = Date.now();
             if (recentKeyRef.current && recentKeyRef.current.key === mentionKey && (now - recentKeyRef.current.at) < 2500) return;
@@ -227,7 +244,11 @@ export function useTaggingState({
 
         // Priority 2: Has @ prefix typed (Flow @)
         if (atPrefixPos >= 0 && atPrefixText.trim().length > 0) {
-            const title = atPrefixText.trim();
+            const title = stripLeadingAtSymbol(atPrefixText);
+            if (!title) {
+                clearAtPrefix();
+                return;
+            }
             const mentionKey = `${category}:${title.toLowerCase()}`;
             const now = Date.now();
             if (recentKeyRef.current && recentKeyRef.current.key === mentionKey && (now - recentKeyRef.current.at) < 2500) {
@@ -296,10 +317,10 @@ export function useTaggingState({
             if (!existing) {
                 await addItemToActive({ category: quickAddCategory, title, rating: undefined, subtitle: '', notes: '' });
             }
-            // Insert title into content at the end (or append with space)
+            // Insert highlighted title into content at the end (or append with space)
             const currentContent = content || '';
             const needsSpace = currentContent.length > 0 && !/\s$/.test(currentContent);
-            const newContent = currentContent + (needsSpace ? ' ' : '') + title;
+            const newContent = `${currentContent}${needsSpace ? ' ' : ''}${TAG_MARKER}${title}`;
             setContentForActive(newContent);
             await updateActiveStatus(newContent);
             recentKeyRef.current = { key: mentionKey, at: Date.now() };
