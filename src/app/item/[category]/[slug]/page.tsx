@@ -4,31 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { hasItemAggregatePage, matchesItemRoute } from "@/lib/social-prototype/items";
+import { hasItemAggregatePage } from "@/lib/social-prototype/items";
 import { ConsumableItem, getCategoryConfig } from "@/lib/social-prototype/store";
-
-interface RawStatus {
-  id: string;
-  user_id: string;
-  published: boolean;
-  created_at: string;
-}
-
-interface RawItem {
-  id: string;
-  status_id: string;
-  category: string;
-  title: string;
-  subtitle?: string;
-  rating?: number;
-  notes?: string;
-  image?: string;
-}
-
-interface RawProfile {
-  id: string;
-  username: string;
-}
 
 interface DisplayReview {
   item: ConsumableItem;
@@ -68,50 +45,37 @@ export default function ItemPage({
       setRequestedCategory(routeCategory);
       setRequestedSlug(routeSlug);
 
-      const [{ data: statuses }, { data: items }, { data: profiles }] = await Promise.all([
-        supabase.from("social_statuses").select("id, user_id, published, created_at").eq("published", true),
-        supabase.from("social_items").select("id, status_id, category, title, subtitle, rating, notes, image"),
-        supabase.from("user_profiles").select("id, username"),
-      ]);
-
+      const res = await fetch(
+        `/api/social/item-reviews?category=${encodeURIComponent(routeCategory)}&slug=${encodeURIComponent(routeSlug)}`
+      );
       if (!mounted) return;
 
-      const statusMap = new Map<string, RawStatus>((statuses || []).map((s: RawStatus) => [s.id, s]));
-      const profileMap = new Map<string, string>((profiles || []).map((p: RawProfile) => [p.id, p.username]));
+      if (!res.ok) {
+        setReviews([]);
+        setLoading(false);
+        return;
+      }
 
-      const matched = (items || [])
-        .filter((raw: RawItem) => {
-          const status = statusMap.get(raw.status_id);
-          if (!status || !status.published) return false;
-          return matchesItemRoute(routeCategory, routeSlug, {
-            category: raw.category,
-            title: raw.title,
-            subtitle: raw.subtitle,
-          });
-        })
-        .map((raw: RawItem) => {
-          const status = statusMap.get(raw.status_id);
-          if (!status) return null;
-          return {
-            item: {
-              id: raw.id,
-              category: raw.category,
-              title: raw.title,
-              subtitle: raw.subtitle,
-              rating: raw.rating,
-              notes: raw.notes,
-              image: raw.image,
-              createdAt: new Date(status.created_at).getTime(),
-            },
-            userId: status.user_id,
-            username: profileMap.get(status.user_id) || "Unknown",
-            createdAt: status.created_at,
-          } satisfies DisplayReview;
-        })
-        .filter(Boolean) as DisplayReview[];
+      const { reviews: rawReviews } = (await res.json()) as {
+        reviews: Array<{
+          item: { id: string; category: string; title: string; subtitle?: string; rating?: number; notes?: string; image?: string };
+          userId: string;
+          username: string;
+          createdAt: string;
+        }>;
+      };
 
-      matched.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setReviews(matched);
+      const mapped: DisplayReview[] = (rawReviews || []).map((r) => ({
+        item: {
+          ...r.item,
+          createdAt: new Date(r.createdAt).getTime(),
+        },
+        userId: r.userId,
+        username: r.username,
+        createdAt: r.createdAt,
+      }));
+
+      setReviews(mapped);
       setLoading(false);
     };
 

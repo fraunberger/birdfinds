@@ -932,7 +932,7 @@ export function useUserProfile() {
                 ? { data: fromMe, error: null }
                 : await supabase
                     .from('user_profiles')
-                    .select('*')
+                    .select('id, username, avatar_url, categories, visibility, is_private, created_at, muted_users, category_configs')
                     .eq('id', linkedUserId)
                     .single();
 
@@ -1082,7 +1082,7 @@ export function useHabits(userId?: string) {
 
         const { data } = await supabase
             .from('user_habits')
-            .select('*')
+            .select('id, user_id, name, icon, sort_order')
             .eq('user_id', targetId)
             .order('sort_order');
 
@@ -1094,11 +1094,16 @@ export function useHabits(userId?: string) {
             sortOrder: h.sort_order
         })));
 
-        // Fetch Logs (last 30 days roughly)
+        // Fetch logs for the last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const since = thirtyDaysAgo.toISOString().split("T")[0];
+
         const { data: logsData } = await supabase
             .from('habit_logs')
-            .select('*')
-            .eq('user_id', targetId);
+            .select('habit_id, date, completed, notes')
+            .eq('user_id', targetId)
+            .gte('date', since);
 
         setHabitLogs(logsData || []);
 
@@ -1217,7 +1222,7 @@ export function usePublicProfile(userId: string) {
         setLoading(true);
         const { data } = await supabase
             .from('user_profiles')
-            .select('*')
+            .select('id, username, avatar_url, categories, visibility, is_private, created_at, category_configs')
             .eq('id', userId)
             .single();
 

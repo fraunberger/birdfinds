@@ -126,11 +126,13 @@ export function HeaderSearch() {
         supabase
           .from("user_profiles")
           .select("id,username")
-          .limit(120),
+          .ilike("username", `%${q}%`)
+          .limit(20),
         supabase
           .from("social_items")
           .select("category,title,subtitle")
-          .limit(300),
+          .or(`title.ilike.%${q}%,subtitle.ilike.%${q}%`)
+          .limit(50),
       ]);
 
       if (cancelled) return;
@@ -181,7 +183,7 @@ export function HeaderSearch() {
           .slice(0, 8)
       );
       setLoading(false);
-    }, 220);
+    }, 400);
 
     return () => {
       cancelled = true;

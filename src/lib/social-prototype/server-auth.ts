@@ -70,26 +70,19 @@ async function findProfileByNormalizedUsername(candidates: string[]) {
   if (normalizedCandidates.length === 0) return null;
 
   const supabaseAdmin = getSupabaseAdmin();
-  const { data } = await supabaseAdmin
-    .from("user_profiles")
-    .select("id,username")
-    .limit(2000);
-
-  const profiles = (data || []) as UserProfileRow[];
-  for (const profile of profiles) {
-    const normalizedProfile = normalizeHandle(profile.username);
-    if (normalizedCandidates.includes(normalizedProfile)) {
-      return profile;
-    }
-  }
-  return null;
+  const { data, error } = await supabaseAdmin.rpc(
+    "find_profile_by_normalized_username",
+    { candidates: normalizedCandidates }
+  );
+  if (error || !data || (data as UserProfileRow[]).length === 0) return null;
+  return (data as UserProfileRow[])[0];
 }
 
 async function ensureProfileForUser(userId: string, username: string) {
   const supabaseAdmin = getSupabaseAdmin();
   const { data: existing } = await supabaseAdmin
     .from("user_profiles")
-    .select("id,username")
+    .select("id")
     .eq("id", userId)
     .maybeSingle();
   if (existing?.id) return;
@@ -97,31 +90,25 @@ async function ensureProfileForUser(userId: string, username: string) {
   const uniqueUsername = await buildUniqueUsername(username);
   const { error } = await supabaseAdmin
     .from("user_profiles")
-    .upsert({
-      id: userId,
-      username: uniqueUsername,
-      categories: [],
-      category_configs: {},
-    });
-  if (error) throw error;
+    .upsert(
+      { id: userId, username: uniqueUsername, categories: [], category_configs: {} },
+      { onConflict: "id", ignoreDuplicates: true }
+    );
+  // If a concurrent request already created the profile, ignore the conflict
+  if (error && error.code !== "23505") throw error;
 }
 
-async function findSupabaseAuthUserIdByEmail(email: string) {
+async function findSupabaseAuthUserIdByEmail(email: string): Promise<string | null> {
   const supabaseAdmin = getSupabaseAdmin();
-  let page = 1;
-  const perPage = 200;
-
-  while (true) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
-    if (error) throw error;
-    const users = data?.users || [];
-    const match = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (match?.id) return match.id;
-    if (users.length < perPage) break;
-    page += 1;
+  const { data, error } = await supabaseAdmin.rpc(
+    "find_auth_user_by_email",
+    { target_email: email }
+  );
+  if (error) {
+    console.warn("[server-auth] find_auth_user_by_email RPC failed:", error.message);
+    return null;
   }
-
-  return null;
+  return (data as string) || null;
 }
 
 const isSupabaseLinkUniqueConflict = (error: unknown) => {
@@ -191,17 +178,32 @@ export async function getOrCreateLinkedSupabaseUser() {
 
   const { error: linkError } = await supabaseAdmin
     .from("clerk_user_links")
-    .upsert({
-      clerk_user_id: clerkUserId,
-      supabase_user_id: supabaseUserId,
-    });
+    .upsert(
+      { clerk_user_id: clerkUserId, supabase_user_id: supabaseUserId },
+      { onConflict: "clerk_user_id" }
+    );
   if (linkError) {
     if (!isSupabaseLinkUniqueConflict(linkError)) throw linkError;
-    const { error: relinkError } = await supabaseAdmin
+
+    // supabase_user_id unique constraint violated: another Clerk user already
+    // claims this Supabase user. Check if it is actually our own link.
+    const { data: existingBySupabase } = await supabaseAdmin
       .from("clerk_user_links")
-      .update({ clerk_user_id: clerkUserId })
-      .eq("supabase_user_id", supabaseUserId);
-    if (relinkError) throw relinkError;
+      .select("clerk_user_id")
+      .eq("supabase_user_id", supabaseUserId)
+      .maybeSingle();
+
+    if (existingBySupabase?.clerk_user_id === clerkUserId) {
+      // Already correctly linked, nothing to do.
+      return supabaseUserId;
+    }
+
+    console.error(
+      `[server-auth] clerk_user_links conflict: Clerk user ${clerkUserId} ` +
+      `tried to claim Supabase user ${supabaseUserId}, but it belongs to ` +
+      `Clerk user ${existingBySupabase?.clerk_user_id}`
+    );
+    throw new Error("User linking conflict: Supabase user already linked to another account");
   }
 
   return supabaseUserId;

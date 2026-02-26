@@ -154,29 +154,15 @@ export async function POST(req: NextRequest) {
       const content = truncate(String(payload.content || ""), MAX_STATUS_CONTENT);
       if (!date) return NextResponse.json({ error: "Missing date" }, { status: 400 });
 
-      const { data: existing } = await supabaseAdmin
-        .from("social_statuses")
-        .select("id")
-        .eq("user_id", linkedUserId)
-        .eq("date", date)
-        .limit(1)
-        .maybeSingle();
-
-      if (existing?.id) {
-        const { error } = await supabaseAdmin
-          .from("social_statuses")
-          .update({ content })
-          .eq("id", existing.id);
-        if (error) throw error;
-        return NextResponse.json({ statusId: existing.id });
-      }
-
       const { data, error } = await supabaseAdmin
         .from("social_statuses")
-        .insert({ user_id: linkedUserId, date, content })
+        .upsert(
+          { user_id: linkedUserId, date, content },
+          { onConflict: "user_id,date" }
+        )
         .select("id")
         .single();
-      if (error || !data?.id) throw error || new Error("Failed to create status");
+      if (error || !data?.id) throw error || new Error("Failed to upsert status");
       return NextResponse.json({ statusId: data.id });
     }
 
