@@ -11,6 +11,7 @@ interface MusicBrainzArtistCredit {
 interface MusicBrainzReleaseGroup {
     id: string;
     title?: string;
+    score?: string;
     'first-release-date'?: string;
     'primary-type'?: string;
     'artist-credit'?: MusicBrainzArtistCredit[];
@@ -19,6 +20,22 @@ interface MusicBrainzReleaseGroup {
 
 interface MusicBrainzSearchResponse {
     'release-groups'?: MusicBrainzReleaseGroup[];
+}
+
+function parseReleaseYear(value?: string): number {
+    if (!value) return 0;
+    const match = value.match(/^(\d{4})/);
+    if (!match) return 0;
+    const year = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(year)) return 0;
+    return year;
+}
+
+function parseScore(value?: string): number {
+    if (!value) return 0;
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return 0;
+    return parsed;
 }
 
 export async function GET(request: Request) {
@@ -58,6 +75,12 @@ export async function GET(request: Request) {
         const data = (await response.json()) as MusicBrainzSearchResponse;
         const results = (data['release-groups'] || [])
             .filter((item) => item['primary-type'] === 'Album')
+            .sort((a, b) => {
+                // Prefer more relevant/popular hits first (MusicBrainz score), then newer albums.
+                const scoreDelta = parseScore(b.score) - parseScore(a.score);
+                if (scoreDelta !== 0) return scoreDelta;
+                return parseReleaseYear(b['first-release-date']) - parseReleaseYear(a['first-release-date']);
+            })
             .map((item) => ({
                 id: item.id,
                 title: item.title || '',

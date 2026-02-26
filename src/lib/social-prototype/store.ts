@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore, useState } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
@@ -162,11 +162,11 @@ const LINKED_ME_CACHE_TTL_MS = 1500;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
 let linkedMeInFlight: Promise<MeResponse> | null = null;
 
-async function getLinkedMe(): Promise<MeResponse> {
+async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeResponse> {
     const empty: MeResponse = { clerkUserId: null, linkedUserId: null, profile: null };
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const now = Date.now();
-    if (linkedMeCache && linkedMeCache.expiresAt > now) {
+    if (!options?.bustCache && linkedMeCache && linkedMeCache.expiresAt > now) {
         return linkedMeCache.value;
     }
     if (linkedMeInFlight) {
@@ -252,7 +252,7 @@ export const HIGHLIGHT_COLOR = '#fffb91';
 export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#f5d142', icon: '' },
     tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#62d9f7', icon: '' },
-    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Song/Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#f78be0', icon: '' },
+    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#f78be0', icon: '' },
     restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Dish', subtitlePlaceholder: 'Dish', ratingLabel: 'Rating', color: '#7be08a', icon: '' },
     beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#e8a94f', icon: '' },
     cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#f7756a', icon: '' },
@@ -903,17 +903,33 @@ export function useUserProfile() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [hasPublishedPost, setHasPublishedPost] = useState(false);
     const [loading, setLoading] = useState(true);
+    const retryTimeoutRef = useRef<number | null>(null);
+    const retryCountRef = useRef(0);
 
     const fetchProfile = async () => {
         try {
-            const me = await getLinkedMe();
+            const me = await getLinkedMe({ bustCache: Boolean(user?.id) });
             const linkedUserId = me.linkedUserId;
+            if (typeof window !== 'undefined' && retryTimeoutRef.current) {
+                window.clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
             if (!linkedUserId) {
                 setProfile(null);
                 setIsAdmin(Boolean(me.isAdmin));
                 setHasPublishedPost(false);
+                if (me.clerkUserId && retryCountRef.current < 6 && typeof window !== 'undefined') {
+                    retryCountRef.current += 1;
+                    const timeoutId = window.setTimeout(() => {
+                        setLoading(true);
+                        void fetchProfile();
+                    }, 250 * retryCountRef.current);
+                    retryTimeoutRef.current = timeoutId;
+                    return;
+                }
                 return;
             }
+            retryCountRef.current = 0;
             setIsAdmin(Boolean(me.isAdmin));
             setHasPublishedPost(Boolean(me.hasPublishedPost));
 
@@ -1039,6 +1055,7 @@ export function useUserProfile() {
 
     useEffect(() => {
         if (authLoading) return;
+        retryCountRef.current = 0;
         setLoading(true);
         void fetchProfile();
         if (typeof window === 'undefined') return;
@@ -1049,6 +1066,10 @@ export function useUserProfile() {
         window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
         return () => {
             window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+            if (retryTimeoutRef.current) {
+                window.clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
         };
     }, [authLoading, user?.id]);
 
