@@ -55,10 +55,30 @@ function escapeMusicBrainzTerm(value: string): string {
 function buildMusicBrainzQuery(query: string): string {
     const normalized = query.trim();
     const escaped = escapeMusicBrainzTerm(normalized);
+    const tokens = tokenizeQuery(normalized).map((token) => escapeMusicBrainzTerm(token));
+
+    const allTokenClauses = tokens.map((token) => `(releasegroup:${token} OR artist:${token})`);
+    const anyTokenClauses = tokens.map((token) => `releasegroup:${token}^3 OR artist:${token}^2`);
 
     // Prefer Spotify-like behavior for broad title searches: prioritize exact title hits,
-    // then near-title matches, while still allowing artist-field matches.
-    return `releasegroup:"${escaped}"^8 OR releasegroup:${escaped}^4 OR artist:${escaped}^2`;
+    // then mixed title+artist token matches (e.g. "guts olivia"), while still allowing
+    // artist-only/title-only fallbacks.
+    const clauses = [
+        `releasegroup:"${escaped}"^10`,
+        `artist:"${escaped}"^6`,
+        `releasegroup:${escaped}^5`,
+        `artist:${escaped}^4`,
+    ];
+
+    if (allTokenClauses.length > 1) {
+        clauses.push(`(${allTokenClauses.join(' AND ')})^6`);
+    }
+
+    if (anyTokenClauses.length > 0) {
+        clauses.push(`(${anyTokenClauses.join(' OR ')})^3`);
+    }
+
+    return clauses.join(' OR ');
 }
 
 function getArtistNames(item: MusicBrainzReleaseGroup): string {
@@ -136,7 +156,7 @@ export async function GET(request: Request) {
         const upstreamUrl = new URL('https://musicbrainz.org/ws/2/release-group');
         upstreamUrl.searchParams.set('query', buildMusicBrainzQuery(query));
         upstreamUrl.searchParams.set('fmt', 'json');
-        upstreamUrl.searchParams.set('limit', '12');
+        upstreamUrl.searchParams.set('limit', '25');
 
         const response = await fetch(upstreamUrl.toString(), {
             headers: {
@@ -175,7 +195,8 @@ export async function GET(request: Request) {
                 image: '',
                 releaseDate: item['first-release-date'] || '',
             }))
-            .filter((item) => item.id && item.title);
+            .filter((item) => item.id && item.title)
+            .slice(0, 12);
 
         return NextResponse.json(results);
     } catch (error) {
