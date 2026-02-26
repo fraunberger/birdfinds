@@ -31,7 +31,7 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: profile } = await supabaseAdmin
       .from("user_profiles")
-      .select("id,username,avatar_url,categories,visibility,is_private,created_at,muted_users,category_configs")
+      .select("id, username, avatar_url, categories, visibility, is_private, created_at, muted_users, category_configs")
       .eq("id", linkedUserId)
       .maybeSingle();
 
