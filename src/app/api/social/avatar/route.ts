@@ -17,15 +17,15 @@ const mimeExtMap: Record<string, string> = {
   "image/heif": "heif",
 };
 
-async function resolveAvatarOwnerId(clerkUserId: string): Promise<string> {
+async function resolveAvatarOwnerId(): Promise<string> {
   try {
     const linkedUserId = await getOrCreateLinkedSupabaseUser();
     if (linkedUserId) return linkedUserId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[avatar] link resolution failed, using clerk fallback owner:", message);
+    console.error("[avatar] link resolution failed:", message);
   }
-  return `clerk-${clerkUserId}`;
+  throw new Error("Account link is still initializing. Please try again.");
 }
 
 async function ensureAvatarsBucket() {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
     }
 
-    const ownerId = await resolveAvatarOwnerId(userId);
+    const ownerId = await resolveAvatarOwnerId();
     await ensureAvatarsBucket();
 
     const fileExt = mimeExtMap[contentType] || "jpg";
@@ -93,6 +93,8 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown upload error";
-    return NextResponse.json({ error: `Avatar route error: ${message}` }, { status: 500 });
+    const lower = message.toLowerCase();
+    const retryable = lower.includes("initializing") || lower.includes("link");
+    return NextResponse.json({ error: `Avatar route error: ${message}` }, { status: retryable ? 503 : 500 });
   }
 }
