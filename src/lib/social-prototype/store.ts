@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore, useState } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
@@ -162,11 +162,11 @@ const LINKED_ME_CACHE_TTL_MS = 1500;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
 let linkedMeInFlight: Promise<MeResponse> | null = null;
 
-async function getLinkedMe(): Promise<MeResponse> {
+async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeResponse> {
     const empty: MeResponse = { clerkUserId: null, linkedUserId: null, profile: null };
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const now = Date.now();
-    if (linkedMeCache && linkedMeCache.expiresAt > now) {
+    if (!options?.bustCache && linkedMeCache && linkedMeCache.expiresAt > now) {
         return linkedMeCache.value;
     }
     if (linkedMeInFlight) {
@@ -903,17 +903,33 @@ export function useUserProfile() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [hasPublishedPost, setHasPublishedPost] = useState(false);
     const [loading, setLoading] = useState(true);
+    const retryTimeoutRef = useRef<number | null>(null);
+    const retryCountRef = useRef(0);
 
     const fetchProfile = async () => {
         try {
-            const me = await getLinkedMe();
+            const me = await getLinkedMe({ bustCache: Boolean(user?.id) });
             const linkedUserId = me.linkedUserId;
+            if (typeof window !== 'undefined' && retryTimeoutRef.current) {
+                window.clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
             if (!linkedUserId) {
                 setProfile(null);
                 setIsAdmin(Boolean(me.isAdmin));
                 setHasPublishedPost(false);
+                if (me.clerkUserId && retryCountRef.current < 6 && typeof window !== 'undefined') {
+                    retryCountRef.current += 1;
+                    const timeoutId = window.setTimeout(() => {
+                        setLoading(true);
+                        void fetchProfile();
+                    }, 250 * retryCountRef.current);
+                    retryTimeoutRef.current = timeoutId;
+                    return;
+                }
                 return;
             }
+            retryCountRef.current = 0;
             setIsAdmin(Boolean(me.isAdmin));
             setHasPublishedPost(Boolean(me.hasPublishedPost));
 
@@ -1039,6 +1055,7 @@ export function useUserProfile() {
 
     useEffect(() => {
         if (authLoading) return;
+        retryCountRef.current = 0;
         setLoading(true);
         void fetchProfile();
         if (typeof window === 'undefined') return;
@@ -1049,6 +1066,10 @@ export function useUserProfile() {
         window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
         return () => {
             window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+            if (retryTimeoutRef.current) {
+                window.clearTimeout(retryTimeoutRef.current);
+                retryTimeoutRef.current = null;
+            }
         };
     }, [authLoading, user?.id]);
 
