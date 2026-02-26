@@ -282,7 +282,18 @@ export function SocialLayout() {
             <>
               {needsFirstPost && (
                 <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Next Step</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Your First Post</p>
+                  <div className="mt-2 space-y-1.5 text-xs text-neutral-600">
+                    <p>Write about your day in the editor, then tag the things you found.</p>
+                    <p>
+                      <span className="font-bold text-neutral-800">To tag:</span>{" "}
+                      tap a category button (Film, TV, Music...) and type a title. It gets added to the table below your text with a rating and a link to its page.
+                    </p>
+                    <p>
+                      <span className="font-bold text-neutral-800">To highlight:</span>{" "}
+                      select a word in your text, then tap a category to color-code it. Or type <span className="font-mono bg-neutral-200 px-0.5">@item</span> and tap a category.
+                    </p>
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
                     <button
                       onClick={() => {

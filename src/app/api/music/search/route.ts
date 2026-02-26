@@ -115,7 +115,12 @@ function getTextMatchScore(item: MusicBrainzReleaseGroup, query: string): number
 function getReleaseRecencyBonus(item: MusicBrainzReleaseGroup): number {
     const year = parseReleaseYear(item['first-release-date']);
     if (!year) return 0;
-    return Math.max(0, Math.min(15, Math.floor((year - 1980) / 3)));
+    const currentYear = new Date().getFullYear();
+    const age = Math.max(0, currentYear - year);
+    // Smooth exponential decay: ~80 for brand new, ~57 at 5yr, ~36 at 12yr, ~15 at 25yr, ~7 at 36yr.
+    // This ensures popular recent albums (Porter Robinson, Olivia Rodrigo, Rosalía) rank well
+    // against older releases that may have inflated MusicBrainz scores.
+    return Math.max(0, Math.round(80 * Math.exp(-age / 15)));
 }
 
 function getSecondaryTypePenalty(item: MusicBrainzReleaseGroup): number {
@@ -136,7 +141,10 @@ function getCompositeScore(item: MusicBrainzReleaseGroup, query: string): number
     const recencyBonus = getReleaseRecencyBonus(item);
     const secondaryTypePenalty = getSecondaryTypePenalty(item);
 
-    return musicBrainzScore * 2 + textMatchScore * 3 + recencyBonus - secondaryTypePenalty;
+    // Reduce MusicBrainz weight (1.5x vs 2x) so older releases with inflated upstream scores
+    // don't drown out local text-match + recency signals. Recency at 2x lets well-known recent
+    // albums (e.g. "Worlds", "Guts", "Sour") surface above legacy catalog entries.
+    return musicBrainzScore * 1.5 + textMatchScore * 3 + recencyBonus * 2 - secondaryTypePenalty;
 }
 
 export async function GET(request: Request) {
