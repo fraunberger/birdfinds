@@ -164,7 +164,10 @@ export async function GET(request: Request) {
         const upstreamUrl = new URL('https://musicbrainz.org/ws/2/release-group');
         upstreamUrl.searchParams.set('query', buildMusicBrainzQuery(query));
         upstreamUrl.searchParams.set('fmt', 'json');
-        upstreamUrl.searchParams.set('limit', '25');
+        // Fetch a large candidate set so well-known albums with lower MusicBrainz
+        // relevance scores (e.g. Porter Robinson "Worlds" at index 19, Olivia Rodrigo
+        // "GUTS" at index 16) aren't excluded. Local composite scoring handles ranking.
+        upstreamUrl.searchParams.set('limit', '100');
 
         const response = await fetch(upstreamUrl.toString(), {
             headers: {
