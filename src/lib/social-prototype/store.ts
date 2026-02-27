@@ -341,7 +341,7 @@ class SocialStore {
     private _pollTimer: ReturnType<typeof setInterval> | null = null;
     private _fetchInFlight: Promise<void> | null = null;
     private _lastFetchAt = 0;
-    private _postWriteRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    private _postWriteRefreshTimer: ReturnType<typeof window.setTimeout> | null = null;
 
     constructor() {
         if (typeof window !== 'undefined') {
