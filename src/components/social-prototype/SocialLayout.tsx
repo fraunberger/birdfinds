@@ -35,9 +35,11 @@ export function SocialLayout() {
   const stepTwoComplete = !!user && hasAvatar;
   const stepThreeComplete = !!user && hasCategories;
   const onboardingComplete = stepOneComplete && stepTwoComplete && stepThreeComplete;
-  const needsOnboarding = !!user && !onboardingComplete;
+  // Show the composer once username + categories are set (avatar is optional)
+  const canCompose = stepOneComplete && stepThreeComplete;
+  const needsOnboarding = !!user && !canCompose;
   const hasPublishedPostInFeed = hasPublishedPost || statuses.some((status) => status.published && status.id !== "temp-optimistic");
-  const needsFirstPost = !!user && onboardingComplete && !hasPublishedPostInFeed;
+  const needsFirstPost = !!user && canCompose && !hasPublishedPostInFeed;
   const showOnboardingChecklist = !!user && needsOnboarding;
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -278,21 +280,17 @@ export function SocialLayout() {
             </div>
           )}
 
-          {user && onboardingComplete && (
+          {user && canCompose && (
             <>
               {needsFirstPost && (
                 <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
                   <p className="text-[10px] font-bold uppercase tracking-widest">Your First Post</p>
                   <div className="mt-2 space-y-1.5 text-xs text-neutral-600">
-                    <p>Write about your day in the editor, then tag the things you found.</p>
                     <p>
-                      <span className="font-bold text-neutral-800">To tag:</span>{" "}
-                      tap a category button (Film, TV, Music...) and type a title. It gets added to the table below your text with a rating and a link to its page.
+                      Add an item to your status by typing <span className="font-mono bg-neutral-200 px-0.5">@item</span> and
+                      then clicking the category. Click the table to open its card and add a rating or notes.
                     </p>
-                    <p>
-                      <span className="font-bold text-neutral-800">To highlight:</span>{" "}
-                      select a word in your text, then tap a category to color-code it. Or type <span className="font-mono bg-neutral-200 px-0.5">@item</span> and tap a category.
-                    </p>
+                    <p>You can also add items without linking them to your status.</p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
                     <button
