@@ -156,7 +156,7 @@ interface MeResponse {
 }
 
 export const FEED_PAGE_SIZE = 15;
-const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 4;
+const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 2;
 const JOURNAL_PAGE_SIZE = 15;
 // Profile data rarely changes mid-session; a longer TTL avoids re-fetching
 // /api/social/me (2 Supabase queries) on every store operation.
@@ -339,11 +339,14 @@ class SocialStore {
     };
     private listeners = new Set<() => void>();
     private _pollTimer: ReturnType<typeof setInterval> | null = null;
+    private _fetchInFlight: Promise<void> | null = null;
+    private _lastFetchAt = 0;
+    private _postWriteRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
         if (typeof window !== 'undefined') {
             // Auto-fetch on client side init
-            this.fetchStatuses();
+            void this.fetchStatuses({ force: true });
             this.setupVisibilityRefresh();
         }
     }
@@ -380,11 +383,11 @@ class SocialStore {
         };
         this.syncActiveStatus();
         this.emit();
-        void this.fetchStatuses();
+        void this.fetchStatuses({ force: true });
     }
 
     refresh() {
-        void this.fetchStatuses();
+        void this.fetchStatuses({ force: true });
     }
 
     private syncActiveStatus() {
@@ -405,7 +408,17 @@ class SocialStore {
         }
     }
 
-    async fetchStatuses() {
+    async fetchStatuses(options?: { force?: boolean }) {
+        const force = Boolean(options?.force);
+        if (this._fetchInFlight) {
+            return this._fetchInFlight;
+        }
+        const now = Date.now();
+        if (!force && this.state.isLoaded && now - this._lastFetchAt < SocialStore.MIN_FETCH_INTERVAL_MS) {
+            return;
+        }
+        this._lastFetchAt = now;
+        this._fetchInFlight = (async () => {
         try {
             const me = await getLinkedMe();
             const linkedUserId = me.linkedUserId;
@@ -427,7 +440,7 @@ class SocialStore {
                     .is('deleted_at', null)
                     .eq('published', true)
                     .order('created_at', { ascending: false })
-                    // Over-fetch so visibility filtering can still yield a full page.
+            // Slight over-fetch so filtering still yields a full first page.
                     .limit(FEED_FETCH_SIZE),
             ]);
             if (journalResp.error) throw journalResp.error;
@@ -546,20 +559,32 @@ class SocialStore {
             console.error("Error fetching social data:", error);
             this.state.isLoaded = true;
             this.emit();
+        } finally {
+            this._fetchInFlight = null;
         }
+        })();
+        return this._fetchInFlight;
     }
 
     // ── Visibility-based refresh (replaces realtime subscription) ──────
     // Instead of subscribing to every row change and triggering full refetches,
     // poll on a long interval and refresh immediately when the tab regains focus.
     // This eliminates the feedback loop where your own edits trigger refetches.
-    private static POLL_INTERVAL_MS = 90_000; // 90 seconds
+    private static POLL_INTERVAL_MS = 180_000; // 3 minutes
+    private static MIN_FETCH_INTERVAL_MS = 8_000;
+
+    private schedulePostWriteRefresh() {
+        if (this._postWriteRefreshTimer) window.clearTimeout(this._postWriteRefreshTimer);
+        this._postWriteRefreshTimer = window.setTimeout(() => {
+            void this.fetchStatuses({ force: true });
+        }, 900);
+    }
 
     private setupVisibilityRefresh() {
         // Refresh feed when user returns to the tab
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                this.fetchStatuses();
+                void this.fetchStatuses({ force: true });
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -567,7 +592,7 @@ class SocialStore {
         // Long-interval background poll so the feed stays reasonably fresh
         this._pollTimer = setInterval(() => {
             if (document.visibilityState === 'visible') {
-                this.fetchStatuses();
+                void this.fetchStatuses();
             }
         }, SocialStore.POLL_INTERVAL_MS);
     }
@@ -581,7 +606,11 @@ class SocialStore {
         const response = await socialWrite('social.status.upsert', { date: activeDate, content: '' });
         const statusId = response?.statusId as string | undefined;
         if (!statusId) throw new Error('Failed to ensure status');
-        await this.fetchStatuses();
+        const current = this.state.activeStatus;
+        if (current?.id === 'temp-optimistic' && current.date === activeDate) {
+            this.state.activeStatus = { ...current, id: statusId };
+        }
+        this.schedulePostWriteRefresh();
         return statusId;
     }
 
@@ -635,7 +664,7 @@ class SocialStore {
                     image: item.image,
                 }
             });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             if (this.state.activeStatus) {
                 this.state.activeStatus = {
@@ -663,7 +692,7 @@ class SocialStore {
 
         try {
             await socialWrite('social.item.update', { itemId, item });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             if (currentStatus) {
                 this.state.activeStatus = {
@@ -690,7 +719,7 @@ class SocialStore {
                     image: item.image,
                 }
             });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error adding item to status:", error);
             throw error;
@@ -717,7 +746,7 @@ class SocialStore {
                     image: item.image,
                 }
             });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error('Error adding item to pile category:', error);
             throw error;
@@ -727,7 +756,7 @@ class SocialStore {
     async togglePublished(statusId: string, published: boolean) {
         try {
             await socialWrite('social.status.publish', { statusId, published });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error('Error toggling published:', error);
         }
@@ -736,7 +765,7 @@ class SocialStore {
     async deleteStatus(statusId: string) {
         try {
             await socialWrite('social.status.delete', { statusId });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error('Error deleting status:', error);
         }
@@ -754,7 +783,7 @@ class SocialStore {
             }
 
             await socialWrite('social.item.delete', { itemId });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error removing item:", error);
         }
@@ -763,7 +792,7 @@ class SocialStore {
     async addComment(statusId: string, content: string) {
         try {
             await socialWrite('social.comment.add', { statusId, content });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error adding comment:", error);
             throw error;
@@ -773,7 +802,7 @@ class SocialStore {
     async deleteComment(commentId: string) {
         try {
             await socialWrite('social.comment.delete', { commentId });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error deleting comment:", error);
             throw error;
@@ -801,7 +830,7 @@ class SocialStore {
     async softDeleteStatus(statusId: string, reason?: string) {
         try {
             await socialWrite('social.status.soft_delete', { statusId, reason: reason || '' });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error soft deleting status:", error);
             throw error;
@@ -811,7 +840,7 @@ class SocialStore {
     async softDeleteComment(commentId: string, reason?: string) {
         try {
             await socialWrite('social.comment.soft_delete', { commentId, reason: reason || '' });
-            await this.fetchStatuses();
+            this.schedulePostWriteRefresh();
         } catch (error) {
             console.error("Error soft deleting comment:", error);
             throw error;
@@ -851,8 +880,7 @@ class SocialStore {
         this.emit(); // IMPORTANT: emit change
 
         await socialWrite('social.mute.toggle', { targetUserId: userId });
-
-        await this.fetchStatuses();
+        this.schedulePostWriteRefresh();
     }
 }
 
