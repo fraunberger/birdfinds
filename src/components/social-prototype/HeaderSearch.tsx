@@ -227,7 +227,7 @@ export function HeaderSearch() {
       )}
 
       {open && query.trim().length >= 2 && (
-        <div className="absolute right-0 mt-2 w-[22rem] max-w-[90vw] border border-neutral-300 bg-white shadow-sm z-30">
+        <div className="absolute right-0 mt-2 w-[22rem] max-w-[90vw] border border-neutral-300 bg-white shadow-sm z-50">
           <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-500 border-b border-neutral-200 flex items-center justify-between">
             <span>Search</span>
             <div className="flex items-center border border-neutral-200">

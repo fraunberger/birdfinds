@@ -42,7 +42,7 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
       )}
 
       {open && (
-        <div className="absolute right-0 mt-2 w-40 border border-neutral-300 bg-white shadow-sm z-20">
+        <div className="absolute right-0 mt-2 w-40 border border-neutral-300 bg-white shadow-sm z-50">
           <Link
             href={pileHref}
             onClick={() => setOpen(false)}
