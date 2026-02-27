@@ -105,8 +105,8 @@ export function SocialLayout() {
 
     void readReports();
     const intervalId = window.setInterval(() => {
-      void readReports();
-    }, 30000);
+      if (document.visibilityState === 'visible') void readReports();
+    }, 120_000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
