@@ -162,7 +162,7 @@ export function SocialLayout() {
             <HeaderSearch />
             {user && (
               <>
-                <span className="hidden sm:flex items-center gap-2">
+                <Link href={pileHref} className="hidden sm:flex items-center gap-2 hover:opacity-80 transition-opacity">
                   {profile?.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-neutral-300" />
@@ -172,7 +172,7 @@ export function SocialLayout() {
                     </span>
                   )}
                   <span className="text-[10px] uppercase tracking-widest text-neutral-500">{userDisplay}</span>
-                </span>
+                </Link>
                 <AccountMenu
                   pileHref={pileHref}
                   username={userDisplay}
