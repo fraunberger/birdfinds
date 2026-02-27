@@ -228,25 +228,44 @@ async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeRespons
 }
 
 async function socialWrite(action: string, payload: Record<string, unknown> = {}) {
-    const response = await fetch('/api/social/write', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload }),
-    });
-    const raw = await response.text();
-    let data: { error?: string;[key: string]: unknown } = {};
-    if (raw) {
+    const maxAttempts = 3;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
-            data = JSON.parse(raw) as { error?: string;[key: string]: unknown };
-        } catch {
-            data = { error: raw };
+            const response = await fetch('/api/social/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, payload }),
+            });
+            const raw = await response.text();
+            let data: { error?: string; [key: string]: unknown } = {};
+            if (raw) {
+                try {
+                    data = JSON.parse(raw) as { error?: string; [key: string]: unknown };
+                } catch {
+                    data = { error: raw };
+                }
+            }
+            if (!response.ok) {
+                const detail = data?.error || raw || `${response.status} ${response.statusText}`;
+                const retryable = response.status === 429 || response.status >= 500 || detail.toLowerCase().includes('network');
+                if (retryable && attempt < maxAttempts) {
+                    await sleep(200 * attempt);
+                    continue;
+                }
+                throw new Error(`Write failed (${action}): ${detail}`);
+            }
+            return data;
+        } catch (error) {
+            if (attempt >= maxAttempts) {
+                throw error;
+            }
+            await sleep(200 * attempt);
         }
     }
-    if (!response.ok) {
-        const detail = data?.error || raw || `${response.status} ${response.statusText}`;
-        throw new Error(`Write failed (${action}): ${detail}`);
-    }
-    return data;
+
+    throw new Error(`Write failed (${action}): exhausted retries`);
 }
 
 export const HIGHLIGHT_COLOR = '#fffb91';
