@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { getCanonicalItemKey, getRepeatTagVerb } from '@/lib/social-prototype/items';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
@@ -19,6 +20,7 @@ interface AggregatedItem {
     key: string;
     latest: ConsumableItem;
     count: number;
+    visits: ConsumableItem[];
 }
 
 const isEpisodeCategory = (category: Category) => category === 'tv' || category === 'podcast';
@@ -29,6 +31,24 @@ const getEpisodeSeriesLabel = (category: Category, item: ConsumableItem) => {
     return '';
 };
 
+const normalizePart = (value?: string) =>
+    (value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .trim();
+
+const getAggregateKey = (category: Category, item: ConsumableItem) => {
+    if (category === 'restaurant') {
+        const meta = parseItemMeta(item.image);
+        const location = normalizePart(meta.restaurantLocation);
+        return `restaurant::${normalizePart(item.title)}::${location}`;
+    }
+    return getCanonicalItemKey(item);
+};
+
 export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
@@ -36,6 +56,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const [showAddModal, setShowAddModal] = useState(false);
     const [episodeSeriesFilter, setEpisodeSeriesFilter] = useState<string>('all');
     const [episodeTextFilter, setEpisodeTextFilter] = useState('');
+    const [expandedRestaurantKeys, setExpandedRestaurantKeys] = useState<Set<string>>(new Set());
 
     if (!config) return null;
 
@@ -43,23 +64,28 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const aggregatedItems = (() => {
         const map = new Map<string, AggregatedItem>();
         for (const item of items) {
-            const key = getCanonicalItemKey(item);
+            const key = getAggregateKey(category, item);
             const existing = map.get(key);
             if (!existing) {
-                map.set(key, { key, latest: item, count: 1 });
+                map.set(key, { key, latest: item, count: 1, visits: [item] });
                 continue;
             }
             existing.count += 1;
+            existing.visits.push(item);
             if (item.createdAt > existing.latest.createdAt) {
                 existing.latest = item;
             }
         }
-        return Array.from(map.values());
+        return Array.from(map.values()).map((entry) => ({
+            ...entry,
+            visits: [...entry.visits].sort((a, b) => b.createdAt - a.createdAt),
+        }));
     })();
 
     const totalTaggedCount = items.length;
     const repeatVerb = getRepeatTagVerb(category);
     const episodeFilteringEnabled = isEpisodeCategory(category);
+    const isRestaurantCategory = category === 'restaurant';
 
     const episodeSeriesOptions = (() => {
         if (!episodeFilteringEnabled) return [] as string[];
@@ -171,12 +197,24 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
             ) : (
                 <div className="space-y-1.5">
                     {sortedItems.map((entry, idx) => (
-                        <button
-                            key={entry.key}
-                            onClick={() => setSelectedItem(entry.latest)}
-                            className="w-full text-left group"
-                        >
-                            <div className="flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
+                        <div key={entry.key} className="w-full text-left group">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (isRestaurantCategory) {
+                                        setExpandedRestaurantKeys((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(entry.key)) next.delete(entry.key);
+                                            else next.add(entry.key);
+                                            return next;
+                                        });
+                                        return;
+                                    }
+                                    setSelectedItem(entry.latest);
+                                }}
+                                className="w-full text-left"
+                            >
+                                <div className="flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
                                 {/* Rank number for top mode */}
                                 {sortMode === 'top' && (
                                     <span className="text-[10px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
@@ -186,7 +224,14 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
                                 {/* Main info */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-bold">{entry.latest.title}</div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-xs font-bold">{entry.latest.title}</div>
+                                        {entry.count > 1 && (
+                                            <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                {entry.count}X
+                                            </span>
+                                        )}
+                                    </div>
                                     {entry.count > 1 && (
                                         <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
                                             {repeatVerb} {entry.count} times
@@ -211,8 +256,30 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                         <span className="text-[9px] text-neutral-400">/10</span>
                                     </div>
                                 )}
-                            </div>
-                        </button>
+                                {isRestaurantCategory && entry.count > 1 && (
+                                    <div className="flex-shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
+                                        {expandedRestaurantKeys.has(entry.key) ? 'Hide' : 'Show'}
+                                    </div>
+                                )}
+                                </div>
+                            </button>
+                            {isRestaurantCategory && entry.count > 1 && expandedRestaurantKeys.has(entry.key) && (
+                                <div className="border-x border-b border-neutral-200 bg-neutral-50 px-3 py-2">
+                                    <div className="space-y-1.5">
+                                        {entry.visits.map((visit) => (
+                                            <div key={visit.id} className="flex items-center justify-between gap-2 text-[11px]">
+                                                <div className="text-neutral-700 truncate">
+                                                    {visit.subtitle?.trim() || 'No dish listed'}
+                                                </div>
+                                                <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
+                                                    {new Date(visit.createdAt).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ))}
                 </div>
             )}
