@@ -154,6 +154,13 @@ export function ComposerItemTable({
                     </tr>
                 </thead>
                 <tbody>
+                    {sortedItems.length === 0 && (
+                        <tr>
+                            <td colSpan={4} className="px-3 py-3 text-center text-[10px] text-neutral-400 uppercase tracking-widest border-b border-neutral-200">
+                                Tap a category above to add your first tag, or type a title below
+                            </td>
+                        </tr>
+                    )}
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
                         const isRemoving = removingItemIds.has(item.id);

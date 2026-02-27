@@ -158,7 +158,9 @@ interface MeResponse {
 export const FEED_PAGE_SIZE = 15;
 const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 4;
 const JOURNAL_PAGE_SIZE = 15;
-const LINKED_ME_CACHE_TTL_MS = 1500;
+// Profile data rarely changes mid-session; a longer TTL avoids re-fetching
+// /api/social/me (2 Supabase queries) on every store operation.
+const LINKED_ME_CACHE_TTL_MS = 60_000;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
 let linkedMeInFlight: Promise<MeResponse> | null = null;
 
@@ -336,11 +338,13 @@ class SocialStore {
         mutedUsers: []
     };
     private listeners = new Set<() => void>();
+    private _pollTimer: ReturnType<typeof setInterval> | null = null;
+
     constructor() {
         if (typeof window !== 'undefined') {
             // Auto-fetch on client side init
             this.fetchStatuses();
-            this.setupSubscription();
+            this.setupVisibilityRefresh();
         }
     }
 
@@ -545,20 +549,27 @@ class SocialStore {
         }
     }
 
-    // Debounce real-time re-fetches to prevent rapid-fire full refreshes
-    private _fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-    private debouncedFetch = () => {
-        if (this._fetchDebounceTimer) clearTimeout(this._fetchDebounceTimer);
-        this._fetchDebounceTimer = setTimeout(() => this.fetchStatuses(), 1800);
-    };
+    // ── Visibility-based refresh (replaces realtime subscription) ──────
+    // Instead of subscribing to every row change and triggering full refetches,
+    // poll on a long interval and refresh immediately when the tab regains focus.
+    // This eliminates the feedback loop where your own edits trigger refetches.
+    private static POLL_INTERVAL_MS = 90_000; // 90 seconds
 
-    setupSubscription() {
-        supabase
-            .channel('social_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_statuses' }, this.debouncedFetch)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_items' }, this.debouncedFetch)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_comments' }, this.debouncedFetch)
-            .subscribe();
+    private setupVisibilityRefresh() {
+        // Refresh feed when user returns to the tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                this.fetchStatuses();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Long-interval background poll so the feed stays reasonably fresh
+        this._pollTimer = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                this.fetchStatuses();
+            }
+        }, SocialStore.POLL_INTERVAL_MS);
     }
 
     async ensureActiveStatus(): Promise<string> {
@@ -1126,7 +1137,8 @@ export function useHabits(userId?: string) {
         const { data: logsData } = await supabase
             .from('habit_logs')
             .select('habit_id,date,completed,notes')
-            .eq('user_id', targetId);
+            .eq('user_id', targetId)
+            .gte('date', since);
 
         setHabitLogs(logsData || []);
 
@@ -1243,9 +1255,11 @@ export function usePublicProfile(userId: string) {
             return;
         }
         setLoading(true);
+        // Only select display-relevant columns; skip muted_users and
+        // category_configs to reduce egress on public profile views.
         const { data } = await supabase
             .from('user_profiles')
-            .select('id,username,avatar_url,categories,visibility,is_private,created_at,muted_users,category_configs')
+            .select('id,username,avatar_url,categories,visibility,is_private,created_at,category_configs')
             .eq('id', userId)
             .single();
 

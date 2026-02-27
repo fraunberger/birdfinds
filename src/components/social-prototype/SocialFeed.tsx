@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocialStore, useFollows, UserProfile, Status, normalizeProfileVisibility, FEED_PAGE_SIZE } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import { useUserProfile } from '@/lib/social-prototype/store';
@@ -20,46 +20,53 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
     const [suggestedUsers, setSuggestedUsers] = useState<UserProfile[]>([]);
+    // Use a ref to track which IDs we've already fetched or are fetching, so we
+    // don't re-trigger the effect every time profileCache state updates.
+    const fetchedIdsRef = useRef<Set<string>>(new Set());
 
-    // Fetch profiles for all unique userIds in the feed
+    // Fetch profiles for any new userIds that appear in the feed.
+    // Dependency is only allStatuses + isLoaded — not profileCache — so we avoid
+    // the cascade where setProfileCache → re-render → re-run effect → fetch again.
+    const fetchMissingProfiles = useCallback(async (userIds: string[]) => {
+        const missing = userIds.filter(id => !fetchedIdsRef.current.has(id));
+        if (missing.length === 0) return;
+        missing.forEach(id => fetchedIdsRef.current.add(id));
+
+        const { data } = await supabase
+            .from('user_profiles')
+            .select('id,username,avatar_url,categories,visibility,is_private')
+            .in('id', missing);
+
+        if (data) {
+            setProfileCache((prev) => {
+                const next = { ...prev };
+                data.forEach((p) => {
+                    const visibility = normalizeProfileVisibility(p);
+                    next[p.id] = {
+                        id: p.id,
+                        username: p.username,
+                        avatarUrl: p.avatar_url,
+                        categories: p.categories || [],
+                        visibility,
+                        isPrivate: visibility === 'private',
+                    };
+                });
+                return next;
+            });
+        }
+    }, []);
+
     useEffect(() => {
         if (!isLoaded) return;
-
         const userIds = [...new Set(allStatuses.map(s => s.userId).filter(Boolean) as string[])];
-        const missing = userIds.filter(id => !profileCache[id]);
+        void fetchMissingProfiles(userIds);
+    }, [allStatuses, isLoaded, fetchMissingProfiles]);
 
-        if (missing.length === 0) return;
-
-        const fetchProfiles = async () => {
-            const { data } = await supabase
-                .from('user_profiles')
-                .select('id,username,avatar_url,categories,visibility,is_private')
-                .in('id', missing);
-
-            if (data) {
-                setProfileCache((prev) => {
-                    const next = { ...prev };
-                    data.forEach((p) => {
-                        const visibility = normalizeProfileVisibility(p);
-                        next[p.id] = {
-                            id: p.id,
-                            username: p.username,
-                            avatarUrl: p.avatar_url,
-                            categories: p.categories || [],
-                            visibility,
-                            isPrivate: visibility === 'private',
-                        };
-                    });
-                    return next;
-                });
-            }
-        };
-
-        fetchProfiles();
-    }, [allStatuses, isLoaded, profileCache]);
-
+    // Suggestions: only fetch once on initial load (not every time following changes)
+    const suggestionsLoadedRef = useRef(false);
     useEffect(() => {
-        if (!isLoaded || !user) return;
+        if (!isLoaded || !user || suggestionsLoadedRef.current) return;
+        suggestionsLoadedRef.current = true;
         const fetchSuggestions = async () => {
             const excluded = new Set([profile?.id, ...following].filter(Boolean) as string[]);
             const { data } = await supabase
