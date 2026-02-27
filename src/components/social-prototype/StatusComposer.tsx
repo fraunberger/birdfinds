@@ -19,34 +19,6 @@ interface StatusComposerProps {
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-function addMissingTagMarkers(text: string, itemList: ConsumableItem[]) {
-    if (!text || text.includes(TAG_MARKER) || itemList.length === 0) return text;
-    let next = text;
-    const seenTerms = new Set<string>();
-
-    for (const item of itemList) {
-        const terms = getItemHighlightTerms(item)
-            .map((term) => term.trim())
-            .filter(Boolean)
-            .sort((a, b) => b.length - a.length);
-        for (const term of terms) {
-            const lowered = term.toLowerCase();
-            if (seenTerms.has(lowered)) continue;
-            seenTerms.add(lowered);
-            const regex = new RegExp(`(^|[^${escapeRegex(TAG_MARKER)}])(${escapeRegex(term)})`, 'i');
-            const match = regex.exec(next);
-            if (!match) continue;
-            const prefixLength = match[1]?.length ?? 0;
-            const insertIndex = match.index + prefixLength;
-            next = `${next.slice(0, insertIndex)}${TAG_MARKER}${next.slice(insertIndex)}`;
-            break;
-        }
-    }
-
-    return next;
-}
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
@@ -200,16 +172,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             return { ...prev, [activeContentKey]: serverContent };
         });
     }, [activeContentKey, activeStatus?.id, activeStatus?.content]);
-
-    // Legacy/backfill: for older posts without markers, hydrate markers from linked items.
-    useEffect(() => {
-        if (!activeStatus?.id || activeStatus.id === 'temp-optimistic') return;
-        const source = contentDrafts[activeContentKey] ?? activeStatus.content ?? '';
-        if (!source || source.includes(TAG_MARKER) || items.length === 0) return;
-        const hydrated = addMissingTagMarkers(source, items);
-        if (hydrated === source) return;
-        setContentDrafts((prev) => ({ ...prev, [activeContentKey]: hydrated }));
-    }, [activeContentKey, activeStatus?.id, activeStatus?.content, items, contentDrafts]);
 
     // ── Content change handler ─────────────────────────────────────────
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
