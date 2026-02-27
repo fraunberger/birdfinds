@@ -341,7 +341,7 @@ class SocialStore {
     private _pollTimer: ReturnType<typeof setInterval> | null = null;
     private _fetchInFlight: Promise<void> | null = null;
     private _lastFetchAt = 0;
-    private _postWriteRefreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+    private _postWriteRefreshTimer: number | null = null;
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -574,8 +574,8 @@ class SocialStore {
     private static MIN_FETCH_INTERVAL_MS = 8_000;
 
     private schedulePostWriteRefresh() {
-        if (this._postWriteRefreshTimer) window.clearTimeout(this._postWriteRefreshTimer);
-        this._postWriteRefreshTimer = window.setTimeout(() => {
+        if (this._postWriteRefreshTimer !== null) globalThis.clearTimeout(this._postWriteRefreshTimer);
+        this._postWriteRefreshTimer = globalThis.setTimeout(() => {
             void this.fetchStatuses({ force: true });
         }, 900);
     }
