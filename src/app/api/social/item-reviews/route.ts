@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { matchesItemRoute } from "@/lib/social-prototype/items";
+import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 interface ItemRow {
   id: string;
@@ -18,14 +21,29 @@ interface StatusRow {
   user_id: string;
   published: boolean;
   created_at: string;
+  deleted_at: string | null;
 }
 
 interface ProfileRow {
   id: string;
   username: string;
+  visibility: "public" | "accounts" | "private" | null;
+  is_private: boolean | null;
 }
 
 export async function GET(req: NextRequest) {
+  const clientKey = (() => {
+    const ip = getClientIp(req);
+    return ip && ip !== "unknown" ? `item-reviews:${ip}` : "item-reviews:anon";
+  })();
+  const rl = rateLimit(clientKey, 40, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests, please slow down" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetMs / 1000)) } },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category") || "";
   const slug = searchParams.get("slug") || "";
@@ -34,13 +52,17 @@ export async function GET(req: NextRequest) {
   }
 
   const supabaseAdmin = getSupabaseAdmin();
+  const { userId: clerkUserId } = await auth();
+  const linkedViewerId = clerkUserId ? await getOrCreateLinkedSupabaseUser() : null;
+  const signedInViewer = Boolean(clerkUserId);
 
   // Step 1: Fetch items for this category (bounded)
   const { data: items } = await supabaseAdmin
     .from("social_items")
-    .select("id, status_id, category, title, subtitle, rating, notes, image")
+    .select("id, status_id, category, title, subtitle, rating, notes, image, created_at")
     .eq("category", category)
-    .limit(500);
+    .order("created_at", { ascending: false })
+    .limit(250);
 
   const allItems = (items || []) as ItemRow[];
 
@@ -61,9 +83,10 @@ export async function GET(req: NextRequest) {
   const statusIds = [...new Set(matchedItems.map((i) => i.status_id))];
   const { data: statuses } = await supabaseAdmin
     .from("social_statuses")
-    .select("id, user_id, published, created_at")
+    .select("id, user_id, published, created_at, deleted_at")
     .in("id", statusIds)
-    .eq("published", true);
+    .eq("published", true)
+    .is("deleted_at", null);
 
   const statusMap = new Map(
     ((statuses || []) as StatusRow[]).map((s) => [s.id, s])
@@ -75,9 +98,12 @@ export async function GET(req: NextRequest) {
   if (userIds.length > 0) {
     const { data: profiles } = await supabaseAdmin
       .from("user_profiles")
-      .select("id, username")
+      .select("id, username, visibility, is_private")
       .in("id", userIds);
     for (const p of (profiles || []) as ProfileRow[]) {
+      const visibility = p.is_private ? "private" : (p.visibility || "public");
+      if (visibility === "private" && p.id !== linkedViewerId) continue;
+      if (visibility === "accounts" && !signedInViewer && p.id !== linkedViewerId) continue;
       profileMap.set(p.id, p.username);
     }
   }
@@ -87,6 +113,7 @@ export async function GET(req: NextRequest) {
     .map((item) => {
       const status = statusMap.get(item.status_id);
       if (!status) return null;
+      if (!profileMap.has(status.user_id)) return null;
       return {
         item: {
           id: item.id,
