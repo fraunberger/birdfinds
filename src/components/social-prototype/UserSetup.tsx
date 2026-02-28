@@ -137,8 +137,23 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
     };
 
     const handleAddCustomCategory = () => {
-        const normalized = newCategoryName.trim().toLowerCase().replace(/\s+/g, '-');
-        if (!normalized) return;
+        const normalized = newCategoryName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (!normalized) {
+            setError('Category name must include at least one letter or number.');
+            return;
+        }
+        if (selectedCategories.includes(normalized)) {
+            setError('That category already exists.');
+            setNewCategoryName('');
+            setEditingCategory(normalized);
+            return;
+        }
+
+        setError(null);
         const baseLabel = newCategoryName.trim();
         const shortLabel = normalized.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase() || 'CAT';
 
