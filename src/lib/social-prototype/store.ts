@@ -161,8 +161,15 @@ const JOURNAL_PAGE_SIZE = 15;
 // Profile data rarely changes mid-session; a longer TTL avoids re-fetching
 // /api/social/me (2 Supabase queries) on every store operation.
 const LINKED_ME_CACHE_TTL_MS = 60_000;
+const LINKED_ME_EMPTY_CACHE_TTL_MS = 2_000;
 let linkedMeCache: { value: MeResponse; expiresAt: number } | null = null;
 let linkedMeInFlight: Promise<MeResponse> | null = null;
+
+function cacheLinkedMe(value: MeResponse) {
+    const hasLinkedIdentity = Boolean(value.clerkUserId && value.linkedUserId);
+    const ttl = hasLinkedIdentity ? LINKED_ME_CACHE_TTL_MS : LINKED_ME_EMPTY_CACHE_TTL_MS;
+    linkedMeCache = { value, expiresAt: Date.now() + ttl };
+}
 
 async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeResponse> {
     const empty: MeResponse = { clerkUserId: null, linkedUserId: null, profile: null };
@@ -185,7 +192,7 @@ async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeRespons
                         await sleep(120 * (attempt + 1));
                         continue;
                     }
-                    linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                    cacheLinkedMe(empty);
                     return empty;
                 }
                 let parsed: MeResponse;
@@ -196,7 +203,7 @@ async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeRespons
                         await sleep(120 * (attempt + 1));
                         continue;
                     }
-                    linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                    cacheLinkedMe(empty);
                     return empty;
                 }
 
@@ -206,18 +213,18 @@ async function getLinkedMe(options?: { bustCache?: boolean }): Promise<MeRespons
                     await sleep(120 * (attempt + 1));
                     continue;
                 }
-                linkedMeCache = { value: parsed, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                cacheLinkedMe(parsed);
                 return parsed;
             } catch {
                 if (attempt < 3) {
                     await sleep(120 * (attempt + 1));
                     continue;
                 }
-                linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+                cacheLinkedMe(empty);
                 return empty;
             }
         }
-        linkedMeCache = { value: empty, expiresAt: Date.now() + LINKED_ME_CACHE_TTL_MS };
+        cacheLinkedMe(empty);
         return empty;
     })();
     try {
