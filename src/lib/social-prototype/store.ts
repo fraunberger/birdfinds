@@ -963,8 +963,10 @@ export function useUserProfile() {
     const [loading, setLoading] = useState(true);
     const retryTimeoutRef = useRef<number | null>(null);
     const retryCountRef = useRef(0);
+    const retryPendingRef = useRef(false);
 
     const fetchProfile = async () => {
+        retryPendingRef.current = false;
         try {
             const me = await getLinkedMe({ bustCache: Boolean(user?.id) });
             const linkedUserId = me.linkedUserId;
@@ -978,8 +980,10 @@ export function useUserProfile() {
                 setHasPublishedPost(false);
                 if (me.clerkUserId && retryCountRef.current < 6 && typeof window !== 'undefined') {
                     retryCountRef.current += 1;
+                    // Keep loading = true while retries are pending so the
+                    // onboarding checklist doesn't flash before profile arrives.
+                    retryPendingRef.current = true;
                     const timeoutId = window.setTimeout(() => {
-                        setLoading(true);
                         void fetchProfile();
                     }, 250 * retryCountRef.current);
                     retryTimeoutRef.current = timeoutId;
@@ -1037,7 +1041,12 @@ export function useUserProfile() {
         } catch (error) {
             console.error("Error fetching profile:", error);
         } finally {
-            setLoading(false);
+            // Don't clear loading while a retry is pending — this prevents
+            // the onboarding checklist from flashing before the profile loads
+            // (common on Safari reload where the Supabase link takes a moment).
+            if (!retryPendingRef.current) {
+                setLoading(false);
+            }
         }
     };
 
