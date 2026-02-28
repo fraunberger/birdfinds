@@ -124,6 +124,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         if (!isExpanded) return;
         if (activeStatus?.published) return;
         if (content.trim() === (activeStatus?.content || '').trim()) return;
+        // Never overwrite existing server content with an empty string —
+        // this prevents accidental data loss when the composer loads blank
+        // due to stale drafts or timing issues.
+        if (!content.trim() && (activeStatus?.content || '').trim()) return;
         const timer = window.setTimeout(async () => {
             try {
                 await updateActiveStatus(content);
@@ -149,7 +153,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         const handleEditEntry = (event: Event) => {
             const customEvent = event as CustomEvent<{ date?: string }>;
             const editDate = customEvent.detail?.date;
-            if (editDate) setActiveDate(editDate);
+            if (editDate) {
+                // Clear any stale local draft so the composer loads the actual
+                // server content for this post instead of an old/empty draft.
+                const key = `draft:${editDate}`;
+                setContentDrafts((prev) => {
+                    if (!(key in prev)) return prev;
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                });
+                setActiveDate(editDate);
+            }
             setIsExpanded(true);
             window.setTimeout(() => textareaRef.current?.focus(), 220);
         };
