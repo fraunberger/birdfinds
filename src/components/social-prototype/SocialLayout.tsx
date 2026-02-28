@@ -22,6 +22,7 @@ export function SocialLayout() {
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
   const router = useRouter();
   const [showAbout, setShowAbout] = React.useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin, hasPublishedPost } = useUserProfile();
   const { setActiveDate, resetAndRefresh, statuses } = useSocialStore();
@@ -34,13 +35,29 @@ export function SocialLayout() {
   const stepOneComplete = !!user && hasUsername;
   const stepTwoComplete = !!user && hasAvatar;
   const stepThreeComplete = !!user && hasCategories;
-  const onboardingComplete = stepOneComplete && stepTwoComplete && stepThreeComplete;
   // Show the composer once username + categories are set (avatar is optional)
   const canCompose = stepOneComplete && stepThreeComplete;
   const needsOnboarding = !!user && !canCompose;
   const hasPublishedPostInFeed = hasPublishedPost || statuses.some((status) => status.published && status.id !== "temp-optimistic");
   const needsFirstPost = !!user && canCompose && !hasPublishedPostInFeed;
-  const showOnboardingChecklist = !!user && needsOnboarding;
+  const showOnboardingChecklist = !!user && needsOnboarding && !onboardingDismissed;
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!user?.id || !needsOnboarding) {
+      setOnboardingDismissed(false);
+      return;
+    }
+    const dismissedKey = `birdfinds:onboarding-dismissed:${user.id}`;
+    setOnboardingDismissed(window.localStorage.getItem(dismissedKey) === "1");
+  }, [user?.id, needsOnboarding]);
+
+  const handleDismissOnboardingChecklist = React.useCallback(() => {
+    if (!user?.id || typeof window === "undefined") return;
+    const dismissedKey = `birdfinds:onboarding-dismissed:${user.id}`;
+    window.localStorage.setItem(dismissedKey, "1");
+    setOnboardingDismissed(true);
+  }, [user?.id]);
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const syncAboutFromLocation = () => {
@@ -260,7 +277,15 @@ export function SocialLayout() {
 
           {showOnboardingChecklist && (
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
-              <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
+                <button
+                  onClick={handleDismissOnboardingChecklist}
+                  className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                >
+                  Hide
+                </button>
+              </div>
               <ol className="mt-2 space-y-1 text-xs">
                 <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
                   {stepOneComplete ? "✓" : "□"} 1. Username ready
