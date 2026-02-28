@@ -974,18 +974,20 @@ export function useUserProfile() {
                 window.clearTimeout(retryTimeoutRef.current);
                 retryTimeoutRef.current = null;
             }
-            if (!linkedUserId) {
+            const backendAuthOutOfSync = Boolean(user?.id) && me.clerkUserId !== user?.id;
+            if (!linkedUserId || backendAuthOutOfSync) {
                 setProfile(null);
                 setIsAdmin(Boolean(me.isAdmin));
                 setHasPublishedPost(false);
-                if (me.clerkUserId && retryCountRef.current < 6 && typeof window !== 'undefined') {
+                if (user?.id && retryCountRef.current < 8 && typeof window !== 'undefined') {
                     retryCountRef.current += 1;
-                    // Keep loading = true while retries are pending so the
-                    // onboarding checklist doesn't flash before profile arrives.
+                    // Safari can briefly restore Clerk client auth before
+                    // same-site cookies are ready for server routes. Keep
+                    // loading=true while retrying so onboarding does not flash.
                     retryPendingRef.current = true;
                     const timeoutId = window.setTimeout(() => {
                         void fetchProfile();
-                    }, 250 * retryCountRef.current);
+                    }, 200 * retryCountRef.current);
                     retryTimeoutRef.current = timeoutId;
                     return;
                 }
