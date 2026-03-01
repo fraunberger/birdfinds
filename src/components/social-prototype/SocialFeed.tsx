@@ -117,15 +117,13 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const feedStatuses: Status[] = mode === 'all'
         ? publishedStatuses
         : publishedStatuses.filter((s) => s.userId && (s.userId === linkedUserId || following.includes(s.userId)));
-    // Sort by date descending.
-    // Within the same date:
-    //   • Today (EST): chronological by first-posted time (edits keep position)
-    //   • Older days:  by tagged-item count descending (richer posts surface)
+    // Sort by date descending, then newest-first within the same date.
+    // For non-today dates, break ties by tagged-item count so richer posts surface.
     const todayEST = getTodayDateString();
     feedStatuses.sort((a, b) => {
         const dateCmp = b.date.localeCompare(a.date);
         if (dateCmp !== 0) return dateCmp;
-        if (a.date === todayEST) return a.createdAt - b.createdAt;
+        if (a.date === todayEST) return b.createdAt - a.createdAt;
         return (b.items?.length || 0) - (a.items?.length || 0);
     });
     const visibleFeedStatuses = feedStatuses.slice(0, visibleCount);
