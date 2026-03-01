@@ -338,6 +338,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
                                                         externalSource: 'musicbrainz',
                                                         externalId: r.id,
+                                                        releaseDate: r.releaseDate || undefined,
                                                     }),
                                                 }));
                                                 setShowMusicResults(false);
@@ -371,6 +372,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
                                                         externalSource: source,
                                                         externalId: r.id,
+                                                        releaseDate: r.releaseDate || undefined,
                                                     }),
                                                 }));
                                                 setShowMovieResults(false);
@@ -450,6 +452,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 imageUrl: selectedPodcast.image || parseItemMeta(prev.image).imageUrl,
                                                                 externalSource: 'itunes-podcast-episode',
                                                                 externalId: episodeIdentity,
+                                                                releaseDate: ep.publishedAt || undefined,
                                                             }),
                                                         }));
                                                         setShowPodcastPicker(false);
@@ -489,6 +492,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 imageUrl: show.image || parseItemMeta(prev.image).imageUrl,
                                                                 externalSource: 'tvmaze-show',
                                                                 externalId: show.id,
+                                                                releaseDate: show.premiered || undefined,
                                                             }),
                                                         }));
                                                         setShowTvPicker(true);
@@ -532,6 +536,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 imageUrl: selectedTvShow.image || parseItemMeta(prev.image).imageUrl,
                                                                 externalSource: 'tvmaze-episode',
                                                                 externalId: episodeIdentity,
+                                                                releaseDate: ep.airdate || undefined,
                                                             }),
                                                         }));
                                                         setShowTvPicker(false);
@@ -602,6 +607,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         ...parseItemMeta(prev.image),
                                                         externalSource: source,
                                                         externalId: book.id,
+                                                        releaseDate: book.publishedDate || undefined,
                                                     }),
                                                 }));
                                                 setShowBookResults(false);
