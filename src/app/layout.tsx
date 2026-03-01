@@ -29,22 +29,21 @@ export default function RootLayout({
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
 
-  const appShell = (
+  return (
     <html lang="en">
       <body className="antialiased">
-        <ToastHost />
-        {children}
+        {clerkEnabled ? (
+          <ClerkProvider>
+            <ToastHost />
+            {children}
+          </ClerkProvider>
+        ) : (
+          <>
+            <ToastHost />
+            {children}
+          </>
+        )}
       </body>
     </html>
-  );
-
-  if (!clerkEnabled) {
-    return appShell;
-  }
-
-  return (
-    <ClerkProvider>
-      {appShell}
-    </ClerkProvider>
   );
 }

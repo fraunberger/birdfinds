@@ -11,6 +11,12 @@ interface UserProfileRow {
   username: string;
 }
 
+const SOCIAL_AUTH_DEBUG = process.env.SOCIAL_AUTH_DEBUG === "1";
+const logAuthDebug = (message: string, meta?: Record<string, unknown>) => {
+  if (!SOCIAL_AUTH_DEBUG) return;
+  console.info("[server-auth]", { message, ...(meta || {}) });
+};
+
 const usernameFromEmail = (email?: string | null) => {
   if (!email) return null;
   const local = email.split("@")[0]?.trim();
@@ -122,6 +128,7 @@ const isSupabaseLinkUniqueConflict = (error: unknown) => {
 };
 
 export async function getOrCreateLinkedSupabaseUser() {
+  const startedAt = Date.now();
   const supabaseAdmin = getSupabaseAdmin();
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) return null;
@@ -133,11 +140,22 @@ export async function getOrCreateLinkedSupabaseUser() {
     .maybeSingle<ClerkLinkRow>();
 
   if (existingLink?.supabase_user_id) {
+    logAuthDebug("existing link found", {
+      clerkUserId,
+      supabaseUserId: existingLink.supabase_user_id,
+      durationMs: Date.now() - startedAt,
+    });
     return existingLink.supabase_user_id;
   }
 
   const { username: clerkUsername, email } = await getClerkUserIdentity(clerkUserId);
   const candidates = [clerkUsername, usernameFromEmail(email)].filter(Boolean) as string[];
+  logAuthDebug("no existing link; resolving identity", {
+    clerkUserId,
+    clerkUsername: clerkUsername || null,
+    hasEmail: Boolean(email),
+    candidates,
+  });
 
   let matchedProfile: UserProfileRow | null = null;
   if (candidates.length > 0) {
@@ -163,15 +181,29 @@ export async function getOrCreateLinkedSupabaseUser() {
       supabaseUserId = await createSupabaseAuthUser(
         targetEmail || `clerk_${clerkUserId}@users.birdfinds.local`
       );
+      logAuthDebug("created supabase auth user", {
+        clerkUserId,
+        supabaseUserId,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (message.includes("already been registered")) {
         supabaseUserId = await findSupabaseAuthUserIdByEmail(
           targetEmail || `clerk_${clerkUserId}@users.birdfinds.local`
         );
+        logAuthDebug("resolved supabase auth user by email fallback", {
+          clerkUserId,
+          supabaseUserId: supabaseUserId || null,
+        });
       }
       if (!supabaseUserId) throw error;
     }
+  } else {
+    logAuthDebug("matched existing profile for linking", {
+      clerkUserId,
+      supabaseUserId,
+      matchedUsername: matchedProfile?.username || null,
+    });
   }
 
   await ensureProfileForUser(supabaseUserId, resolvedUsername);
@@ -195,6 +227,11 @@ export async function getOrCreateLinkedSupabaseUser() {
 
     if (existingBySupabase?.clerk_user_id === clerkUserId) {
       // Already correctly linked, nothing to do.
+      logAuthDebug("link already present on supabase unique key check", {
+        clerkUserId,
+        supabaseUserId,
+        durationMs: Date.now() - startedAt,
+      });
       return supabaseUserId;
     }
 
@@ -206,5 +243,10 @@ export async function getOrCreateLinkedSupabaseUser() {
     throw new Error("User linking conflict: Supabase user already linked to another account");
   }
 
+  logAuthDebug("created clerk->supabase link", {
+    clerkUserId,
+    supabaseUserId,
+    durationMs: Date.now() - startedAt,
+  });
   return supabaseUserId;
 }
