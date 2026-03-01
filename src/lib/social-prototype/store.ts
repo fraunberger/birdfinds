@@ -629,7 +629,9 @@ class SocialStore {
 
         // If we have a real status, return its ID
         if (existing && existing.id !== 'temp-optimistic') return existing.id;
-        const response = await socialWrite('social.status.upsert', { date: activeDate, content: '' });
+        // Preserve any in-progress content so the upsert doesn't overwrite it
+        const currentContent = this.state.activeStatus?.content || existing?.content || '';
+        const response = await socialWrite('social.status.upsert', { date: activeDate, content: currentContent });
         const statusId = response?.statusId as string | undefined;
         if (!statusId) throw new Error('Failed to ensure status');
         const current = this.state.activeStatus;
