@@ -14,6 +14,7 @@ export interface ItemMetaData {
     restaurantLocation?: string;
     externalSource?: string;
     externalId?: string;
+    releaseDate?: string;
 }
 
 const META_PREFIX = 'meta:';
@@ -33,6 +34,7 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
             restaurantLocation: typeof parsed.restaurantLocation === 'string' ? parsed.restaurantLocation : undefined,
             externalSource: typeof parsed.externalSource === 'string' ? parsed.externalSource : undefined,
             externalId: typeof parsed.externalId === 'string' ? parsed.externalId : undefined,
+            releaseDate: typeof parsed.releaseDate === 'string' ? parsed.releaseDate : undefined,
         };
     } catch {
         return {};
@@ -42,10 +44,11 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
 /** Serialize structured metadata back into the `image` column format. */
 export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const aliases = (meta.aliases || []).map((value) => value.trim()).filter(Boolean);
-    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0) return undefined;
+    const releaseDate = meta.releaseDate?.trim();
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !releaseDate) return undefined;
     const externalSource = meta.externalSource?.trim();
     const externalId = meta.externalId?.trim();
-    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && meta.imageUrl) return meta.imageUrl;
+    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && !releaseDate && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
@@ -54,6 +57,7 @@ export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
         aliases,
         externalSource,
         externalId,
+        releaseDate,
     }))}`;
 };
 
