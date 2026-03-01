@@ -5,7 +5,7 @@ import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_C
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
-import { decorationsEqual, normalizeTaggedTextForFeed, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import { normalizeTaggedTextForFeed, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
@@ -34,11 +34,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
 
-    const [previewText, setPreviewText] = useState('');
-    const [previewDecorations, setPreviewDecorations] = useState<Array<{
-        id: string; entityType: string; entityId: string;
-        start: number; end: number; displayText: string; source: string; color?: string;
-    }>>([]);
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
 
@@ -75,9 +70,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         addItemToActive,
     });
 
-    // ── Preview highlights ─────────────────────────────────────────────
-    const rebuildPreviewHighlights = useCallback((textValue: string, itemList: ConsumableItem[]) => {
-        const entities = itemList.map((item) => ({
+    // ── Preview highlights (synchronous — always in sync with content + items) ──
+    const previewDecorations = useMemo(() => {
+        if (!content) return [] as Array<{
+            id: string; entityType: string; entityId: string;
+            start: number; end: number; displayText: string; source: string; color?: string;
+        }>;
+        const entities = items.map((item) => ({
             id: item.id,
             entityType: item.category,
             entityId: item.id,
@@ -86,16 +85,16 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             color: getCategoryConfig(item.category)?.color || HIGHLIGHT_COLOR,
             priority: 1,
         }));
-        const nextDecorations = parseHighlights(textValue, entities) as typeof previewDecorations;
-        setPreviewText((prev) => (prev === textValue ? prev : textValue));
-        setPreviewDecorations((prev) => (decorationsEqual(prev, nextDecorations) ? prev : nextDecorations));
-    }, []);
+        return parseHighlights(content, entities) as Array<{
+            id: string; entityType: string; entityId: string;
+            start: number; end: number; displayText: string; source: string; color?: string;
+        }>;
+    }, [content, items]);
 
-    const setComposerContent = useCallback((nextContent: string, itemList: ConsumableItem[] = items) => {
+    /** Update composer content (convenience wrapper used by tagging & linking). */
+    const setComposerContent = useCallback((nextContent: string) => {
         setContentForActive(nextContent);
-        setPreviewText(nextContent);
-        rebuildPreviewHighlights(nextContent, itemList);
-    }, [items, rebuildPreviewHighlights, setContentForActive]);
+    }, [setContentForActive]);
 
     // ── Draft persistence ──────────────────────────────────────────────
     useEffect(() => { setContentDrafts({}); }, [draftsStorageKey]);
@@ -172,10 +171,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
     }, [setActiveDate]);
 
-    useEffect(() => {
-        rebuildPreviewHighlights(content, items);
-    }, [content, items, rebuildPreviewHighlights]);
-
     // If a stale local draft lost tag markers, prefer canonical server content for this status.
     useEffect(() => {
         if (!activeStatus?.id || activeStatus.id === 'temp-optimistic') return;
@@ -191,7 +186,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     // ── Content change handler ─────────────────────────────────────────
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const val = e.target.value;
-        setComposerContent(val, items);
+        setComposerContent(val);
         adjustTextareaHeight();
         // Track @ prefix for inline tagging
         const cursorPos = e.target.selectionStart || 0;
@@ -545,9 +540,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
                         <div className="relative min-h-[100px] bg-white">
-                            {previewText && (
+                            {content && (
                                 <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
-                                    {(segmentText(previewText, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
+                                    {(segmentText(content, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
                                         segment.type === 'text' ? (
                                             <React.Fragment key={`t:${segment.start}:${index}`}>{segment.text}</React.Fragment>
                                         ) : (
@@ -564,7 +559,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 value={content}
                                 onChange={handleContentChange}
                                 onFocus={() => { adjustTextareaHeight(); if (textareaRef.current) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '220px' : '150px'; }}
-                                onBlur={(e) => { handleBlur(); rebuildPreviewHighlights(e.target.value, items); if (textareaRef.current && !content) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '170px' : '100px'; }}
+                                onBlur={() => { handleBlur(); if (textareaRef.current && !content) textareaRef.current.style.minHeight = tagging.isMobileTagging ? '170px' : '100px'; }}
                                 onSelect={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); handleTextSelection(t); }}
                                 onTouchEnd={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
                                 onPointerUp={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}

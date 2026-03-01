@@ -117,10 +117,15 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const feedStatuses: Status[] = mode === 'all'
         ? publishedStatuses
         : publishedStatuses.filter((s) => s.userId && (s.userId === linkedUserId || following.includes(s.userId)));
-    // Sort by date descending, then by tag count descending within same date
+    // Sort by date descending.
+    // Within the same date:
+    //   • Today (EST): chronological by first-posted time (edits keep position)
+    //   • Older days:  by tagged-item count descending (richer posts surface)
+    const todayEST = getTodayDateString();
     feedStatuses.sort((a, b) => {
         const dateCmp = b.date.localeCompare(a.date);
         if (dateCmp !== 0) return dateCmp;
+        if (a.date === todayEST) return a.createdAt - b.createdAt;
         return (b.items?.length || 0) - (a.items?.length || 0);
     });
     const visibleFeedStatuses = feedStatuses.slice(0, visibleCount);
@@ -242,9 +247,15 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
 }
 
 function getTodayDateString() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    // Use America/New_York (EST/EDT) as the canonical timezone for "today".
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(new Date());
+    const year = parts.find(p => p.type === 'year')!.value;
+    const month = parts.find(p => p.type === 'month')!.value;
+    const day = parts.find(p => p.type === 'day')!.value;
     return `${year}-${month}-${day}`;
 }
