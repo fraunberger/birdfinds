@@ -172,8 +172,16 @@ export async function POST(req: NextRequest) {
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
       const updates: Record<string, unknown> = { published };
       if (published) {
-        // Treat publish/update-post as a "fresh post" for feed chronology.
-        updates.created_at = new Date().toISOString();
+        // Only set created_at on first publish — subsequent edits keep the
+        // original timestamp so the post's feed position doesn't change.
+        const { data: current } = await supabaseAdmin
+          .from("social_statuses")
+          .select("published")
+          .eq("id", statusId)
+          .maybeSingle();
+        if (!current?.published) {
+          updates.created_at = new Date().toISOString();
+        }
       }
       const { error } = await supabaseAdmin
         .from("social_statuses")
