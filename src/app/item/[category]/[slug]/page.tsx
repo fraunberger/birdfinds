@@ -117,10 +117,43 @@ export default function ItemPage({
     };
   }, [reviews]);
 
-  const friendReviews = useMemo(
-    () => reviews.filter((review) => followingIds.includes(review.userId)),
-    [reviews, followingIds]
-  );
+  const friendReviews = useMemo(() => {
+    const byUser = new Map<string, DisplayReview>();
+
+    reviews
+      .filter((review) => followingIds.includes(review.userId))
+      .forEach((review) => {
+        const existing = byUser.get(review.userId);
+        if (!existing) {
+          byUser.set(review.userId, review);
+          return;
+        }
+
+        const existingHasNotes = Boolean(existing.item.notes?.trim());
+        const reviewHasNotes = Boolean(review.item.notes?.trim());
+        if (reviewHasNotes && !existingHasNotes) {
+          byUser.set(review.userId, review);
+          return;
+        }
+
+        const existingHasRating = typeof existing.item.rating === "number";
+        const reviewHasRating = typeof review.item.rating === "number";
+        if (reviewHasRating && !existingHasRating) {
+          byUser.set(review.userId, review);
+          return;
+        }
+
+        const existingCreatedAt = new Date(existing.createdAt).getTime();
+        const reviewCreatedAt = new Date(review.createdAt).getTime();
+        if (reviewCreatedAt > existingCreatedAt) {
+          byUser.set(review.userId, review);
+        }
+      });
+
+    return Array.from(byUser.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [reviews, followingIds]);
 
   const categoryConfig = getCategoryConfig(requestedCategory);
   const title = useMemo(() => {
@@ -284,7 +317,7 @@ export default function ItemPage({
                 </div>
               </div>
               <div className="mt-2 text-xs text-neutral-700">
-                {review.item.rating ? `${review.item.rating}/10` : "No rating"}
+                {typeof review.item.rating === "number" ? `${review.item.rating}/10` : "No rating"}
               </div>
               {(isTvPage || isPodcastPage || isBreweryPage) && review.item.subtitle && (
                 <p className="mt-1 text-[10px] uppercase tracking-widest text-neutral-400">
