@@ -40,6 +40,15 @@ const insertTagMarkerAtRange = (content: string, start: number, end: number) => 
     return `${content.slice(0, start)}${TAG_MARKER}${content.slice(start)}`;
 };
 
+const insertTagMarkerByPhraseFallback = (content: string, phrase: string) => {
+    const needle = phrase.trim();
+    if (!needle) return content;
+    const index = content.lastIndexOf(needle);
+    if (index < 0) return content;
+    if (content.slice(Math.max(0, index - TAG_MARKER.length), index) === TAG_MARKER) return content;
+    return `${content.slice(0, index)}${TAG_MARKER}${content.slice(index)}`;
+};
+
 export const getItemHighlightTerms = (item: ConsumableItem): string[] => {
     const meta = parseItemMeta(item.image);
     const terms = [item.title, ...(meta.aliases || [])].map((v) => (v || '').trim()).filter(Boolean);
@@ -123,6 +132,7 @@ export function useTaggingState({
     const inFlightRef = useRef(false);
     const recentKeyRef = useRef<{ key: string; at: number } | null>(null);
     const lastSelectionRef = useRef<{ text: string; at: number } | null>(null);
+    const selectionRangeRef = useRef<{ start: number; end: number; text: string }>({ start: 0, end: 0, text: '' });
 
     // Mobile detection
     useEffect(() => {
@@ -137,6 +147,7 @@ export function useTaggingState({
     }, []);
 
     const updateSelection = useCallback((start: number, end: number, text: string) => {
+        selectionRangeRef.current = { start, end, text };
         setSelectionStart(start);
         setSelectionEnd(end);
         setSelectedText(text);
@@ -146,6 +157,7 @@ export function useTaggingState({
     }, []);
 
     const clearSelection = useCallback(() => {
+        selectionRangeRef.current = { start: 0, end: 0, text: '' };
         setSelectionStart(0);
         setSelectionEnd(0);
         setSelectedText('');
@@ -196,11 +208,14 @@ export function useTaggingState({
 
         // Priority 1: Has text selected (Flow A)
         const recentSelection = lastSelectionRef.current;
+        const selectionSnapshot = selectionRangeRef.current;
         const hasRecentMobileSelection = isMobileTagging
             && !!recentSelection
             && (Date.now() - recentSelection.at) < 2500
             && recentSelection.text.trim().length > 0;
-        const effectiveSelectionText = selectedText.trim() || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
+        const effectiveSelectionText = selectionSnapshot.text.trim()
+            || selectedText.trim()
+            || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
         const hasSelection = effectiveSelectionText.length > 0;
         if (hasSelection) {
             const title = stripLeadingAtSymbol(effectiveSelectionText);
@@ -224,7 +239,15 @@ export function useTaggingState({
                     if (!existing) {
                         await addItemToActive({ category, title, rating: undefined, subtitle: '', notes: '' });
                     }
-                    const nextContent = insertTagMarkerAtRange(content || '', selectionStart, selectionEnd);
+                    const currentContent = content || '';
+                    let nextContent = insertTagMarkerAtRange(
+                        currentContent,
+                        selectionSnapshot.start,
+                        selectionSnapshot.end,
+                    );
+                    if (nextContent === currentContent) {
+                        nextContent = insertTagMarkerByPhraseFallback(currentContent, title);
+                    }
                     if (nextContent !== (content || '')) {
                         setContentForActive(nextContent);
                         await updateActiveStatus(nextContent);
@@ -291,7 +314,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging, selectionStart, selectionEnd]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {
