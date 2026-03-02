@@ -368,12 +368,6 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
 
                 {showComments && (
                     <div className="mt-2 space-y-2">
-                        {(status.comments || []).length === 0 && (
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-300 border border-dashed border-neutral-200 p-2">
-                                No comments yet.
-                            </div>
-                        )}
-
                         {(status.comments || []).map((comment) => (
                             <div key={comment.id} className="border border-neutral-200 p-2">
                                 <div className="flex items-center justify-between gap-2">
