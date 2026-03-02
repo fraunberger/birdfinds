@@ -25,7 +25,7 @@ export function SocialLayout() {
   const [onboardingDismissed, setOnboardingDismissed] = React.useState(false);
   const { user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, isAdmin, hasPublishedPost } = useUserProfile();
-  const { setActiveDate, resetAndRefresh, statuses } = useSocialStore();
+  const { setActiveDate, resetAndRefresh, statuses, isLoaded: socialLoaded } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
@@ -84,6 +84,9 @@ export function SocialLayout() {
     const authKey = user?.id || "signed-out";
     if (lastAuthKeyRef.current === null) {
       lastAuthKeyRef.current = authKey;
+      // Initial auth resolution can happen after an anonymous store fetch.
+      // Force an immediate sync for the resolved identity.
+      resetAndRefresh();
       return;
     }
     if (lastAuthKeyRef.current !== authKey) {
@@ -132,10 +135,12 @@ export function SocialLayout() {
     };
   }, [user?.id, isAdmin]);
 
-  if (authLoading || profileLoading) {
+  if (authLoading || profileLoading || (!!user && !socialLoaded)) {
     return (
       <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
-        <div className="text-neutral-400 text-xs uppercase tracking-widest">Loading...</div>
+        <div className="text-neutral-400 text-xs uppercase tracking-widest">
+          {authLoading || profileLoading ? "Loading..." : "Syncing your status..."}
+        </div>
       </div>
     );
   }
