@@ -198,13 +198,13 @@ export function SocialLayout() {
         }
 
         const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
-        const unseenMapped = unseen.map((entry: Record<string, unknown>) => ({
+        const unseenMapped: CommentNotification[] = unseen.map((entry: Record<string, unknown>) => ({
           id: String(entry.id || ""),
           statusId: String(entry.statusId || ""),
           fromUsername: String(entry.fromUsername || "Unknown"),
           content: String(entry.content || ""),
           createdAt: String(entry.createdAt || ""),
-        })).filter((entry) => entry.id && entry.statusId);
+        })).filter((entry: CommentNotification) => Boolean(entry.id && entry.statusId));
         if (!cancelled && unseen.length > 0) {
           const newest = unseen[0] as { fromUsername?: string; content?: string };
           pushToast({
