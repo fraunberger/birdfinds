@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ConsumableItem, useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
@@ -22,15 +22,13 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
-    const { refetch: refetchProfile } = useUserProfile();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
-    const [isPreOpenSyncing, setIsPreOpenSyncing] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
@@ -147,21 +145,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         if (el) { el.style.height = 'auto'; el.style.height = Math.max(100, el.scrollHeight) + 'px'; }
     };
 
-    const syncBeforeOpen = useCallback(async () => {
-        setIsPreOpenSyncing(true);
-        try {
-            await Promise.all([refresh(), refetchProfile()]);
-        } finally {
-            setIsPreOpenSyncing(false);
-        }
-    }, [refresh, refetchProfile]);
-
     useEffect(() => { adjustTextareaHeight(); }, [content]);
 
     // ── Edit entry event ───────────────────────────────────────────────
     useEffect(() => {
-        const handleEditEntry = async (event: Event) => {
-            await syncBeforeOpen();
+        const handleEditEntry = (event: Event) => {
             const customEvent = event as CustomEvent<{ date?: string }>;
             const editDate = customEvent.detail?.date;
             if (editDate) {
@@ -181,7 +169,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         };
         window.addEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
-    }, [setActiveDate, syncBeforeOpen]);
+    }, [setActiveDate]);
 
     // If a stale local draft lost tag markers, prefer canonical server content for this status.
     useEffect(() => {
@@ -431,9 +419,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             {/* Header */}
             <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300">
                 <button
-                    onClick={async () => {
+                    onClick={() => {
                         const next = !isExpanded;
-                        if (next) await syncBeforeOpen();
                         setIsExpanded(next);
                         if (!next) setShowTagHelp(false);
                     }}
@@ -453,9 +440,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </button>
                     )}
                     <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>{draftBadgeText}</span>
-                    {isPreOpenSyncing && (
-                        <span className="text-[10px] uppercase tracking-widest text-neutral-400">Syncing...</span>
-                    )}
                     <div className="relative inline-flex items-center gap-1 p-1 border-b border-transparent hover:border-neutral-300 transition-colors">
                         <span className="block font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">{activeDate}</span>
                         <span className="text-neutral-400" aria-hidden="true">

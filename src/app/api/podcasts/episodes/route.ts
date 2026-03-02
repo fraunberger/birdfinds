@@ -6,8 +6,8 @@ interface ParsedEpisode {
     publishedAt: string;
 }
 
-const DEFAULT_EPISODE_LIMIT = 75;
-const MAX_EPISODE_LIMIT = 150;
+const DEFAULT_EPISODE_LIMIT = 250;
+const MAX_EPISODE_LIMIT = 500;
 
 const getTagValue = (source: string, tagName: string): string => {
     const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, 'i');

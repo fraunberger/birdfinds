@@ -373,7 +373,7 @@ class SocialStore {
         if (typeof window !== 'undefined') {
             // Auto-fetch on client side init
             void this.fetchStatuses({ force: true });
-            this.setupVisibilityRefresh();
+            this.setupBackgroundPolling();
         }
     }
 
@@ -592,10 +592,9 @@ class SocialStore {
         return this._fetchInFlight;
     }
 
-    // ── Visibility-based refresh (replaces realtime subscription) ──────
-    // Instead of subscribing to every row change and triggering full refetches,
-    // poll on a long interval and refresh immediately when the tab regains focus.
-    // This eliminates the feedback loop where your own edits trigger refetches.
+    // ── Background polling (replaces realtime subscription) ─────────────
+    // Intentionally do not force-refresh on tab/app focus changes; users expect
+    // composer/editor state to remain stable when switching windows.
     private static POLL_INTERVAL_MS = 180_000; // 3 minutes
     private static MIN_FETCH_INTERVAL_MS = 8_000;
 
@@ -606,15 +605,7 @@ class SocialStore {
         }, 900);
     }
 
-    private setupVisibilityRefresh() {
-        // Refresh feed when user returns to the tab
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                void this.fetchStatuses({ force: true });
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    private setupBackgroundPolling() {
         // Long-interval background poll so the feed stays reasonably fresh
         this._pollTimer = setInterval(() => {
             if (document.visibilityState === 'visible') {
