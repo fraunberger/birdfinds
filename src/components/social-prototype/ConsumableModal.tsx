@@ -109,7 +109,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         const matches = allUserItems.filter(item => {
             if (existingItem && item.id === existingItem.id) return false;
             if (draftExternalKey) {
-                return getItemExternalIdentityKey(item.category, item.image) === draftExternalKey;
+                const itemExternalKey = getItemExternalIdentityKey(item.category, item.image);
+                if (itemExternalKey === draftExternalKey) return true;
             }
             return getCanonicalItemKey(item) === draftKey;
         });
