@@ -19,6 +19,8 @@ interface StatusComposerProps {
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
+const isTemporaryItemId = (itemId: string | undefined) => Boolean(itemId && itemId.startsWith('temp-'));
+
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
@@ -265,7 +267,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
                 nextImage = serializeItemMeta(meta);
             }
-            if (existingItem && existingItem.id !== 'temp') {
+            if (existingItem && !isTemporaryItemId(existingItem.id)) {
                 await updateItemInActive(existingItem.id, { ...item, image: nextImage });
             } else {
                 await addItemToActive({ ...item, image: nextImage });
