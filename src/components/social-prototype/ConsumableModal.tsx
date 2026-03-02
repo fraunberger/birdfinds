@@ -83,7 +83,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         const timeoutId = window.setTimeout(async () => {
             try {
                 setIsLoadingEpisodes(true);
-                const response = await fetch(`/api/podcasts/episodes?feedUrl=${encodeURIComponent(selectedPodcast.feedUrl)}`, { signal: controller.signal });
+                const response = await fetch(
+                    `/api/podcasts/episodes?podcastId=${encodeURIComponent(selectedPodcast.id)}&feedUrl=${encodeURIComponent(selectedPodcast.feedUrl)}&limit=300`,
+                    { signal: controller.signal }
+                );
                 if (!response.ok) { setPodcastEpisodes([]); return; }
                 const results = (await response.json()) as PodcastEpisodeResult[];
                 setPodcastEpisodes(results);

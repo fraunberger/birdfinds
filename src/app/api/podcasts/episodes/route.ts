@@ -8,6 +8,19 @@ interface ParsedEpisode {
 
 const DEFAULT_EPISODE_LIMIT = 250;
 const MAX_EPISODE_LIMIT = 500;
+const ITUNES_MAX_EPISODE_LIMIT = 200;
+
+interface ITunesEpisodeResult {
+    trackId?: number;
+    trackName?: string;
+    releaseDate?: string;
+    wrapperType?: string;
+    kind?: string;
+}
+
+interface ITunesLookupResponse {
+    results?: ITunesEpisodeResult[];
+}
 
 const getTagValue = (source: string, tagName: string): string => {
     const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, 'i');
@@ -58,16 +71,54 @@ const parseAtomEntries = (xml: string): ParsedEpisode[] => {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const rawFeedUrl = searchParams.get('feedUrl')?.trim();
+    const rawPodcastId = searchParams.get('podcastId')?.trim();
     const requestedLimit = Number(searchParams.get('limit') || DEFAULT_EPISODE_LIMIT);
     const episodeLimit = Number.isFinite(requestedLimit)
         ? Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_EPISODE_LIMIT)
         : DEFAULT_EPISODE_LIMIT;
 
-    if (!rawFeedUrl) {
-        return NextResponse.json({ error: 'Query parameter "feedUrl" is required' }, { status: 400 });
+    if (!rawFeedUrl && !rawPodcastId) {
+        return NextResponse.json({ error: 'Query parameter "podcastId" or "feedUrl" is required' }, { status: 400 });
     }
 
     try {
+        // Prefer iTunes lookup by show ID (usually returns more episodes than RSS feeds).
+        if (rawPodcastId) {
+            const upstreamUrl = new URL('https://itunes.apple.com/lookup');
+            upstreamUrl.searchParams.set('id', rawPodcastId);
+            upstreamUrl.searchParams.set('entity', 'podcastEpisode');
+            upstreamUrl.searchParams.set('limit', String(Math.min(episodeLimit, ITUNES_MAX_EPISODE_LIMIT)));
+
+            const lookupResponse = await fetch(upstreamUrl.toString(), {
+                headers: { Accept: 'application/json' },
+                next: { revalidate: 300 },
+            });
+
+            if (lookupResponse.ok) {
+                const lookupData = (await lookupResponse.json()) as ITunesLookupResponse;
+                const episodes = (lookupData.results || [])
+                    .filter((entry) => entry.wrapperType === 'podcastEpisode' || entry.kind === 'podcast-episode')
+                    .map((entry) => ({
+                        id: String(entry.trackId || ''),
+                        title: (entry.trackName || '').trim(),
+                        publishedAt: (entry.releaseDate || '').trim(),
+                    }))
+                    .filter((entry) => entry.id && entry.title)
+                    .slice(0, episodeLimit);
+
+                if (episodes.length > 0) {
+                    return NextResponse.json(episodes);
+                }
+            } else {
+                const text = await lookupResponse.text();
+                console.error('Podcast iTunes lookup failed:', lookupResponse.status, text.slice(0, 400));
+            }
+        }
+
+        if (!rawFeedUrl) {
+            return NextResponse.json([]);
+        }
+
         let feedUrl: URL;
         try {
             feedUrl = new URL(rawFeedUrl);

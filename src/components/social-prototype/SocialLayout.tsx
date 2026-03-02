@@ -27,7 +27,6 @@ export function SocialLayout() {
   const { profile, loading: profileLoading, isAdmin, hasPublishedPost } = useUserProfile();
   const { setActiveDate, resetAndRefresh, statuses } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
-  const lastForegroundSyncRef = React.useRef(0);
   const [reportCount, setReportCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
   const hasUsername = !!(profile?.username?.trim() || user?.username?.trim() || user?.email?.split("@")[0]?.trim());
@@ -102,30 +101,6 @@ export function SocialLayout() {
       resetAndRefresh();
     }
   }, [authLoading, user?.id, resetAndRefresh]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const maybeRefreshOnForeground = () => {
-      if (document.visibilityState !== "visible") return;
-      const now = Date.now();
-      // Safari can restore a tab from cache without immediately reflecting
-      // the newest auth state. Nudge a refresh when the tab returns.
-      if (now - lastForegroundSyncRef.current < 1200) return;
-      lastForegroundSyncRef.current = now;
-      resetAndRefresh();
-    };
-
-    window.addEventListener("focus", maybeRefreshOnForeground);
-    window.addEventListener("pageshow", maybeRefreshOnForeground);
-    document.addEventListener("visibilitychange", maybeRefreshOnForeground);
-
-    return () => {
-      window.removeEventListener("focus", maybeRefreshOnForeground);
-      window.removeEventListener("pageshow", maybeRefreshOnForeground);
-      document.removeEventListener("visibilitychange", maybeRefreshOnForeground);
-    };
-  }, [resetAndRefresh]);
 
   React.useEffect(() => {
     if (!user?.id || !isAdmin) {
