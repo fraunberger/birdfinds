@@ -18,6 +18,38 @@ interface FollowRow {
   following_id: string;
 }
 
+const getFriendReviewKey = (review: DisplayReview) => {
+  const normalizedUsername = review.username.trim().toLowerCase();
+  if (normalizedUsername) return `username:${normalizedUsername}`;
+  return `user:${review.userId}`;
+};
+
+const getFriendReviewScore = (review: DisplayReview) => {
+  const hasNotes = Boolean(review.item.notes?.trim());
+  const hasRating = typeof review.item.rating === "number";
+  const createdAt = new Date(review.createdAt).getTime();
+  return {
+    hasNotes,
+    hasRating,
+    createdAt: Number.isFinite(createdAt) ? createdAt : 0,
+  };
+};
+
+const shouldReplaceFriendReview = (existing: DisplayReview, candidate: DisplayReview) => {
+  const existingScore = getFriendReviewScore(existing);
+  const candidateScore = getFriendReviewScore(candidate);
+
+  if (candidateScore.hasNotes !== existingScore.hasNotes) {
+    return candidateScore.hasNotes;
+  }
+
+  if (candidateScore.hasRating !== existingScore.hasRating) {
+    return candidateScore.hasRating;
+  }
+
+  return candidateScore.createdAt > existingScore.createdAt;
+};
+
 export default function ItemPage({
   params: _params,
 }: {
@@ -123,30 +155,15 @@ export default function ItemPage({
     reviews
       .filter((review) => followingIds.includes(review.userId))
       .forEach((review) => {
-        const existing = byUser.get(review.userId);
+        const key = getFriendReviewKey(review);
+        const existing = byUser.get(key);
         if (!existing) {
-          byUser.set(review.userId, review);
+          byUser.set(key, review);
           return;
         }
 
-        const existingHasNotes = Boolean(existing.item.notes?.trim());
-        const reviewHasNotes = Boolean(review.item.notes?.trim());
-        if (reviewHasNotes && !existingHasNotes) {
-          byUser.set(review.userId, review);
-          return;
-        }
-
-        const existingHasRating = typeof existing.item.rating === "number";
-        const reviewHasRating = typeof review.item.rating === "number";
-        if (reviewHasRating && !existingHasRating) {
-          byUser.set(review.userId, review);
-          return;
-        }
-
-        const existingCreatedAt = new Date(existing.createdAt).getTime();
-        const reviewCreatedAt = new Date(review.createdAt).getTime();
-        if (reviewCreatedAt > existingCreatedAt) {
-          byUser.set(review.userId, review);
+        if (shouldReplaceFriendReview(existing, review)) {
+          byUser.set(key, review);
         }
       });
 
