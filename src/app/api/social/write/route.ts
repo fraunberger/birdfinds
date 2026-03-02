@@ -170,9 +170,14 @@ export async function POST(req: NextRequest) {
       const statusId = String(payload.statusId || "");
       const published = Boolean(payload.published);
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const updates: Record<string, unknown> = { published };
+      if (published) {
+        // Treat publish/update-post as a "fresh post" for feed chronology.
+        updates.created_at = new Date().toISOString();
+      }
       const { error } = await supabaseAdmin
         .from("social_statuses")
-        .update({ published })
+        .update(updates)
         .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
