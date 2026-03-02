@@ -6,6 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
 interface AccountMenuProps {
+  commentNotifications?: Array<{
+    id: string;
+    statusId: string;
+    fromUsername: string;
+    content: string;
+    createdAt: string;
+  }>;
   pileHref: string;
   username: string;
   avatarUrl?: string;
@@ -14,7 +21,15 @@ interface AccountMenuProps {
   commentCount?: number;
 }
 
-export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, reportCount = 0, commentCount = 0 }: AccountMenuProps) {
+export function AccountMenu({
+  pileHref,
+  username,
+  avatarUrl,
+  isAdmin = false,
+  reportCount = 0,
+  commentCount = 0,
+  commentNotifications = [],
+}: AccountMenuProps) {
   void username;
   void avatarUrl;
   const router = useRouter();
@@ -58,6 +73,47 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
           >
             My Pile
           </Link>
+          <div className="border-t border-neutral-200">
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new Event("birdfinds:notifications-seen"));
+                }
+                setOpen(false);
+                router.push("/");
+              }}
+              className="block w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
+            >
+              Comments {commentCount > 0 ? `(${commentCount})` : ""}
+            </button>
+            {commentNotifications.length > 0 ? (
+              commentNotifications.slice(0, 8).map((notification) => (
+                <button
+                  key={notification.id}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(
+                        new CustomEvent("birdfinds:open-comment-notification", {
+                          detail: { notificationId: notification.id, statusId: notification.statusId },
+                        }),
+                      );
+                    }
+                    setOpen(false);
+                    router.push("/");
+                  }}
+                  className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
+                >
+                  <div className="text-[10px] uppercase tracking-widest text-neutral-700">
+                    {notification.fromUsername} commented on your post
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="px-3 py-2 border-t border-neutral-100 text-[10px] uppercase tracking-widest text-neutral-400">
+                No new comments
+              </div>
+            )}
+          </div>
           <Link
             href="/"
             onClick={() => setOpen(false)}

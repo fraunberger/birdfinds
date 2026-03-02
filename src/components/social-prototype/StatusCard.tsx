@@ -22,9 +22,10 @@ interface StatusCardProps {
     onEdit?: () => void;
     showPostReportButton?: boolean;
     disableItemEditing?: boolean;
+    forceShowComments?: boolean;
 }
 
-export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true, disableItemEditing = false }: StatusCardProps) {
+export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true, disableItemEditing = false, forceShowComments = false }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
     const [showComments, setShowComments] = useState(false);
@@ -90,6 +91,11 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         window.addEventListener('mousedown', onPointerDown);
         return () => window.removeEventListener('mousedown', onPointerDown);
     }, [showMenu]);
+
+    useEffect(() => {
+        if (!forceShowComments) return;
+        setShowComments(true);
+    }, [forceShowComments]);
 
     type HighlightMatch = {
         start: number;
@@ -178,7 +184,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     };
 
     return (
-        <div className="border border-neutral-200 bg-white px-3 py-2.5 font-mono">
+        <div id={`status-${status.id}`} className="border border-neutral-200 bg-white px-3 py-2.5 font-mono">
             {/* Header: Avatar + Username + Date — compact single line */}
             <div className="flex items-center gap-2 mb-2">
                 {profile && (

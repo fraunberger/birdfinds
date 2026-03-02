@@ -18,6 +18,13 @@ import { HeaderSearch } from "./HeaderSearch";
 import { pushToast } from "@/lib/social-prototype/toast";
 
 export function SocialLayout() {
+  type CommentNotification = {
+    id: string;
+    statusId: string;
+    fromUsername: string;
+    content: string;
+    createdAt: string;
+  };
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
   const router = useRouter();
@@ -29,6 +36,7 @@ export function SocialLayout() {
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
   const [commentNotificationCount, setCommentNotificationCount] = React.useState(0);
+  const [commentNotifications, setCommentNotifications] = React.useState<CommentNotification[]>([]);
   const reportCountRef = React.useRef<number | null>(null);
   const hasUsername = !!(profile?.username?.trim() || user?.username?.trim() || user?.email?.split("@")[0]?.trim());
   const hasAvatar = !!profile?.avatarUrl?.trim();
@@ -146,6 +154,7 @@ export function SocialLayout() {
   React.useEffect(() => {
     if (!user?.id || !profile?.id) {
       setCommentNotificationCount(0);
+      setCommentNotifications([]);
       return;
     }
 
@@ -189,6 +198,13 @@ export function SocialLayout() {
         }
 
         const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
+        const unseenMapped = unseen.map((entry: Record<string, unknown>) => ({
+          id: String(entry.id || ""),
+          statusId: String(entry.statusId || ""),
+          fromUsername: String(entry.fromUsername || "Unknown"),
+          content: String(entry.content || ""),
+          createdAt: String(entry.createdAt || ""),
+        })).filter((entry) => entry.id && entry.statusId);
         if (!cancelled && unseen.length > 0) {
           const newest = unseen[0] as { fromUsername?: string; content?: string };
           pushToast({
@@ -198,7 +214,10 @@ export function SocialLayout() {
             tone: "success",
           });
         }
-        setCommentNotificationCount(unseen.length);
+        if (!cancelled) {
+          setCommentNotificationCount(unseenMapped.length);
+          setCommentNotifications(unseenMapped);
+        }
       } catch {
         // Ignore polling failures.
       } finally {
@@ -213,7 +232,10 @@ export function SocialLayout() {
       const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
       const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
       writeSeen(ids);
-      if (!cancelled) setCommentNotificationCount(0);
+      if (!cancelled) {
+        setCommentNotificationCount(0);
+        setCommentNotifications([]);
+      }
     };
 
     void readCommentNotifications();
@@ -228,12 +250,31 @@ export function SocialLayout() {
 
     const onMarkSeen = () => { void markVisibleAsSeen(); };
     window.addEventListener("birdfinds:notifications-seen", onMarkSeen);
+    const onOpenNotification = (event: Event) => {
+      const customEvent = event as CustomEvent<{ notificationId?: string; statusId?: string }>;
+      const notificationId = String(customEvent.detail?.notificationId || "");
+      const statusId = String(customEvent.detail?.statusId || "");
+      if (!notificationId || !statusId) return;
+
+      const seen = readSeen();
+      seen.add(notificationId);
+      writeSeen(Array.from(seen));
+      setCommentNotifications((prev) => {
+        const next = prev.filter((entry) => entry.id !== notificationId);
+        setCommentNotificationCount(next.length);
+        return next;
+      });
+
+      window.dispatchEvent(new CustomEvent("birdfinds:open-comment-thread", { detail: { statusId } }));
+    };
+    window.addEventListener("birdfinds:open-comment-notification", onOpenNotification as EventListener);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("birdfinds:notifications-seen", onMarkSeen);
+      window.removeEventListener("birdfinds:open-comment-notification", onOpenNotification as EventListener);
     };
   }, [user?.id, profile?.id]);
 
@@ -302,6 +343,7 @@ export function SocialLayout() {
                   isAdmin={isAdmin}
                   reportCount={reportCount}
                   commentCount={commentNotificationCount}
+                  commentNotifications={commentNotifications}
                 />
               </>
             )}

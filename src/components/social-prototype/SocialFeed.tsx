@@ -18,6 +18,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { following, follow } = useFollows();
     const [mode, setMode] = useState<'all' | 'following'>('all');
     const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
+    const [openCommentsStatusId, setOpenCommentsStatusId] = useState<string | null>(null);
     const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
     const [suggestedUsers, setSuggestedUsers] = useState<UserProfile[]>([]);
     // Use a ref to track which IDs we've already fetched or are fetching, so we
@@ -61,6 +62,23 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         const userIds = [...new Set(allStatuses.map(s => s.userId).filter(Boolean) as string[])];
         void fetchMissingProfiles(userIds);
     }, [allStatuses, isLoaded, fetchMissingProfiles]);
+
+    useEffect(() => {
+        const handleOpenThread = (event: Event) => {
+            const customEvent = event as CustomEvent<{ statusId?: string }>;
+            const statusId = String(customEvent.detail?.statusId || "");
+            if (!statusId) return;
+            setMode('all');
+            setVisibleCount((prev) => Math.max(prev, 200));
+            setOpenCommentsStatusId(statusId);
+            window.setTimeout(() => {
+                const target = document.getElementById(`status-${statusId}`);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 30);
+        };
+        window.addEventListener('birdfinds:open-comment-thread', handleOpenThread as EventListener);
+        return () => window.removeEventListener('birdfinds:open-comment-thread', handleOpenThread as EventListener);
+    }, []);
 
     // Suggestions: only fetch once on initial load (not every time following changes)
     const suggestionsLoadedRef = useRef(false);
@@ -216,6 +234,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                             currentUserId={linkedUserId}
                             showPostReportButton={true}
                             disableItemEditing={true}
+                            forceShowComments={openCommentsStatusId === status.id}
                             onEdit={isOwn ? () => {
                                 setActiveDate(status.date);
                                 window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));
