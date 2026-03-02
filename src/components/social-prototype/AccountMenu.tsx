@@ -73,6 +73,13 @@ export function AccountMenu({
           >
             My Pile
           </Link>
+          <Link
+            href="/"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+          >
+            Feed
+          </Link>
           <div className="border-t border-neutral-200">
             <button
               onClick={() => {
@@ -103,24 +110,13 @@ export function AccountMenu({
                   }}
                   className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
                 >
-                  <div className="text-[10px] uppercase tracking-widest text-neutral-700">
+                  <div className="text-[10px] uppercase tracking-widest text-neutral-700 whitespace-nowrap overflow-hidden text-ellipsis">
                     {notification.fromUsername} commented on your post
                   </div>
                 </button>
               ))
-            ) : (
-              <div className="px-3 py-2 border-t border-neutral-100 text-[10px] uppercase tracking-widest text-neutral-400">
-                No new comments
-              </div>
-            )}
+            ) : null}
           </div>
-          <Link
-            href="/"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
-          >
-            Feed
-          </Link>
           <Link
             href="/settings/profile-setup"
             onClick={() => setOpen(false)}
