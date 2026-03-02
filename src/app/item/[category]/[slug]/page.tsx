@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { hasItemAggregatePage } from "@/lib/social-prototype/items";
 import { ConsumableItem, getCategoryConfig } from "@/lib/social-prototype/store";
 
@@ -14,9 +13,31 @@ interface DisplayReview {
   createdAt: string;
 }
 
-interface FollowRow {
-  following_id: string;
-}
+
+const getReviewUserKey = (review: DisplayReview) => {
+  const normalizedUserId = review.userId.trim();
+  if (normalizedUserId) return `user:${normalizedUserId}`;
+  return `username:${review.username.trim().toLowerCase()}`;
+};
+
+const getReviewTimestamp = (review: DisplayReview) => {
+  const ts = new Date(review.createdAt).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+};
+
+const dedupeReviewsByUser = (allReviews: DisplayReview[]) => {
+  const byUser = new Map<string, DisplayReview>();
+
+  allReviews.forEach((review) => {
+    const key = getReviewUserKey(review);
+    const existing = byUser.get(key);
+    if (!existing || getReviewTimestamp(review) > getReviewTimestamp(existing)) {
+      byUser.set(key, review);
+    }
+  });
+
+  return Array.from(byUser.values()).sort((a, b) => getReviewTimestamp(b) - getReviewTimestamp(a));
+};
 
 export default function ItemPage({
   params: _params,
@@ -31,7 +52,6 @@ export default function ItemPage({
   const [loading, setLoading] = useState(true);
   const [requestedCategory, setRequestedCategory] = useState("");
   const [requestedSlug, setRequestedSlug] = useState("");
-  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const isTvPage = requestedCategory === "tv";
   const isPodcastPage = requestedCategory === "podcast";
   const isBreweryPage = requestedCategory === "beer" || requestedCategory === "brewery";
@@ -75,7 +95,7 @@ export default function ItemPage({
         createdAt: r.createdAt,
       }));
 
-      setReviews(mapped);
+      setReviews(dedupeReviewsByUser(mapped));
       setLoading(false);
     };
 
@@ -84,28 +104,6 @@ export default function ItemPage({
       mounted = false;
     };
   }, [routeCategory, routeSlug]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const response = await fetch("/api/social/me", { cache: "no-store" });
-      if (!response.ok) return;
-      const me = await response.json() as { linkedUserId?: string | null };
-      if (!me?.linkedUserId) return;
-
-      const { data } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", me.linkedUserId);
-
-      if (cancelled) return;
-      setFollowingIds(((data || []) as FollowRow[]).map((row) => row.following_id));
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const stats = useMemo(() => {
     const ratings = reviews.map((r) => r.item.rating).filter((r): r is number => typeof r === "number");
@@ -116,44 +114,6 @@ export default function ItemPage({
       reviewsCount: reviews.length,
     };
   }, [reviews]);
-
-  const friendReviews = useMemo(() => {
-    const byUser = new Map<string, DisplayReview>();
-
-    reviews
-      .filter((review) => followingIds.includes(review.userId))
-      .forEach((review) => {
-        const existing = byUser.get(review.userId);
-        if (!existing) {
-          byUser.set(review.userId, review);
-          return;
-        }
-
-        const existingHasNotes = Boolean(existing.item.notes?.trim());
-        const reviewHasNotes = Boolean(review.item.notes?.trim());
-        if (reviewHasNotes && !existingHasNotes) {
-          byUser.set(review.userId, review);
-          return;
-        }
-
-        const existingHasRating = typeof existing.item.rating === "number";
-        const reviewHasRating = typeof review.item.rating === "number";
-        if (reviewHasRating && !existingHasRating) {
-          byUser.set(review.userId, review);
-          return;
-        }
-
-        const existingCreatedAt = new Date(existing.createdAt).getTime();
-        const reviewCreatedAt = new Date(review.createdAt).getTime();
-        if (reviewCreatedAt > existingCreatedAt) {
-          byUser.set(review.userId, review);
-        }
-      });
-
-    return Array.from(byUser.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [reviews, followingIds]);
 
   const categoryConfig = getCategoryConfig(requestedCategory);
   const title = useMemo(() => {
@@ -235,7 +195,6 @@ export default function ItemPage({
             <span>
               avg {stats.average !== null ? stats.average.toFixed(1) : "N/A"}
             </span>
-            {followingIds.length > 0 && <span>{friendReviews.length} from people you follow</span>}
           </div>
         </section>
 
@@ -266,31 +225,6 @@ export default function ItemPage({
           </section>
         )}
 
-        {followingIds.length > 0 && (
-          <section className="border border-neutral-200 bg-white px-4 py-4 mb-4">
-            <h2 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3">People You Follow</h2>
-            {friendReviews.length === 0 ? (
-              <p className="text-xs text-neutral-400 uppercase tracking-widest">Nobody you follow has reviewed this yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {friendReviews.map((review) => (
-                  <div key={`friend-${review.item.id}`} className="border border-neutral-200 px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <Link href={`/pile/${encodeURIComponent(review.userId)}`} className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900">
-                        {review.username}
-                      </Link>
-                      <span className="text-[10px] uppercase tracking-widest text-neutral-400">
-                        {typeof review.item.rating === "number" ? `${review.item.rating}/10` : "No rating"}
-                      </span>
-                    </div>
-                    {review.item.notes && <p className="mt-1 text-xs text-neutral-600">{review.item.notes}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
         <section className="space-y-3">
           {!supported && (
             <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-neutral-200">
@@ -304,7 +238,7 @@ export default function ItemPage({
           )}
 
           {reviews.map((review) => (
-            <article key={review.item.id} className="border border-neutral-200 bg-white px-3 py-3">
+            <article key={`${review.userId}-${review.item.id}`} className="border border-neutral-200 bg-white px-3 py-3">
               <div className="flex items-center justify-between">
                 <Link
                   href={`/pile/${encodeURIComponent(review.userId)}`}
