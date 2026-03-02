@@ -672,7 +672,7 @@ class SocialStore {
             }
 
             const statusId = await this.ensureActiveStatus();
-            await socialWrite('social.item.add', {
+            const response = await socialWrite('social.item.add', {
                 statusId,
                 item: {
                     category: item.category,
@@ -683,6 +683,20 @@ class SocialStore {
                     image: item.image,
                 }
             });
+
+            const persistedItemId = response?.itemId as string | undefined;
+            if (persistedItemId && this.state.activeStatus) {
+                this.state.activeStatus = {
+                    ...this.state.activeStatus,
+                    items: (this.state.activeStatus.items || []).map((existing) =>
+                        existing.id === optimisticItem.id
+                            ? { ...existing, id: persistedItemId }
+                            : existing
+                    ),
+                };
+                this.emit();
+            }
+
             this.schedulePostWriteRefresh();
         } catch (error) {
             if (this.state.activeStatus) {

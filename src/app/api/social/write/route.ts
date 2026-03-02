@@ -196,17 +196,21 @@ export async function POST(req: NextRequest) {
       const statusId = String(payload.statusId || "");
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
       const item = (payload.item || {}) as Record<string, unknown>;
-      const { error } = await supabaseAdmin.from("social_items").insert({
-        status_id: statusId,
-        category: truncate(String(item.category || "movie"), MAX_ITEM_TITLE),
-        title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
-        subtitle: item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null,
-        rating: typeof item.rating === "number" ? item.rating : null,
-        notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
-        image: item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null,
-      });
-      if (error) throw error;
-      return NextResponse.json({ ok: true });
+      const { data, error } = await supabaseAdmin
+        .from("social_items")
+        .insert({
+          status_id: statusId,
+          category: truncate(String(item.category || "movie"), MAX_ITEM_TITLE),
+          title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
+          subtitle: item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null,
+          rating: typeof item.rating === "number" ? item.rating : null,
+          notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
+          image: item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null,
+        })
+        .select("id")
+        .single();
+      if (error || !data?.id) throw error || new Error("Failed to add item");
+      return NextResponse.json({ ok: true, itemId: data.id });
     }
 
     if (action === "social.item.update") {
