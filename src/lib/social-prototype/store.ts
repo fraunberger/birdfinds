@@ -409,11 +409,11 @@ class SocialStore {
         };
         this.syncActiveStatus();
         this.emit();
-        void this.fetchStatuses({ force: true });
+        return this.fetchStatuses({ force: true });
     }
 
     refresh() {
-        void this.fetchStatuses({ force: true });
+        return this.fetchStatuses({ force: true });
     }
 
     private syncActiveStatus() {
