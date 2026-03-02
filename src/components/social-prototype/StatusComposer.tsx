@@ -22,7 +22,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +30,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [showTagHelp, setShowTagHelp] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
+    const [isPreparingComposer, setIsPreparingComposer] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -194,6 +195,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     };
 
     const handleBlur = () => { /* No-op. Content stays local until user explicitly posts. */ };
+
+    const prepareComposerForEntry = useCallback(async () => {
+        setIsPreparingComposer(true);
+        try {
+            // Force fresh account + status hydration before exposing table entry actions.
+            await refresh();
+        } catch (error) {
+            pushToast({ message: `Failed to refresh composer context: ${getErrorMessage(error)}`, tone: 'error' });
+        } finally {
+            setIsPreparingComposer(false);
+        }
+    }, [refresh]);
 
     const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
     const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
@@ -419,16 +432,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             {/* Header */}
             <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300">
                 <button
-                    onClick={() => {
+                    onClick={async () => {
                         const next = !isExpanded;
+                        if (next) {
+                            await prepareComposerForEntry();
+                        }
                         setIsExpanded(next);
                         if (!next) setShowTagHelp(false);
                     }}
+                    disabled={isPreparingComposer}
                     className="flex items-center gap-2 p-2 -ml-2 hover:bg-neutral-100 rounded transition-colors"
                 >
                     <span className={`text-[10px] transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
-                        {isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY')}
+                        {isPreparingComposer ? 'LOADING ENTRY…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
                     </h2>
                 </button>
                 <div className="flex items-center gap-3">
@@ -631,10 +648,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}
                         onRemoveItem={async (id) => {
+                            if (isPreparingComposer) return;
                             await removeItemFromActive(id);
                             setHasItemDraftChanges(true);
                         }}
                         onAddItem={async (item) => {
+                            if (isPreparingComposer) return;
                             await addItemToActive(item);
                             setHasItemDraftChanges(true);
                         }}
