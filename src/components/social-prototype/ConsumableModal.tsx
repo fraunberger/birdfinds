@@ -386,7 +386,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                                 {/* Podcast picker */}
                                 {category === 'podcast' && !readOnly && showPodcastPicker && (
-                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                    <div className="mt-2 border border-neutral-300 bg-white max-h-96 overflow-y-auto">
                                         {!selectedPodcast && (
                                             <SearchResultsPanel
                                                 visible={true}

@@ -6,6 +6,9 @@ interface ParsedEpisode {
     publishedAt: string;
 }
 
+const DEFAULT_EPISODE_LIMIT = 75;
+const MAX_EPISODE_LIMIT = 150;
+
 const getTagValue = (source: string, tagName: string): string => {
     const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, 'i');
     const match = source.match(regex);
@@ -55,6 +58,10 @@ const parseAtomEntries = (xml: string): ParsedEpisode[] => {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const rawFeedUrl = searchParams.get('feedUrl')?.trim();
+    const requestedLimit = Number(searchParams.get('limit') || DEFAULT_EPISODE_LIMIT);
+    const episodeLimit = Number.isFinite(requestedLimit)
+        ? Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_EPISODE_LIMIT)
+        : DEFAULT_EPISODE_LIMIT;
 
     if (!rawFeedUrl) {
         return NextResponse.json({ error: 'Query parameter "feedUrl" is required' }, { status: 400 });
@@ -95,7 +102,7 @@ export async function GET(request: Request) {
                 sortTs: Date.parse(ep.publishedAt || '') || 0,
             }))
             .sort((a, b) => b.sortTs - a.sortTs)
-            .slice(0, 25)
+            .slice(0, episodeLimit)
             .map((ep) => ({
                 id: ep.id,
                 title: ep.title,
