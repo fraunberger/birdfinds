@@ -28,6 +28,7 @@ export function SocialLayout() {
   const { setActiveDate, resetAndRefresh, statuses } = useSocialStore();
   const lastAuthKeyRef = React.useRef<string | null>(null);
   const [reportCount, setReportCount] = React.useState(0);
+  const [commentNotificationCount, setCommentNotificationCount] = React.useState(0);
   const reportCountRef = React.useRef<number | null>(null);
   const hasUsername = !!(profile?.username?.trim() || user?.username?.trim() || user?.email?.split("@")[0]?.trim());
   const hasAvatar = !!profile?.avatarUrl?.trim();
@@ -142,6 +143,100 @@ export function SocialLayout() {
     };
   }, [user?.id, isAdmin]);
 
+  React.useEffect(() => {
+    if (!user?.id || !profile?.id) {
+      setCommentNotificationCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const storageKey = `birdfinds:comment-notifs:seen:${profile.id}`;
+    const readSeen = () => {
+      if (typeof window === "undefined") return new Set<string>();
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+        return new Set(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        return new Set<string>();
+      }
+    };
+    const writeSeen = (ids: string[]) => {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(ids.slice(0, 300)));
+      } catch {
+        // ignore
+      }
+    };
+
+    const readCommentNotifications = async () => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch("/api/social/notifications", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
+        const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
+        const seen = readSeen();
+
+        if (seen.size === 0 && ids.length > 0) {
+          // First load baseline: do not notify for historical comments.
+          writeSeen(ids);
+          setCommentNotificationCount(0);
+          return;
+        }
+
+        const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
+        if (!cancelled && unseen.length > 0) {
+          const newest = unseen[0] as { fromUsername?: string; content?: string };
+          pushToast({
+            message: unseen.length === 1
+              ? `New comment from ${newest.fromUsername || "someone"}`
+              : `${unseen.length} new comments on your posts`,
+            tone: "success",
+          });
+        }
+        setCommentNotificationCount(unseen.length);
+      } catch {
+        // Ignore polling failures.
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    const markVisibleAsSeen = async () => {
+      const response = await fetch("/api/social/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
+      const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
+      writeSeen(ids);
+      if (!cancelled) setCommentNotificationCount(0);
+    };
+
+    void readCommentNotifications();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void readCommentNotifications();
+    }, 60_000);
+
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void readCommentNotifications();
+    };
+    window.addEventListener("focus", onFocus);
+
+    const onMarkSeen = () => { void markVisibleAsSeen(); };
+    window.addEventListener("birdfinds:notifications-seen", onMarkSeen);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("birdfinds:notifications-seen", onMarkSeen);
+    };
+  }, [user?.id, profile?.id]);
+
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
@@ -206,6 +301,7 @@ export function SocialLayout() {
                   avatarUrl={profile?.avatarUrl}
                   isAdmin={isAdmin}
                   reportCount={reportCount}
+                  commentCount={commentNotificationCount}
                 />
               </>
             )}

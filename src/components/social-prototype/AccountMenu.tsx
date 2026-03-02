@@ -11,15 +11,18 @@ interface AccountMenuProps {
   avatarUrl?: string;
   isAdmin?: boolean;
   reportCount?: number;
+  commentCount?: number;
 }
 
-export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, reportCount = 0 }: AccountMenuProps) {
+export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, reportCount = 0, commentCount = 0 }: AccountMenuProps) {
   void username;
   void avatarUrl;
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const totalBadgeCount = (isAdmin ? reportCount : 0) + commentCount;
+  const badgeClass = isAdmin && reportCount > 0 ? "bg-red-600" : "bg-neutral-800";
 
   return (
     <div className="relative">
@@ -35,9 +38,9 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
           <span className="w-3 h-[1px] bg-current" />
         </div>
       </button>
-      {isAdmin && reportCount > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full bg-red-600 text-white text-[9px] leading-[14px] text-center font-bold">
-          {reportCount > 9 ? "9+" : reportCount}
+      {totalBadgeCount > 0 && (
+        <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full text-white text-[9px] leading-[14px] text-center font-bold ${badgeClass}`}>
+          {totalBadgeCount > 99 ? "99+" : totalBadgeCount}
         </span>
       )}
 
@@ -45,7 +48,12 @@ export function AccountMenu({ pileHref, username, avatarUrl, isAdmin = false, re
         <div className="absolute right-0 mt-2 w-40 border border-neutral-300 bg-white shadow-sm z-50">
           <Link
             href={pileHref}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("birdfinds:notifications-seen"));
+              }
+              setOpen(false);
+            }}
             className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
           >
             My Pile
