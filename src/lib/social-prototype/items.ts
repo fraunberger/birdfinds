@@ -1,4 +1,5 @@
 import type { Category, ConsumableItem } from "@/lib/social-prototype/store";
+import { getCategoryDef } from "@/lib/social-prototype/categories";
 
 const normalizePart = (value: string) =>
   value
@@ -80,14 +81,14 @@ export const matchesItemRoute = (
   return canonical === slug || legacy === slug;
 };
 
-export const hasItemAggregatePage = (category: Category) =>
-  category === "movie"
-  || category === "book"
-  || category === "music"
-  || category === "tv"
-  || category === "podcast"
-  || category === "beer"
-  || category === "brewery";
+export const hasItemAggregatePage = (category: Category) => {
+  const def = getCategoryDef(category);
+  // Known categories: use ssotPattern to determine page eligibility
+  if (def) return def.ssotPattern !== 'none';
+  // Legacy/unknown: keep previous allowlist behavior
+  return category === "movie" || category === "book" || category === "music"
+    || category === "tv" || category === "podcast" || category === "beer" || category === "brewery";
+};
 
 /** Return a stable canonical key for deduplication: `category::slug`. */
 export const getCanonicalItemKey = (
@@ -95,17 +96,6 @@ export const getCanonicalItemKey = (
 ): string =>
   `${item.category}::${getCanonicalItemSlug(item.category, item.title, item.subtitle)}`;
 
-const REPEAT_TAG_VERBS: Record<string, string> = {
-  movie: "watched",
-  tv: "watched",
-  music: "listened",
-  podcast: "listened",
-  book: "read",
-  restaurant: "visited",
-  beer: "drank",
-  cooking: "made",
-};
-
 /** Return the appropriate past-tense verb for a category (e.g. "watched" for movie). */
 export const getRepeatTagVerb = (category: Category): string =>
-  REPEAT_TAG_VERBS[category] || "tagged";
+  getCategoryDef(category)?.verb ?? "tagged";

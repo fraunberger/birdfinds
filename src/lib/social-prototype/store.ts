@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { CATEGORY_DEFINITIONS, getCategoryDef } from '@/lib/social-prototype/categories';
+import type { SsotPattern, CouplingType, RatingScope, CategoryExtra } from '@/lib/social-prototype/categories';
 
 // ============================================================
 // Types
@@ -61,6 +63,14 @@ export interface CategoryConfig {
     notesPlaceholder?: string;
     color?: string;
     icon?: string;
+    // Behavioral fields from categories.ts
+    verb: string;
+    ssotPattern: SsotPattern;
+    coupling: CouplingType;
+    hasRating: boolean;
+    ratingScope: RatingScope | null;
+    childLabel: string | null;
+    extras: CategoryExtra[];
 }
 
 export interface CategoryConfigOverride {
@@ -277,17 +287,11 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
 
 export const HIGHLIGHT_COLOR = '#fffb91';
 
-export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
-    movie: { id: 'movie', label: 'Movie', shortLabel: 'FILM', titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director', ratingLabel: 'Score', color: '#f5d142', icon: '' },
-    tv: { id: 'tv', label: 'TV Show', shortLabel: 'TV', titleLabel: 'Show Name', subtitleLabel: 'Season/Ep', subtitlePlaceholder: 'S1E1', ratingLabel: 'Rating', color: '#62d9f7', icon: '' },
-    music: { id: 'music', label: 'Music', shortLabel: 'MUSIC', titleLabel: 'Album', subtitleLabel: 'Artist', subtitlePlaceholder: 'Artist', ratingLabel: 'Rating', color: '#f78be0', icon: '' },
-    restaurant: { id: 'restaurant', label: 'Restaurant', shortLabel: 'RESTAURANT', titleLabel: 'Place Name', subtitleLabel: 'Dish', subtitlePlaceholder: 'Dish', ratingLabel: 'Rating', color: '#7be08a', icon: '' },
-    beer: { id: 'beer', label: 'Beer', shortLabel: 'BEER', titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery', ratingLabel: 'Rating', color: '#e8a94f', icon: '' },
-    cooking: { id: 'cooking', label: 'Recipe', shortLabel: 'RECIPE', titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line', ratingLabel: 'Rating', notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...', color: '#f7756a', icon: '' },
-    podcast: { id: 'podcast', label: 'Podcast', shortLabel: 'POD', titleLabel: 'Episode Title', subtitleLabel: 'Podcast Name', subtitlePlaceholder: 'Podcast Name', ratingLabel: 'Rating', color: '#b78ef5', icon: '' },
-    book: { id: 'book', label: 'Book', shortLabel: 'BOOK', titleLabel: 'Book Title', subtitleLabel: 'Author', subtitlePlaceholder: 'Author', ratingLabel: 'Rating', color: '#6ab4f7', icon: '' },
-    link: { id: 'link', label: 'Link', shortLabel: 'LINK', titleLabel: 'Link Title', subtitleLabel: 'Context', subtitlePlaceholder: 'Optional context', ratingLabel: 'Rating', notesLabel: 'Notes', notesPlaceholder: 'Add notes about this link...', color: '#94a3b8', icon: '' },
-};
+// CATEGORY_CONFIGS is derived from the authoritative categories.ts definitions.
+// To change category behavior, edit src/lib/social-prototype/categories.ts.
+export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = Object.fromEntries(
+    Object.values(CATEGORY_DEFINITIONS).map((def) => [def.id, { ...def }])
+);
 
 let ACTIVE_CATEGORY_CONFIG_OVERRIDES: Record<string, CategoryConfigOverride> = {};
 
@@ -318,7 +322,7 @@ const toShortLabel = (value: string) => {
 };
 
 export function getCategoryConfig(category: Category): CategoryConfig {
-    const predefined = CATEGORY_CONFIGS[category];
+    const predefined = CATEGORY_CONFIGS[category] ?? getCategoryDef(category);
     const base: CategoryConfig = predefined || {
         id: category,
         label: toLabel(category),
@@ -329,6 +333,13 @@ export function getCategoryConfig(category: Category): CategoryConfig {
         ratingLabel: 'Rating',
         color: '#d4d4d4',
         icon: '',
+        verb: 'tagged',
+        ssotPattern: 'single',
+        coupling: 'none',
+        hasRating: true,
+        ratingScope: 'entity',
+        childLabel: null,
+        extras: [],
     };
 
     const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
