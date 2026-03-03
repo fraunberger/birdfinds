@@ -29,6 +29,7 @@ export interface ConsumableItem {
     notes?: string;
     image?: string;
     createdAt: number;
+    consumedDates?: number[]; // epoch ms for each time consumed; length = total times tagged
 }
 
 export interface Status {
@@ -496,7 +497,7 @@ class SocialStore {
             if (statusIds.length > 0) {
                 const { data: items, error: itemError } = await supabase
                     .from('social_items')
-                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at')
+                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
                     .in('status_id', statusIds);
                 if (itemError) throw itemError;
                 itemData = items || [];
@@ -555,7 +556,10 @@ class SocialStore {
                         rating: (i.rating as number | null) ?? undefined,
                         notes: (i.notes as string | null) || undefined,
                         image: (i.image as string | null) || undefined,
-                        createdAt: new Date(i.created_at as string).getTime()
+                        createdAt: new Date(i.created_at as string).getTime(),
+                        consumedDates: Array.isArray(i.consumed_dates)
+                            ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
+                            : undefined,
                     })),
                 comments: (commentsByStatus.get(s.id) || [])
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())

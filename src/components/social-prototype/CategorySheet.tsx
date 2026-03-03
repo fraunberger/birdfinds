@@ -70,7 +70,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 map.set(key, { key, latest: item, count: 1, visits: [item] });
                 continue;
             }
-            existing.count += 1;
+            existing.count += Math.max(item.consumedDates?.length ?? 0, 1);
             existing.visits.push(item);
             if (item.createdAt > existing.latest.createdAt) {
                 existing.latest = item;
