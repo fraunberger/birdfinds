@@ -32,6 +32,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const linkUrl = parsedMeta.linkUrl || '';
     const restaurantLocation = parsedMeta.restaurantLocation || '';
 
+    // Parent/child categories (podcast, tv) require an episode-level external key before
+    // showing notes, rating, or repeat-tag info. Without one the entry is a bare "dead card".
+    const isParentChildCategory = category === 'podcast' || category === 'tv';
+    const isEpisodeLinked = !isParentChildCategory ||
+        parsedMeta.externalSource === 'itunes-podcast-episode' ||
+        parsedMeta.externalSource === 'tvmaze-episode';
+
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
     const [musicSearchToken, setMusicSearchToken] = useState(0);
@@ -104,6 +111,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim() || category === 'book') return null;
+        if (isParentChildCategory && !isEpisodeLinked) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
         const matches = allUserItems.filter(item => {
@@ -727,7 +735,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {config.hasRating && !config.extras.includes('likedSignal') && (
-                        <div className="flex-shrink-0 pt-6">
+                        <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
+                            {isParentChildCategory && isEpisodeLinked && (
+                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
+                            )}
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
                                     <span className="text-2xl font-bold text-neutral-800 leading-none">{rating || '—'}</span>
@@ -853,7 +864,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
                     ) : (
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">{config.notesLabel || 'Notes'}</label>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                {isParentChildCategory && isEpisodeLinked ? 'Episode Notes' : (config.notesLabel || 'Notes')}
+                            </label>
                             {readOnly ? (
                                 <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap leading-relaxed py-2 border-t border-neutral-100 min-h-[100px]">
                                     {notes || <span className="text-neutral-400 italic">No notes</span>}
