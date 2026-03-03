@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { matchesItemRoute } from "@/lib/social-prototype/items";
+import { getItemExternalIdentityKey } from "@/lib/social-prototype/item-meta";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
@@ -66,14 +67,30 @@ export async function GET(req: NextRequest) {
 
   const allItems = (items || []) as ItemRow[];
 
-  // Step 2: Filter to items matching the slug
-  const matchedItems = allItems.filter((item) =>
+  // Step 2: Filter to items matching the slug (title-based), then expand
+  // to any item that shares the same API externalId as a slug-matched item.
+  const slugMatched = allItems.filter((item) =>
     matchesItemRoute(category, slug, {
       category: item.category,
       title: item.title,
       subtitle: item.subtitle || undefined,
     })
   );
+
+  const matchedExternalIds = new Set(
+    slugMatched
+      .map((item) => getItemExternalIdentityKey(category, item.image || undefined))
+      .filter((k): k is string => k !== null)
+  );
+
+  const slugMatchedIds = new Set(slugMatched.map((i) => i.id));
+  const matchedItems = matchedExternalIds.size > 0
+    ? allItems.filter((item) => {
+        if (slugMatchedIds.has(item.id)) return true;
+        const externalKey = getItemExternalIdentityKey(category, item.image || undefined);
+        return externalKey !== null && matchedExternalIds.has(externalKey);
+      })
+    : slugMatched;
 
   if (matchedItems.length === 0) {
     return NextResponse.json({ reviews: [] });

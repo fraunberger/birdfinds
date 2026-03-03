@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { hasItemAggregatePage } from "@/lib/social-prototype/items";
+import { parseItemMeta } from "@/lib/social-prototype/item-meta";
 import { ConsumableItem, getCategoryConfig } from "@/lib/social-prototype/store";
 
 interface DisplayReview {
@@ -217,10 +218,17 @@ export default function ItemPage({
       latest: number;
     }>();
 
+    // Prefer the stable externalId from API metadata as the grouping key.
+    // Fall back to a normalized title for manually entered items.
+    const normalizeKey = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
     reviews.forEach((review) => {
       const name = isTvPage
         ? (review.item.subtitle?.trim() || "Unknown Episode")
         : (review.item.title?.trim() || "Unknown Episode");
+      const externalId = parseItemMeta(review.item.image).externalId;
+      const key = externalId || normalizeKey(name) || "unknown episode";
 
       const entry = {
         username: review.username,
@@ -230,9 +238,9 @@ export default function ItemPage({
         createdAt: review.createdAt,
       };
 
-      const existing = bucket.get(name);
+      const existing = bucket.get(key);
       if (!existing) {
-        bucket.set(name, { name, users: [entry], latest: new Date(review.createdAt).getTime() });
+        bucket.set(key, { name, users: [entry], latest: new Date(review.createdAt).getTime() });
       } else {
         existing.users.push(entry);
         existing.latest = Math.max(existing.latest, new Date(review.createdAt).getTime());

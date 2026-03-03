@@ -19,6 +19,7 @@ import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
+import { getItemExternalIdentityKey } from '@/lib/social-prototype/item-meta';
 
 interface ProfilePageProps {
     userId: string;
@@ -100,10 +101,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         profile.categories.forEach(cat => {
             const raw = getUserItemsByCategory(cat, userId);
             categoryItems[cat] = raw;
-            // Deduplicate for counts and sheets
+            // Deduplicate for counts and sheets.
+            // Prefer the stable externalId for API-linked items; fall back to canonical slug.
             const map = new Map<string, ConsumableItem>();
             for (const item of raw) {
-                const key = getCanonicalItemKey(item);
+                const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
                 const existing = map.get(key);
                 if (!existing || item.createdAt > existing.createdAt) {
                     map.set(key, item);
