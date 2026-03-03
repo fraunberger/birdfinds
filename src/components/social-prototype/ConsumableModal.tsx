@@ -122,7 +122,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             return hasRating || hasNotes;
         });
         return {
-            count: matches.length + 1,
+            count: matches.reduce((sum, m) => sum + Math.max(m.consumedDates?.length ?? 0, 1), 0) + 1,
             verb: getRepeatTagVerb(category),
             latestPrevious: latestWithReviewData || sorted[0],
         };

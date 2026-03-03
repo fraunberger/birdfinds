@@ -221,13 +221,13 @@ export async function POST(req: NextRequest) {
         const { data: existingItems } = userStatusIds.length > 0
           ? await supabaseAdmin
               .from("social_items")
-              .select("id, image")
+              .select("id, image, consumed_dates")
               .eq("category", category)
               .in("status_id", userStatusIds)
           : { data: [] };
 
         const ssot = (existingItems || []).find(
-          (row: { id: string; image: string | null }) =>
+          (row: { id: string; image: string | null; consumed_dates: string[] | null }) =>
             getItemExternalIdentityKey(category, row.image ?? undefined) === incomingExternalKey
         );
 
@@ -246,6 +246,7 @@ export async function POST(req: NextRequest) {
 
           const updates: Record<string, unknown> = {
             image: truncate(mergedImage, MAX_ITEM_IMAGE_URL),
+            consumed_dates: [...(ssot.consumed_dates ?? []), new Date().toISOString()],
           };
           if ("title" in item) updates.title = truncate(String(item.title || ""), MAX_ITEM_TITLE);
           if ("subtitle" in item) updates.subtitle = item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null;
@@ -259,7 +260,7 @@ export async function POST(req: NextRequest) {
       }
 
       // No existing SSOT found — insert new item.
-      const { error } = await supabaseAdmin.from("social_items").insert({
+      const { data: inserted, error } = await supabaseAdmin.from("social_items").insert({
         status_id: statusId,
         category,
         title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
@@ -267,9 +268,10 @@ export async function POST(req: NextRequest) {
         rating: typeof item.rating === "number" ? item.rating : null,
         notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
         image: rawImage ? truncate(rawImage, MAX_ITEM_IMAGE_URL) : null,
-      });
+        consumed_dates: [new Date().toISOString()],
+      }).select("id").single();
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, newItemId: inserted.id });
     }
 
     if (action === "social.item.update") {

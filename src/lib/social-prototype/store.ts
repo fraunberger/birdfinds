@@ -29,6 +29,7 @@ export interface ConsumableItem {
     notes?: string;
     image?: string;
     createdAt: number;
+    consumedDates?: number[]; // epoch ms for each time consumed; length = total times tagged
 }
 
 export interface Status {
@@ -496,7 +497,7 @@ class SocialStore {
             if (statusIds.length > 0) {
                 const { data: items, error: itemError } = await supabase
                     .from('social_items')
-                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at')
+                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
                     .in('status_id', statusIds);
                 if (itemError) throw itemError;
                 itemData = items || [];
@@ -555,7 +556,10 @@ class SocialStore {
                         rating: (i.rating as number | null) ?? undefined,
                         notes: (i.notes as string | null) || undefined,
                         image: (i.image as string | null) || undefined,
-                        createdAt: new Date(i.created_at as string).getTime()
+                        createdAt: new Date(i.created_at as string).getTime(),
+                        consumedDates: Array.isArray(i.consumed_dates)
+                            ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
+                            : undefined,
                     })),
                 comments: (commentsByStatus.get(s.id) || [])
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
@@ -694,16 +698,29 @@ class SocialStore {
                     image: item.image,
                 }
             });
-            // If the server merged into an existing SSOT, the optimistic item
-            // was never inserted — remove it from the active status immediately.
-            if (result?.mergedItemId && this.state.activeStatus) {
-                this.state.activeStatus = {
-                    ...this.state.activeStatus,
-                    items: (this.state.activeStatus.items || []).filter(
-                        (i) => i.id !== optimisticItem.id
-                    ),
-                };
-                this.emit();
+            if (this.state.activeStatus) {
+                if (result?.mergedItemId) {
+                    // Server merged into an existing SSOT — remove the optimistic item
+                    // (the real item is already in the list under its own ID).
+                    this.state.activeStatus = {
+                        ...this.state.activeStatus,
+                        items: (this.state.activeStatus.items || []).filter(
+                            (i) => i.id !== optimisticItem.id
+                        ),
+                    };
+                    this.emit();
+                } else if (result?.newItemId) {
+                    // Replace the temp ID with the real server-assigned ID immediately
+                    // so that any edit opened before the post-write refresh can use
+                    // updateItemInActive (real ID) instead of addItemToActive (duplicate).
+                    this.state.activeStatus = {
+                        ...this.state.activeStatus,
+                        items: (this.state.activeStatus.items || []).map(
+                            (i) => i.id === optimisticItem.id ? { ...i, id: result.newItemId as string } : i
+                        ),
+                    };
+                    this.emit();
+                }
             }
             this.schedulePostWriteRefresh();
         } catch (error) {
@@ -730,6 +747,11 @@ class SocialStore {
             };
             this.emit();
         }
+
+        // Temp IDs only exist in optimistic local state — the server record either
+        // hasn't been created yet or the newItemId response hasn't arrived. Updating
+        // local state above is correct; skip the server call.
+        if (itemId.startsWith('temp')) return;
 
         try {
             await socialWrite('social.item.update', { itemId, item });
