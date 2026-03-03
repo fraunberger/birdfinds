@@ -140,6 +140,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [populatedFromId, setPopulatedFromId] = useState<string | null>(null);
     useEffect(() => {
         if (!repeatInfo?.latestPrevious) return;
+        // Each episode of a podcast/TV show has its own notes & rating — don't carry over
+        if (isParentChildCategory) return;
         const prev = repeatInfo.latestPrevious;
         // Only re-populate if this is a different previous item than last time
         if (populatedFromId === prev.id) return;
