@@ -50,10 +50,9 @@ export const getCanonicalItemSlug = (
   }
 
   if (category === "podcast") {
-    // Include show name (subtitle) + episode title for per-episode matching
-    return [normalizedSubtitle, normalizedTitle]
-      .filter(Boolean)
-      .join("-") || normalizedTitle || "item";
+    // Podcast overview: slug is just the show name (subtitle) so all episodes
+    // of a podcast share one overview page instead of separate episode pages.
+    return normalizedSubtitle || normalizedTitle || "item";
   }
 
   if (category === "beer" || category === "brewery") {
@@ -78,6 +77,14 @@ export const matchesItemRoute = (
   if (item.category !== category) return false;
   const canonical = getCanonicalItemSlug(item.category, item.title, item.subtitle);
   const legacy = buildItemSlug(item.title, item.subtitle);
+  if (category === "podcast") {
+    // Also match the old per-episode slug format (show-name-episode-title) so
+    // existing URLs that pre-date the podcast overview change still resolve.
+    const oldEpisodeSlug = [normalizePart(item.subtitle || ""), normalizePart(item.title)]
+      .filter(Boolean)
+      .join("-");
+    return canonical === slug || legacy === slug || oldEpisodeSlug === slug;
+  }
   return canonical === slug || legacy === slug;
 };
 

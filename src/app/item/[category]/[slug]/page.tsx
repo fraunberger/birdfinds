@@ -356,13 +356,21 @@ export default function ItemPage({
               <div className="mt-2 text-xs text-neutral-700">
                 {typeof review.item.rating === "number" ? `${review.item.rating}/10` : "No rating"}
               </div>
-              {isParentChildPage && review.item.subtitle && (
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-neutral-400">
-                  {isTvPage
-                    ? `${categoryConfig.childLabel ?? "episode"}: ${review.item.subtitle}`
-                    : `${categoryConfig.subtitleLabel}: ${review.item.subtitle}`}
-                </p>
-              )}
+              {isParentChildPage && (() => {
+                let label = "";
+                if (isTvPage && review.item.subtitle) {
+                  label = `${categoryConfig.childLabel ?? "episode"}: ${review.item.subtitle}`;
+                } else if (isPodcastPage) {
+                  // On the podcast overview page, show the episode title (title field)
+                  // rather than the redundant show name (subtitle field).
+                  label = `episode: ${review.item.title}`;
+                } else if (review.item.subtitle) {
+                  label = `${categoryConfig.subtitleLabel}: ${review.item.subtitle}`;
+                }
+                return label ? (
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-neutral-400">{label}</p>
+                ) : null;
+              })()}
               {review.item.notes && (
                 <p className="mt-2 text-xs text-neutral-600 whitespace-pre-wrap">{review.item.notes}</p>
               )}
