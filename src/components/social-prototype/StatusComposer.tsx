@@ -265,7 +265,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
                 nextImage = serializeItemMeta(meta);
             }
-            if (existingItem && !existingItem.id.startsWith('temp')) {
+            if (existingItem) {
+                // Always update when editing an existing item — even if it still has a
+                // temp ID (server response hasn't arrived yet). Calling addItemToActive
+                // here would create a duplicate server record.
                 await updateItemInActive(existingItem.id, { ...item, image: nextImage });
             } else {
                 await addItemToActive({ ...item, image: nextImage });

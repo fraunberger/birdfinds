@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
       }
 
       // No existing SSOT found — insert new item.
-      const { error } = await supabaseAdmin.from("social_items").insert({
+      const { data: inserted, error } = await supabaseAdmin.from("social_items").insert({
         status_id: statusId,
         category,
         title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
@@ -267,9 +267,9 @@ export async function POST(req: NextRequest) {
         rating: typeof item.rating === "number" ? item.rating : null,
         notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
         image: rawImage ? truncate(rawImage, MAX_ITEM_IMAGE_URL) : null,
-      });
+      }).select("id").single();
       if (error) throw error;
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, newItemId: inserted.id });
     }
 
     if (action === "social.item.update") {
