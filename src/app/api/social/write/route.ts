@@ -3,6 +3,7 @@ import { auth, getAuth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
 import { rateLimit } from "@/lib/rate-limit";
+import { parseItemMeta, getItemExternalIdentityKey } from "@/lib/social-prototype/item-meta";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ── Input length limits ─────────────────────────────────────────────
@@ -204,14 +205,68 @@ export async function POST(req: NextRequest) {
       const statusId = String(payload.statusId || "");
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
       const item = (payload.item || {}) as Record<string, unknown>;
+      const category = truncate(String(item.category || "movie"), MAX_ITEM_TITLE);
+      const rawImage = item.image ? String(item.image) : undefined;
+      const incomingExternalKey = getItemExternalIdentityKey(category, rawImage);
+
+      // SSOT enforcement: if this is a coupled item, find any existing record
+      // the user has for the same external entity and update it instead of inserting.
+      if (incomingExternalKey) {
+        const { data: userStatuses } = await supabaseAdmin
+          .from("social_statuses")
+          .select("id")
+          .eq("user_id", linkedUserId);
+        const userStatusIds = (userStatuses || []).map((s: { id: string }) => s.id);
+
+        const { data: existingItems } = userStatusIds.length > 0
+          ? await supabaseAdmin
+              .from("social_items")
+              .select("id, image")
+              .eq("category", category)
+              .in("status_id", userStatusIds)
+          : { data: [] };
+
+        const ssot = (existingItems || []).find(
+          (row: { id: string; image: string | null }) =>
+            getItemExternalIdentityKey(category, row.image ?? undefined) === incomingExternalKey
+        );
+
+        if (ssot) {
+          // Merge metadata (keep existing external identity, update other fields)
+          const existingMeta = parseItemMeta(ssot.image ?? undefined);
+          const incomingMeta = parseItemMeta(rawImage);
+          const mergedMeta = {
+            ...existingMeta,
+            ...incomingMeta,
+            // Preserve existing external identity
+            externalSource: existingMeta.externalSource ?? incomingMeta.externalSource,
+            externalId: existingMeta.externalId ?? incomingMeta.externalId,
+          };
+          const mergedImage = `meta:${encodeURIComponent(JSON.stringify(mergedMeta))}`;
+
+          const updates: Record<string, unknown> = {
+            image: truncate(mergedImage, MAX_ITEM_IMAGE_URL),
+          };
+          if ("title" in item) updates.title = truncate(String(item.title || ""), MAX_ITEM_TITLE);
+          if ("subtitle" in item) updates.subtitle = item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null;
+          if (typeof item.rating === "number") updates.rating = item.rating;
+          if (item.notes) updates.notes = truncate(String(item.notes), MAX_ITEM_NOTES);
+
+          const { error } = await supabaseAdmin.from("social_items").update(updates).eq("id", ssot.id);
+          if (error) throw error;
+          return NextResponse.json({ ok: true, mergedItemId: ssot.id });
+        }
+      }
+
+      // No existing SSOT found — insert new item.
       const { error } = await supabaseAdmin.from("social_items").insert({
         status_id: statusId,
-        category: truncate(String(item.category || "movie"), MAX_ITEM_TITLE),
+        category,
         title: truncate(String(item.title || ""), MAX_ITEM_TITLE),
         subtitle: item.subtitle ? truncate(String(item.subtitle), MAX_ITEM_SUBTITLE) : null,
         rating: typeof item.rating === "number" ? item.rating : null,
         notes: item.notes ? truncate(String(item.notes), MAX_ITEM_NOTES) : null,
-        image: item.image ? truncate(String(item.image), MAX_ITEM_IMAGE_URL) : null,
+        image: rawImage ? truncate(rawImage, MAX_ITEM_IMAGE_URL) : null,
       });
       if (error) throw error;
       return NextResponse.json({ ok: true });
