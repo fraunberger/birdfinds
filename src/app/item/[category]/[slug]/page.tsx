@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { hasItemAggregatePage } from "@/lib/social-prototype/items";
+import { parseItemMeta } from "@/lib/social-prototype/item-meta";
 import { ConsumableItem, getCategoryConfig } from "@/lib/social-prototype/store";
 
 interface DisplayReview {
@@ -217,8 +218,8 @@ export default function ItemPage({
       latest: number;
     }>();
 
-    // Normalize for grouping: lowercase + collapse non-alphanumeric runs to spaces.
-    // The display name is preserved from the first occurrence.
+    // Prefer the stable externalId from API metadata as the grouping key.
+    // Fall back to a normalized title for manually entered items.
     const normalizeKey = (s: string) =>
       s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -226,7 +227,8 @@ export default function ItemPage({
       const name = isTvPage
         ? (review.item.subtitle?.trim() || "Unknown Episode")
         : (review.item.title?.trim() || "Unknown Episode");
-      const key = normalizeKey(name) || "unknown episode";
+      const externalId = parseItemMeta(review.item.image).externalId;
+      const key = externalId || normalizeKey(name) || "unknown episode";
 
       const entry = {
         username: review.username,
