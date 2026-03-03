@@ -141,15 +141,32 @@ export default function ItemPage({
     };
   }, []);
 
+  // For Pattern A (single entity), show one SSOT card per user (best review wins).
+  // For Pattern B (parent-child), all engagements are distinct children — no dedup.
+  const displayReviews = useMemo(() => {
+    if (isParentChildPage) return reviews;
+    const byUser = new Map<string, DisplayReview>();
+    reviews.forEach((review) => {
+      const key = getFriendReviewKey(review);
+      const existing = byUser.get(key);
+      if (!existing || shouldReplaceFriendReview(existing, review)) {
+        byUser.set(key, review);
+      }
+    });
+    return Array.from(byUser.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [isParentChildPage, reviews]);
+
   const stats = useMemo(() => {
-    const ratings = reviews.map((r) => r.item.rating).filter((r): r is number => typeof r === "number");
+    const ratings = displayReviews.map((r) => r.item.rating).filter((r): r is number => typeof r === "number");
     const average = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null;
     return {
       ratingsCount: ratings.length,
       average,
-      reviewsCount: reviews.length,
+      reviewsCount: displayReviews.length,
     };
-  }, [reviews]);
+  }, [displayReviews]);
 
   const friendReviews = useMemo(() => {
     const byUser = new Map<string, DisplayReview>();
@@ -317,13 +334,13 @@ export default function ItemPage({
               Item pages are not available for this category.
             </div>
           )}
-          {reviews.length === 0 && (
+          {displayReviews.length === 0 && (
             <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-neutral-200">
               No public reviews found for this item.
             </div>
           )}
 
-          {reviews.map((review) => (
+          {displayReviews.map((review) => (
             <article key={review.item.id} className="border border-neutral-200 bg-white px-3 py-3">
               <div className="flex items-center justify-between">
                 <Link
