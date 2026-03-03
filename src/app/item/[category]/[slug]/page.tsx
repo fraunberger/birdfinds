@@ -217,10 +217,16 @@ export default function ItemPage({
       latest: number;
     }>();
 
+    // Normalize for grouping: lowercase + collapse non-alphanumeric runs to spaces.
+    // The display name is preserved from the first occurrence.
+    const normalizeKey = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
     reviews.forEach((review) => {
       const name = isTvPage
         ? (review.item.subtitle?.trim() || "Unknown Episode")
         : (review.item.title?.trim() || "Unknown Episode");
+      const key = normalizeKey(name) || "unknown episode";
 
       const entry = {
         username: review.username,
@@ -230,9 +236,9 @@ export default function ItemPage({
         createdAt: review.createdAt,
       };
 
-      const existing = bucket.get(name);
+      const existing = bucket.get(key);
       if (!existing) {
-        bucket.set(name, { name, users: [entry], latest: new Date(review.createdAt).getTime() });
+        bucket.set(key, { name, users: [entry], latest: new Date(review.createdAt).getTime() });
       } else {
         existing.users.push(entry);
         existing.latest = Math.max(existing.latest, new Date(review.createdAt).getTime());
