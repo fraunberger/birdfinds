@@ -50,10 +50,8 @@ export const getCanonicalItemSlug = (
   }
 
   if (category === "podcast") {
-    // Include show name (subtitle) + episode title for per-episode matching
-    return [normalizedSubtitle, normalizedTitle]
-      .filter(Boolean)
-      .join("-") || normalizedTitle || "item";
+    // Podcast overview: slug is the show name only (subtitle)
+    return normalizedSubtitle || normalizedTitle || "item";
   }
 
   if (category === "beer" || category === "brewery") {
