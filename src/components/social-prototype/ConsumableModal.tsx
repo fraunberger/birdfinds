@@ -200,6 +200,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     };
 
     const config = getCategoryConfig(category);
+    const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant')
@@ -276,6 +277,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     ▼
                                 </span>
                             </div>
+                        )}
+                        {isCoupled && (
+                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
+                                linked
+                            </span>
                         )}
                     </div>
                     <button
@@ -718,8 +725,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             )}
                         </div>
 
-                        {/* Score Box */}
-                        {category !== 'link' && (
+                        {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
+                        {config.hasRating && !config.extras.includes('likedSignal') && (
                         <div className="flex-shrink-0 pt-6">
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
@@ -740,6 +747,25 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     <span className="text-[9px] text-neutral-400 absolute bottom-1.5 z-0 pointer-events-none">/ 10</span>
                                 </div>
                             )}
+                        </div>
+                        )}
+                        {/* Liked/disliked signal for recipes */}
+                        {config.extras.includes('likedSignal') && (
+                        <div className="flex-shrink-0 pt-6 flex flex-col gap-1">
+                            <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() => setDraft((prev) => ({ ...prev, rating: prev.rating === 10 ? undefined : 10 }))}
+                                className={`w-16 h-7 border text-base flex items-center justify-center transition-colors ${rating === 10 ? 'border-emerald-400 bg-emerald-50' : 'border-neutral-300 bg-white hover:border-neutral-400'}`}
+                                title="Liked"
+                            >👍</button>
+                            <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() => setDraft((prev) => ({ ...prev, rating: prev.rating === 0 ? undefined : 0 }))}
+                                className={`w-16 h-7 border text-base flex items-center justify-center transition-colors ${rating === 0 ? 'border-red-300 bg-red-50' : 'border-neutral-300 bg-white hover:border-neutral-400'}`}
+                                title="Disliked"
+                            >👎</button>
                         </div>
                         )}
                     </div>

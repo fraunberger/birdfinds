@@ -64,9 +64,11 @@ export default function ItemPage({
   const [requestedCategory, setRequestedCategory] = useState("");
   const [requestedSlug, setRequestedSlug] = useState("");
   const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const categoryConfig = getCategoryConfig(requestedCategory);
   const isTvPage = requestedCategory === "tv";
   const isPodcastPage = requestedCategory === "podcast";
   const isBreweryPage = requestedCategory === "beer" || requestedCategory === "brewery";
+  const isParentChildPage = categoryConfig.ssotPattern === 'parent-child';
 
   useEffect(() => {
     if (!routeCategory || !routeSlug) return;
@@ -172,7 +174,6 @@ export default function ItemPage({
     );
   }, [reviews, followingIds]);
 
-  const categoryConfig = getCategoryConfig(requestedCategory);
   const title = useMemo(() => {
     if (reviews.length === 0) return requestedSlug.replace(/-/g, " ");
     if (isPodcastPage || isBreweryPage) {
@@ -183,20 +184,20 @@ export default function ItemPage({
   }, [isBreweryPage, isPodcastPage, requestedSlug, reviews]);
 
   const subtitle = useMemo(() => {
-    if (isTvPage || isPodcastPage || isBreweryPage) return "";
+    if (isParentChildPage) return "";
     return reviews[0]?.item.subtitle || "";
-  }, [isBreweryPage, isPodcastPage, isTvPage, reviews]);
+  }, [isParentChildPage, reviews]);
 
   const subitems = useMemo(() => {
-    if (!isTvPage && !isPodcastPage && !isBreweryPage) return [];
+    if (!isParentChildPage) return [];
 
     const bucket = new Map<string, { name: string; count: number; ratings: number[]; latest: number }>();
+    const childFallback = categoryConfig.childLabel ?? "item";
     reviews.forEach((review) => {
+      // TV: child name is in subtitle (season/ep). All other parent-child: child name is in title.
       const name = isTvPage
         ? (review.item.subtitle?.trim() || "General")
-        : isPodcastPage
-          ? (review.item.title?.trim() || "Episode")
-          : (review.item.title?.trim() || "Beer");
+        : (review.item.title?.trim() || childFallback);
 
       const existing = bucket.get(name);
       if (!existing) {
@@ -221,7 +222,7 @@ export default function ItemPage({
           : null,
       }))
       .sort((a, b) => b.latest - a.latest);
-  }, [isBreweryPage, isPodcastPage, isTvPage, reviews]);
+  }, [categoryConfig.childLabel, isParentChildPage, isTvPage, reviews]);
 
   const supported = hasItemAggregatePage(requestedCategory);
 
@@ -256,10 +257,12 @@ export default function ItemPage({
           </div>
         </section>
 
-        {(isTvPage || isPodcastPage || isBreweryPage) && (
+        {isParentChildPage && (
           <section className="border border-neutral-200 bg-white px-4 py-4 mb-4">
             <h2 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3">
-              {isTvPage ? "Episodes" : isPodcastPage ? "Episodes" : "Beers"}
+              {categoryConfig.childLabel
+                ? categoryConfig.childLabel.charAt(0).toUpperCase() + categoryConfig.childLabel.slice(1) + "s"
+                : "Items"}
             </h2>
             {subitems.length === 0 ? (
               <p className="text-xs text-neutral-400 uppercase tracking-widest">
@@ -311,7 +314,7 @@ export default function ItemPage({
         <section className="space-y-3">
           {!supported && (
             <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-neutral-200">
-              Item pages are currently enabled for movies, books, albums, TV, podcasts, and breweries.
+              Item pages are not available for this category.
             </div>
           )}
           {reviews.length === 0 && (
@@ -336,9 +339,11 @@ export default function ItemPage({
               <div className="mt-2 text-xs text-neutral-700">
                 {typeof review.item.rating === "number" ? `${review.item.rating}/10` : "No rating"}
               </div>
-              {(isTvPage || isPodcastPage || isBreweryPage) && review.item.subtitle && (
+              {isParentChildPage && review.item.subtitle && (
                 <p className="mt-1 text-[10px] uppercase tracking-widest text-neutral-400">
-                  {isTvPage ? `Episode: ${review.item.subtitle}` : isPodcastPage ? `Show: ${review.item.subtitle}` : `Brewery: ${review.item.subtitle}`}
+                  {isTvPage
+                    ? `${categoryConfig.childLabel ?? "episode"}: ${review.item.subtitle}`
+                    : `${categoryConfig.subtitleLabel}: ${review.item.subtitle}`}
                 </p>
               )}
               {review.item.notes && (
