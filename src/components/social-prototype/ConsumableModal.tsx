@@ -734,9 +734,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && (!isParentChildCategory || isEpisodeLinked) && (
-                        <div className={`flex-shrink-0 ${isParentChildCategory ? '' : 'pt-6'}`}>
-                            {isParentChildCategory && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && (
+                        <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
+                            {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
                             )}
                             {readOnly ? (
@@ -862,10 +862,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                             </div>
                         </div>
-                    ) : (!isParentChildCategory || isEpisodeLinked) ? (
+                    ) : (
                         <div>
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                {isParentChildCategory ? 'Episode Notes' : (config.notesLabel || 'Notes')}
+                                {isParentChildCategory && isEpisodeLinked ? 'Episode Notes' : (config.notesLabel || 'Notes')}
                             </label>
                             {readOnly ? (
                                 <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap leading-relaxed py-2 border-t border-neutral-100 min-h-[100px]">
@@ -879,7 +879,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     className="w-full text-sm font-mono outline-none border border-neutral-300 focus:border-neutral-400 p-3 bg-transparent resize-y placeholder:text-neutral-300" />
                             )}
                         </div>
-                    ) : null}
+                    )}
                 </div>
 
                 {/* Footer */}
