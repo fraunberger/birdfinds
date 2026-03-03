@@ -683,7 +683,7 @@ class SocialStore {
             }
 
             const statusId = await this.ensureActiveStatus();
-            await socialWrite('social.item.add', {
+            const result = await socialWrite('social.item.add', {
                 statusId,
                 item: {
                     category: item.category,
@@ -694,6 +694,17 @@ class SocialStore {
                     image: item.image,
                 }
             });
+            // If the server merged into an existing SSOT, the optimistic item
+            // was never inserted — remove it from the active status immediately.
+            if (result?.mergedItemId && this.state.activeStatus) {
+                this.state.activeStatus = {
+                    ...this.state.activeStatus,
+                    items: (this.state.activeStatus.items || []).filter(
+                        (i) => i.id !== optimisticItem.id
+                    ),
+                };
+                this.emit();
+            }
             this.schedulePostWriteRefresh();
         } catch (error) {
             if (this.state.activeStatus) {
