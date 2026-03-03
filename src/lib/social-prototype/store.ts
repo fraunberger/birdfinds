@@ -804,11 +804,35 @@ class SocialStore {
     }
 
     async deleteStatus(statusId: string) {
+        // Optimistic: remove from local state immediately
+        const prevStatuses = this.state.statuses;
+        const prevAllStatuses = this.state.allStatuses;
+        const prevActiveStatus = this.state.activeStatus;
+
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.filter(s => s.id !== statusId),
+            allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.syncActiveStatus();
+        }
+        this.emit();
+
         try {
             await socialWrite('social.status.delete', { statusId });
             this.schedulePostWriteRefresh();
         } catch (error) {
+            // Rollback on failure
+            this.state = {
+                ...this.state,
+                statuses: prevStatuses,
+                allStatuses: prevAllStatuses,
+                activeStatus: prevActiveStatus,
+            };
+            this.emit();
             console.error('Error deleting status:', error);
+            throw error;
         }
     }
 

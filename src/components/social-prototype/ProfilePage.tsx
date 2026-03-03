@@ -337,6 +337,10 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             isOwn={isOwnProfile}
                                             isAdmin={isAdmin}
                                             currentUserId={myProfile?.id}
+                                            onEdit={isOwnProfile ? () => {
+                                                window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            } : undefined}
                                         />
                                     ))
                                 )}
