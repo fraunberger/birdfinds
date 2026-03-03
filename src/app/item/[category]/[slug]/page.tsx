@@ -218,17 +218,33 @@ export default function ItemPage({
       latest: number;
     }>();
 
-    // Prefer the stable externalId from API metadata as the grouping key.
-    // Fall back to a normalized title for manually entered items.
     const normalizeKey = (s: string) =>
       s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-    reviews.forEach((review) => {
-      const name = isTvPage
+    const episodeName = (review: (typeof reviews)[number]) =>
+      isTvPage
         ? (review.item.subtitle?.trim() || "Unknown Episode")
         : (review.item.title?.trim() || "Unknown Episode");
-      const externalId = parseItemMeta(review.item.image).externalId;
-      const key = externalId || normalizeKey(name) || "unknown episode";
+
+    // Pass 1: for each normalized episode title, pick a canonical bucket key.
+    // The first externalId seen for a given title wins; if no externalId exists,
+    // the normalized title itself becomes the key.
+    // This bridges items where different users got different externalIds for the
+    // same episode (e.g. one got an iTunes trackId, another got an RSS GUID).
+    const titleToKey = new Map<string, string>();
+    reviews.forEach((review) => {
+      const normalized = normalizeKey(episodeName(review)) || "unknown episode";
+      if (!titleToKey.has(normalized)) {
+        const externalId = parseItemMeta(review.item.image).externalId;
+        titleToKey.set(normalized, externalId || normalized);
+      }
+    });
+
+    // Pass 2: group into buckets using the canonical key resolved above.
+    reviews.forEach((review) => {
+      const name = episodeName(review);
+      const normalized = normalizeKey(name) || "unknown episode";
+      const key = titleToKey.get(normalized) ?? normalized;
 
       const entry = {
         username: review.username,
