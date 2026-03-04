@@ -4,6 +4,7 @@ export interface ToastPayload {
   message: string;
   tone?: ToastTone;
   durationMs?: number;
+  href?: string;
 }
 
 const EVENT_NAME = "birdfinds:toast";

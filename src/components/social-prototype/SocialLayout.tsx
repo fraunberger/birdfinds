@@ -24,6 +24,7 @@ export function SocialLayout() {
     fromUsername: string;
     content: string;
     createdAt: string;
+    statusDate?: string;
   };
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
@@ -198,12 +199,13 @@ export function SocialLayout() {
         }
 
         const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
-        const unseenMapped: CommentNotification[] = unseen.map((entry: Record<string, unknown>) => ({
+        const allMapped: CommentNotification[] = (notifications as Record<string, unknown>[]).map((entry) => ({
           id: String(entry.id || ""),
           statusId: String(entry.statusId || ""),
           fromUsername: String(entry.fromUsername || "Unknown"),
           content: String(entry.content || ""),
           createdAt: String(entry.createdAt || ""),
+          statusDate: entry.statusDate ? String(entry.statusDate) : undefined,
         })).filter((entry: CommentNotification) => Boolean(entry.id && entry.statusId));
         if (!cancelled && unseen.length > 0) {
           const newest = unseen[0] as { fromUsername?: string; content?: string };
@@ -211,12 +213,13 @@ export function SocialLayout() {
             message: unseen.length === 1
               ? `New comment from ${newest.fromUsername || "someone"}`
               : `${unseen.length} new comments on your posts`,
-            tone: "success",
+            tone: "info",
+            href: "/",
           });
         }
         if (!cancelled) {
-          setCommentNotificationCount(unseenMapped.length);
-          setCommentNotifications(unseenMapped);
+          setCommentNotificationCount(unseen.length);
+          setCommentNotifications(allMapped);
         }
       } catch {
         // Ignore polling failures.
@@ -233,8 +236,8 @@ export function SocialLayout() {
       const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
       writeSeen(ids);
       if (!cancelled) {
+        // Zero the badge but preserve the notification list.
         setCommentNotificationCount(0);
-        setCommentNotifications([]);
       }
     };
 
@@ -257,14 +260,15 @@ export function SocialLayout() {
       if (!notificationId || !statusId) return;
 
       const seen = readSeen();
-      seen.add(notificationId);
-      writeSeen(Array.from(seen));
-      setCommentNotifications((prev) => {
-        const next = prev.filter((entry) => entry.id !== notificationId);
-        setCommentNotificationCount(next.length);
-        return next;
-      });
+      if (!seen.has(notificationId)) {
+        seen.add(notificationId);
+        writeSeen(Array.from(seen));
+        // Decrement badge but keep the notification in the list.
+        setCommentNotificationCount((prev) => Math.max(0, prev - 1));
+      }
 
+      // Persist intent so SocialFeed can pick it up on mount when navigating cross-page.
+      window.sessionStorage.setItem("birdfinds:pending-thread", statusId);
       window.dispatchEvent(new CustomEvent("birdfinds:open-comment-thread", { detail: { statusId } }));
     };
     window.addEventListener("birdfinds:open-comment-notification", onOpenNotification as EventListener);

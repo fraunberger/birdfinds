@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getToastEventName, type ToastPayload } from "@/lib/social-prototype/toast";
 
@@ -7,6 +8,7 @@ interface ToastRecord {
   id: number;
   message: string;
   tone: "info" | "success" | "error";
+  href?: string;
 }
 
 export function ToastHost() {
@@ -24,7 +26,7 @@ export function ToastHost() {
 
       const nextId = idCounter++;
       const tone = detail.tone || "info";
-      setToasts((prev) => [...prev, { id: nextId, message: detail.message, tone }].slice(-4));
+      setToasts((prev) => [...prev, { id: nextId, message: detail.message, tone, href: detail.href }].slice(-4));
 
       const ttl = Math.max(1200, Math.min(8000, detail.durationMs || 3000));
       window.setTimeout(() => {
@@ -47,11 +49,21 @@ export function ToastHost() {
 
   return (
     <div className="fixed right-3 top-3 z-[120] flex w-[min(92vw,26rem)] flex-col gap-2">
-      {toasts.map((toast) => (
-        <div key={toast.id} className={`border px-3 py-2 text-xs font-mono shadow-sm ${toneClasses[toast.tone]}`}>
-          {toast.message}
-        </div>
-      ))}
+      {toasts.map((toast) =>
+        toast.href ? (
+          <Link
+            key={toast.id}
+            href={toast.href}
+            className={`border px-3 py-2 text-xs font-mono shadow-sm hover:opacity-80 ${toneClasses[toast.tone]}`}
+          >
+            {toast.message}
+          </Link>
+        ) : (
+          <div key={toast.id} className={`border px-3 py-2 text-xs font-mono shadow-sm ${toneClasses[toast.tone]}`}>
+            {toast.message}
+          </div>
+        )
+      )}
     </div>
   );
 }
