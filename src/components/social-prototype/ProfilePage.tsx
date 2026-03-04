@@ -32,7 +32,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -340,7 +340,8 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             isAdmin={isAdmin}
                                             currentUserId={myProfile?.id}
                                             onEdit={isOwnProfile ? () => {
-                                                window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));
+                                                setActiveStatusForEdit(status);
+                                                window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date, status } }));
                                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                                             } : undefined}
                                         />

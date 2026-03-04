@@ -14,7 +14,7 @@ interface SocialFeedProps {
 export function SocialFeed({ onClickProfile }: SocialFeedProps) {
     const { user } = useAuth();
     const { profile, isAdmin } = useUserProfile();
-    const { allStatuses, setActiveDate, isLoaded } = useSocialStore();
+    const { allStatuses, setActiveDate, setActiveStatusForEdit, isLoaded } = useSocialStore();
     const { following, follow } = useFollows();
     const [mode, setMode] = useState<'all' | 'following'>('all');
     const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
@@ -236,8 +236,8 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                             disableItemEditing={true}
                             forceShowComments={openCommentsStatusId === status.id}
                             onEdit={isOwn ? () => {
-                                setActiveDate(status.date);
-                                window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date } }));
+                                setActiveStatusForEdit(status);
+                                window.dispatchEvent(new CustomEvent('birdpile:edit-entry', { detail: { date: status.date, status } }));
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                             } : undefined}
                         />

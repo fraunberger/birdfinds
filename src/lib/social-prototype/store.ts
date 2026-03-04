@@ -410,6 +410,14 @@ class SocialStore {
         this.emit();
     }
 
+    // For editing a specific status that may not be in the local statuses array
+    // (e.g. an older post beyond JOURNAL_PAGE_SIZE). Directly sets activeStatus
+    // and activeDate without a statuses-array lookup.
+    setActiveStatusForEdit(status: Status) {
+        this.state = { ...this.state, activeDate: status.date, activeStatus: status };
+        this.emit();
+    }
+
     resetAndRefresh() {
         this.state = {
             statuses: [],
@@ -984,6 +992,7 @@ export function useSocialStore() {
     return {
         ...state,
         setActiveDate: (d: string) => socialStore.setActiveDate(d),
+        setActiveStatusForEdit: (s: Status) => socialStore.setActiveStatusForEdit(s),
         updateActiveStatus: (c: string) => socialStore.updateActiveStatus(c),
         ensureActiveStatus: () => socialStore.ensureActiveStatus(),
         addItemToActive: (i: Omit<ConsumableItem, 'id' | 'createdAt'>) => socialStore.addItemToActive(i),

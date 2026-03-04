@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ConsumableItem, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, Status, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
@@ -22,7 +22,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -151,8 +151,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     // ── Edit entry event ───────────────────────────────────────────────
     useEffect(() => {
         const handleEditEntry = (event: Event) => {
-            const customEvent = event as CustomEvent<{ date?: string }>;
+            const customEvent = event as CustomEvent<{ date?: string; status?: Status }>;
             const editDate = customEvent.detail?.date;
+            const editStatus = customEvent.detail?.status;
             if (editDate) {
                 // Clear any stale local draft so the composer loads the actual
                 // server content for this post instead of an old/empty draft.
@@ -163,14 +164,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     delete next[key];
                     return next;
                 });
-                setActiveDate(editDate);
+                // Use the full status when provided (handles posts older than JOURNAL_PAGE_SIZE
+                // that won't be found in the local statuses array by setActiveDate alone).
+                if (editStatus) {
+                    setActiveStatusForEdit(editStatus);
+                } else {
+                    setActiveDate(editDate);
+                }
             }
             setIsExpanded(true);
             window.setTimeout(() => textareaRef.current?.focus(), 220);
         };
         window.addEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
-    }, [setActiveDate]);
+    }, [setActiveDate, setActiveStatusForEdit]);
 
     // If a stale local draft lost tag markers, prefer canonical server content for this status.
     useEffect(() => {
