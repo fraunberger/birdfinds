@@ -32,6 +32,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const [showMenu, setShowMenu] = useState(false);
     const [commentDraft, setCommentDraft] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
+    const [showAllItems, setShowAllItems] = useState(false);
+    const ITEM_LIMIT = 3;
     const menuRef = useRef<HTMLDivElement | null>(null);
     const { user } = useAuth();
     const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment, removeItemFromActive, addItemToStatus } = useSocialStore();
@@ -250,7 +252,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                     {/* Items as clickable colored boxes */}
                     {status.items.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
-                            {status.items.map(item => {
+                            {(showAllItems ? status.items : status.items.slice(0, ITEM_LIMIT)).map(item => {
                                 const config = getCategoryConfig(item.category);
                                 const itemMeta = parseItemMeta(item.image);
                                 const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
@@ -265,7 +267,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     >
                                         <button
                                             onClick={() => setSelectedItem(item)}
-                                            className="font-medium text-neutral-800 hover:opacity-70 transition-opacity"
+                                            className="font-medium text-neutral-800 hover:opacity-70 transition-opacity max-w-[160px] truncate"
+                                            title={item.title}
                                         >
                                             {item.title}
                                         </button>
@@ -299,6 +302,15 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     </div>
                                 );
                             })}
+                            {!showAllItems && status.items.length > ITEM_LIMIT && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllItems(true)}
+                                    className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
+                                >
+                                    +{status.items.length - ITEM_LIMIT} more
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
