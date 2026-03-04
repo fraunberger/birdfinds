@@ -57,6 +57,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [selectedPodcast, setSelectedPodcast] = useState<PodcastShowResult | null>(null);
     const [podcastEpisodeSearchToken, setPodcastEpisodeSearchToken] = useState(0);
 
+    // Gate for new parent/child entries — skip if editing existing or readOnly
+    const [gateDecided, setGateDecided] = useState(() => !!existingItem || readOnly);
+
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
     const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
@@ -330,7 +333,24 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
+                                {isParentChildCategory && !isEpisodeLinked && !readOnly && !gateDecided && (
+                                    <div className="mt-3 border border-neutral-200 bg-neutral-50 px-3 py-3">
+                                        <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
+                                            Link an episode to rate &amp; review, or continue without
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <button type="button" onClick={() => { setGateDecided(true); triggerSearch(); }}
+                                                className="flex-1 text-[10px] uppercase tracking-widest border border-neutral-400 px-3 py-2 text-neutral-700 hover:border-neutral-700 hover:text-neutral-900">
+                                                Link Episode
+                                            </button>
+                                            <button type="button" onClick={() => setGateDecided(true)}
+                                                className="flex-1 text-[10px] uppercase tracking-widest border border-neutral-300 px-3 py-2 text-neutral-400 hover:text-neutral-600">
+                                                Continue Without
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (!isParentChildCategory || isEpisodeLinked || gateDecided) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">

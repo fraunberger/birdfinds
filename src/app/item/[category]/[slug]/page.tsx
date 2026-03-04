@@ -340,8 +340,8 @@ export default function ItemPage({
           </Link>
         </header>
 
-        <section className="border border-neutral-200 bg-white px-4 py-4 mb-4">
-          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">{categoryConfig.label}</p>
+        <section className="border border-neutral-200 bg-white px-4 py-4 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '3px' }}>
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
           <h1 className="text-xl font-bold uppercase tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
           <div className="mt-3 flex items-center gap-4 text-xs uppercase tracking-widest text-neutral-600">
@@ -390,7 +390,7 @@ export default function ItemPage({
                   </div>
                 ) : (
                   byEpisode.map((ep) => (
-                    <div key={ep.name} className="border border-neutral-200 bg-white px-4 py-3">
+                    <div key={ep.name} className="border border-neutral-200 bg-white px-4 py-3" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-xs font-bold text-neutral-800">{ep.name}</p>
                         <div className="text-[10px] uppercase tracking-widest text-neutral-500 flex-shrink-0">
@@ -434,7 +434,7 @@ export default function ItemPage({
                   </div>
                 ) : (
                   byUser.map((u) => (
-                    <div key={u.userId} className="border border-neutral-200 bg-white px-4 py-3">
+                    <div key={u.userId} className="border border-neutral-200 bg-white px-4 py-3" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <Link
                           href={`/pile/${encodeURIComponent(u.userId)}`}
@@ -480,7 +480,7 @@ export default function ItemPage({
             ) : (
               <div className="space-y-2">
                 {friendReviews.map((review) => (
-                  <div key={`friend-${review.item.id}`} className="border border-neutral-200 px-3 py-2">
+                  <div key={`friend-${review.item.id}`} className="border border-neutral-200 px-3 py-2" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                     <div className="flex items-center justify-between">
                       <Link href={`/pile/${encodeURIComponent(review.userId)}`} className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900">
                         {review.username}
@@ -512,7 +512,7 @@ export default function ItemPage({
             )}
 
             {displayReviews.map((review) => (
-              <article key={review.item.id} className="border border-neutral-200 bg-white px-3 py-3">
+              <article key={review.item.id} className="border border-neutral-200 bg-white px-3 py-3" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                 <div className="flex items-center justify-between">
                   <Link
                     href={`/pile/${encodeURIComponent(review.userId)}`}
