@@ -39,6 +39,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         parsedMeta.externalSource === 'itunes-podcast-episode' ||
         parsedMeta.externalSource === 'tvmaze-episode';
 
+    // All API-coupled categories support a "Review without linking" gate.
+    // For parent/child the bar is episode-level; for single-entity any externalSource counts.
+    const hasSearchableApi = config.coupling === 'api';
+    const isApiLinked = isParentChildCategory
+        ? isEpisodeLinked
+        : !!parsedMeta.externalSource;
+    const showReviewGate = hasSearchableApi && !isApiLinked && !readOnly && !gateDecided;
+
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
     const [musicSearchToken, setMusicSearchToken] = useState(0);
@@ -739,7 +747,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && (!isParentChildCategory || isEpisodeLinked || gateDecided || readOnly) && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && (!hasSearchableApi || isApiLinked || gateDecided || readOnly) && (
                         <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
@@ -867,7 +875,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                             </div>
                         </div>
-                    ) : isParentChildCategory && !isEpisodeLinked && !readOnly && !gateDecided ? (
+                    ) : showReviewGate ? (
                         <button type="button" onClick={() => setGateDecided(true)}
                             className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
                             Review without linking
