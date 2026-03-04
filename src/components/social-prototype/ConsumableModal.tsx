@@ -24,8 +24,8 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
-    const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
+    const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
     const recipeUrl = parsedMeta.recipeUrl || '';

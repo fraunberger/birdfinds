@@ -39,6 +39,8 @@ interface ComposerItemTableProps {
     onRemoveItem: (itemId: string) => Promise<void> | void;
     /** Add a new quick-add item. */
     onAddItem: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
+    /** Open the full modal for a new parent/child item (podcast, tv) with a pre-filled title. */
+    onNewItemModal?: (category: Category, title: string) => void;
 }
 
 export function ComposerItemTable({
@@ -52,6 +54,7 @@ export function ComposerItemTable({
     isLinkingMode = false,
     onRemoveItem,
     onAddItem,
+    onNewItemModal,
 }: ComposerItemTableProps) {
     const isInteractiveTarget = (target: EventTarget | null) => {
         if (!(target instanceof Element)) return false;
@@ -95,8 +98,16 @@ export function ComposerItemTable({
         onOpenItem(item);
     };
 
+    const isParentChildCategory = effectiveQuickAddCategory === 'podcast' || effectiveQuickAddCategory === 'tv';
+
     const handleQuickAddRow = async () => {
         if (!quickAddTitle.trim() || isQuickAdding) return;
+        // Parent/child categories (podcast, tv) need the gate — open the full modal instead
+        if (isParentChildCategory && onNewItemModal) {
+            onNewItemModal(effectiveQuickAddCategory, quickAddTitle);
+            setQuickAddTitle('');
+            return;
+        }
         try {
             setIsQuickAdding(true);
             await onAddItem({
