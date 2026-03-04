@@ -57,16 +57,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [selectedPodcast, setSelectedPodcast] = useState<PodcastShowResult | null>(null);
     const [podcastEpisodeSearchToken, setPodcastEpisodeSearchToken] = useState(0);
 
-    // Gate — skip if readOnly, already linked, or already has review content
-    const [gateDecided, setGateDecided] = useState(() => {
-        if (readOnly) return true;
-        if (!existingItem) return false;
-        const existingMeta = parseItemMeta(existingItem.image || '');
-        const existingIsLinked = isParentChildCategory
-            ? (existingMeta.externalSource === 'itunes-podcast-episode' || existingMeta.externalSource === 'tvmaze-episode')
-            : !!existingMeta.externalSource;
-        return existingIsLinked || !!(existingItem.notes?.trim()) || existingItem.rating !== undefined;
-    });
+    // Gate — tracks whether the user has explicitly clicked "Review without linking"
+    const [gateClicked, setGateClicked] = useState(false);
 
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
@@ -176,6 +168,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (!isOpen) return;
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
+        setGateClicked(false);
     }, [existingItem, initialCategory, isOpen]);
 
     useEffect(() => {
@@ -224,11 +217,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // All API-coupled categories support a "Review without linking" gate.
     // For parent/child the bar is episode-level; for single-entity any externalSource counts.
+    // Gate hides when: already linked, already has review content, user clicked through, or readOnly.
     const hasSearchableApi = config.coupling === 'api';
     const isApiLinked = isParentChildCategory
         ? isEpisodeLinked
         : !!parsedMeta.externalSource;
-    const showReviewGate = hasSearchableApi && !isApiLinked && !readOnly && !gateDecided;
+    const hasReviewContent = !!(notes?.trim()) || rating !== undefined;
+    const showReviewGate = hasSearchableApi && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
 
     const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
@@ -407,7 +402,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: r.title,
-                                                    subtitle: r.subtitle || prev.subtitle,
+                                                    // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
+                                                    subtitle: source === 'itunes' ? (r.subtitle || prev.subtitle) : prev.subtitle,
                                                     image: serializeItemMeta({
                                                         ...parseItemMeta(prev.image),
                                                         imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
@@ -756,7 +752,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && (!hasSearchableApi || isApiLinked || gateDecided || readOnly) && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && (
                         <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
@@ -885,7 +881,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             </div>
                         </div>
                     ) : showReviewGate ? (
-                        <button type="button" onClick={() => setGateDecided(true)}
+                        <button type="button" onClick={() => setGateClicked(true)}
                             className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
                             Review without linking
                         </button>
