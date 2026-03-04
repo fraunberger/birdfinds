@@ -100,7 +100,7 @@ export function AccountMenu({
               }`}
             >
               <span>Comments {commentCount > 0 ? `(${commentCount})` : ""}</span>
-              <span className="text-neutral-400 text-[8px]">{commentsOpen ? "▴" : "▾"}</span>
+              <span className="text-neutral-400 text-[11px]">{commentsOpen ? "▴" : "▾"}</span>
             </button>
             {commentsOpen && commentNotifications.length > 0 && (
               <>
