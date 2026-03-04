@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
+import { Category, ConsumableItem, getCategoryConfig, useUserProfile } from '@/lib/social-prototype/store';
 import { getCanonicalItemKey, getRepeatTagVerb } from '@/lib/social-prototype/items';
 import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 import { ConsumableModal } from './ConsumableModal';
@@ -51,6 +51,7 @@ const getAggregateKey = (category: Category, item: ConsumableItem) => {
 
 export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
+    const { profile } = useUserProfile();
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -294,6 +295,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     readOnly
                     onClose={() => setSelectedItem(null)}
                     onSave={() => { }}
+                    userCategories={profile?.categories}
                 />
             )}
 
@@ -309,6 +311,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         }
                         setShowAddModal(false);
                     }}
+                    userCategories={profile?.categories}
                 />
             )}
         </div>

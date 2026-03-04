@@ -455,6 +455,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                     }
                     setSelectedItem(null);
                 } : undefined}
+                userCategories={profile?.categories}
             />
         </div>
     );

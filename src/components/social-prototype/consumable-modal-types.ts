@@ -13,6 +13,8 @@ export interface ConsumableModalProps {
     existingItem?: ConsumableItem;
     readOnly?: boolean;
     allUserItems?: ConsumableItem[];
+    /** User's selected categories — used to populate the category dropdown. */
+    userCategories?: Category[];
 }
 
 // ---------------------------------------------------------------------------

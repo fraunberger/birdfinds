@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useSocialStore, Category, CATEGORY_CONFIGS, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
+import { useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 export function UserStats() {
     const { isLoaded, getAllItemsByCategory, removeItemFromActive, addItemToActive } = useSocialStore();
+    const { profile } = useUserProfile();
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [sortBy, setSortBy] = useState<'date' | 'rank'>('date');
@@ -124,6 +125,7 @@ export function UserStats() {
                         handleCloseModal();
                     }}
                     existingItem={selectedItem}
+                    userCategories={profile?.categories}
                 />
             )}
         </div>

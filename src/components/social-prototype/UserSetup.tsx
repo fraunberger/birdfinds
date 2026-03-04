@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useUserProfile, useHabits, DEFAULT_CATEGORIES, Category, CategoryConfigOverride, ProfileVisibility, getCategoryConfig } from '@/lib/social-prototype/store';
+import { useUserProfile, useHabits, DEFAULT_CATEGORIES, Category, CategoryConfigOverride, ProfileVisibility, getCategoryConfig, setActiveCategoryConfigOverrides } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import Cropper, { Point, Area } from 'react-easy-crop';
 
@@ -158,19 +158,23 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
         const shortLabel = normalized.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase() || 'CAT';
 
         setSelectedCategories((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
-        setCategoryConfigs((prev) => ({
-            ...prev,
-            [normalized]: {
-                label: baseLabel,
-                shortLabel,
-                titleLabel: 'Item',
-                subtitleLabel: 'Details',
-                subtitlePlaceholder: 'Details',
-                ratingLabel: 'Rating',
-                notesLabel: 'Notes',
-                notesPlaceholder: 'Add notes...',
-            },
-        }));
+        setCategoryConfigs((prev) => {
+            const next = {
+                ...prev,
+                [normalized]: {
+                    label: baseLabel,
+                    shortLabel,
+                    titleLabel: 'Item',
+                    subtitleLabel: 'Details',
+                    subtitlePlaceholder: 'Details',
+                    ratingLabel: 'Rating',
+                    notesLabel: 'Notes',
+                    notesPlaceholder: 'Add notes...',
+                },
+            };
+            setActiveCategoryConfigOverrides(next);
+            return next;
+        });
         setNewCategoryName('');
         setEditingCategory(normalized);
     };
@@ -178,13 +182,15 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
     const updateCategoryConfig = (category: Category, updates: CategoryConfigOverride) => {
         setCategoryConfigs((prev) => {
             const existing = prev[category] || {};
-            return {
+            const next = {
                 ...prev,
                 [category]: {
                     ...existing,
                     ...updates,
                 },
             };
+            setActiveCategoryConfigOverrides(next);
+            return next;
         });
     };
 

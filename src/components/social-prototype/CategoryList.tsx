@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useSocialStore, Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
+import { useSocialStore, useUserProfile, Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategoryListProps {
@@ -11,6 +11,7 @@ interface CategoryListProps {
 
 export function CategoryList({ category, title }: CategoryListProps) {
     const { getAllItemsByCategory, addItemToActive, removeItemFromActive } = useSocialStore();
+    const { profile } = useUserProfile();
     const items = getAllItemsByCategory(category);
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [sortBy, setSortBy] = useState<'date' | 'rank'>('date');
@@ -120,6 +121,7 @@ export function CategoryList({ category, title }: CategoryListProps) {
                     setSelectedItem(null);
                 }}
                 initialCategory={category}
+                userCategories={profile?.categories}
             />
         </div>
     );

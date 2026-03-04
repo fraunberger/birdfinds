@@ -680,6 +680,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 initialCategory={activeCategory}
                 existingItem={existingItem}
                 allUserItems={allUserItems}
+                userCategories={userCategories}
             />
         </div>
     );

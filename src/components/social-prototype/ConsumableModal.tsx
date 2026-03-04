@@ -24,7 +24,7 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, userCategories }: ConsumableModalProps) {
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
@@ -290,7 +290,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value as Category }))}
                                     className="appearance-none bg-transparent text-xs font-bold uppercase tracking-widest text-neutral-800 outline-none cursor-pointer pr-4 min-w-[130px]"
                                 >
-                                    {Array.from(new Set([category, ...DEFAULT_CATEGORIES])).map((cat) => {
+                                    {Array.from(new Set([category, ...(userCategories || []), ...DEFAULT_CATEGORIES])).map((cat) => {
                                         const optionConfig = getCategoryConfig(cat);
                                         return (
                                             <option key={optionConfig.id} value={optionConfig.id}>
