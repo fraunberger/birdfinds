@@ -57,8 +57,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [selectedPodcast, setSelectedPodcast] = useState<PodcastShowResult | null>(null);
     const [podcastEpisodeSearchToken, setPodcastEpisodeSearchToken] = useState(0);
 
-    // Gate for new parent/child entries — skip if editing existing or readOnly
-    const [gateDecided, setGateDecided] = useState(() => !!existingItem || readOnly);
+    // Gate — skip if readOnly, already linked, or already has review content
+    const [gateDecided, setGateDecided] = useState(() => {
+        if (readOnly) return true;
+        if (!existingItem) return false;
+        const existingMeta = parseItemMeta(existingItem.image || '');
+        const existingIsLinked = isParentChildCategory
+            ? (existingMeta.externalSource === 'itunes-podcast-episode' || existingMeta.externalSource === 'tvmaze-episode')
+            : !!existingMeta.externalSource;
+        return existingIsLinked || !!(existingItem.notes?.trim()) || existingItem.rating !== undefined;
+    });
 
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
