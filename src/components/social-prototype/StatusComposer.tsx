@@ -33,7 +33,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
-    const [initialModalTitle, setInitialModalTitle] = useState<string | undefined>(undefined);
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
 
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
@@ -291,15 +290,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const openModal = (item: ConsumableItem) => {
         setActiveCategory(item.category);
-        setInitialModalTitle(undefined);
         setExistingItem(item);
-        setIsModalOpen(true);
-    };
-
-    const openModalForNew = (category: Category, title: string) => {
-        setActiveCategory(category);
-        setInitialModalTitle(title);
-        setExistingItem(undefined);
         setIsModalOpen(true);
     };
 
@@ -669,19 +660,17 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             await addItemToActive(item);
                             setHasItemDraftChanges(true);
                         }}
-                        onNewItemModal={openModalForNew}
                     />
                 </div>
             )}
 
             <ConsumableModal
-                key={`${existingItem?.id ?? 'new'}-${activeCategory}-${initialModalTitle ?? ''}-${isModalOpen ? 'open' : 'closed'}`}
+                key={`${existingItem?.id ?? 'new'}-${activeCategory}-${isModalOpen ? 'open' : 'closed'}`}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveItem}
                 onDelete={handleDeleteItem}
                 initialCategory={activeCategory}
-                initialTitle={initialModalTitle}
                 existingItem={existingItem}
                 allUserItems={allUserItems}
             />
