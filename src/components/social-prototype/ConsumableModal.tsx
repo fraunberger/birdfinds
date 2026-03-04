@@ -402,7 +402,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: r.title,
-                                                    subtitle: r.subtitle || prev.subtitle,
+                                                    // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
+                                                    subtitle: source === 'itunes' ? (r.subtitle || prev.subtitle) : prev.subtitle,
                                                     image: serializeItemMeta({
                                                         ...parseItemMeta(prev.image),
                                                         imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
