@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
 import { parseItemMeta } from '@/lib/social-prototype/item-meta';
-import { normalizeTaggedTextForFeed } from '@/lib/social-prototype/highlighting.mjs';
+import { normalizeTaggedTextForFeed, parseHighlights } from '@/lib/social-prototype/highlighting.mjs';
 
 interface StatusCardProps {
     status: Status;
@@ -97,84 +97,42 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         setShowComments(true);
     }, [forceShowComments]);
 
-    type HighlightMatch = {
-        start: number;
-        end: number;
-        itemId: string;
-        color: string;
-    };
-
-    const findMatches = (source: string): HighlightMatch[] => {
-        const matches: HighlightMatch[] = [];
-
-        status.items.forEach((item) => {
-            const config = getCategoryConfig(item.category);
-            const color = config?.color || HIGHLIGHT_COLOR;
-            const terms = getItemHighlightTerms(item);
-            terms.forEach((term) => {
-                const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(escaped, 'gi');
-                let found: RegExpExecArray | null;
-                while ((found = regex.exec(source)) !== null) {
-                    matches.push({
-                        start: found.index,
-                        end: found.index + found[0].length,
-                        itemId: item.id,
-                        color,
-                    });
-                }
-            });
-        });
-
-        matches.sort((a, b) => {
-            const lenDiff = (b.end - b.start) - (a.end - a.start);
-            if (lenDiff !== 0) return lenDiff;
-            if (a.start !== b.start) return a.start - b.start;
-            return a.itemId.localeCompare(b.itemId);
-        });
-
-        const chosen: HighlightMatch[] = [];
-        matches.forEach((candidate) => {
-            const overlaps = chosen.some(
-                (existing) => !(candidate.end <= existing.start || candidate.start >= existing.end)
-            );
-            if (!overlaps) chosen.push(candidate);
-        });
-
-        return chosen.sort((a, b) => a.start - b.start);
-    };
-
     const renderContent = () => {
         if (!status.content) return null;
 
         const text = normalizeTaggedTextForFeed(status.content);
-        const matches = findMatches(text);
+        const entities = status.items.map((item) => {
+            const config = getCategoryConfig(item.category);
+            return {
+                id: item.id,
+                entityType: item.category,
+                entityId: item.id,
+                terms: getItemHighlightTerms(item),
+                color: config?.color || HIGHLIGHT_COLOR,
+            };
+        });
+        const decorations = parseHighlights(text, entities);
         const parts: React.ReactNode[] = [];
         let cursor = 0;
 
-        matches.forEach((match, index) => {
-            if (match.start > cursor) {
-                parts.push(text.slice(cursor, match.start));
-            }
-            const label = text.slice(match.start, match.end);
-            const item = status.items.find((entry) => entry.id === match.itemId);
+        decorations.forEach((dec, index) => {
+            if (dec.start > cursor) parts.push(text.slice(cursor, dec.start));
+            const item = status.items.find((entry) => entry.id === dec.entityId);
             parts.push(
                 <button
-                    key={`${match.itemId}:${match.start}:${index}`}
+                    key={`${dec.entityId}:${dec.start}:${index}`}
                     type="button"
                     onClick={() => item && setSelectedItem(item)}
                     className="inline px-[1px] cursor-pointer"
-                    style={{ backgroundColor: match.color }}
+                    style={{ backgroundColor: dec.color || HIGHLIGHT_COLOR }}
                 >
-                    {label}
+                    {dec.displayText}
                 </button>
             );
-            cursor = match.end;
+            cursor = dec.end;
         });
 
-        if (cursor < text.length) {
-            parts.push(text.slice(cursor));
-        }
+        if (cursor < text.length) parts.push(text.slice(cursor));
 
         return (
             <p className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default">
