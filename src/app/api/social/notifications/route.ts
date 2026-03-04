@@ -5,6 +5,7 @@ import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-aut
 
 interface StatusRow {
   id: string;
+  date: string;
 }
 
 interface CommentRow {
@@ -35,7 +36,7 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: ownStatuses, error: statusError } = await supabaseAdmin
       .from("social_statuses")
-      .select("id")
+      .select("id,date")
       .eq("user_id", linkedUserId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -43,7 +44,9 @@ export async function GET() {
 
     if (statusError) throw statusError;
 
-    const statusIds = ((ownStatuses || []) as StatusRow[]).map((row) => row.id);
+    const statusRows = (ownStatuses || []) as StatusRow[];
+    const statusIds = statusRows.map((row) => row.id);
+    const statusDateById = new Map(statusRows.map((row) => [row.id, row.date]));
     if (statusIds.length === 0) {
       return NextResponse.json({ notifications: [] });
     }
@@ -82,6 +85,7 @@ export async function GET() {
       fromUsername: usernameById.get(row.user_id) || "Unknown",
       content: row.content,
       createdAt: row.created_at,
+      statusDate: statusDateById.get(row.status_id) || null,
     }));
 
     return NextResponse.json({ notifications });

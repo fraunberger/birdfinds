@@ -12,6 +12,7 @@ interface AccountMenuProps {
     fromUsername: string;
     content: string;
     createdAt: string;
+    statusDate?: string;
   }>;
   pileHref: string;
   username: string;
@@ -110,8 +111,15 @@ export function AccountMenu({
                   }}
                   className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
                 >
-                  <div className="text-[10px] uppercase tracking-widest text-neutral-700 truncate">
-                    {notification.fromUsername} commented
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="text-[10px] uppercase tracking-widest text-neutral-700 truncate">
+                      {notification.fromUsername}
+                    </div>
+                    {notification.statusDate && (
+                      <div className="text-[9px] text-neutral-400 shrink-0 normal-case tracking-normal">
+                        {notification.statusDate}
+                      </div>
+                    )}
                   </div>
                   {notification.content && (
                     <div className="mt-0.5 text-[10px] text-neutral-500 truncate normal-case tracking-normal">
