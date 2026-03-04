@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -37,6 +37,15 @@ export function AccountMenu({
   const pathname = usePathname();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [showAllComments, setShowAllComments] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setCommentsOpen(false);
+      setShowAllComments(false);
+    }
+  }, [open]);
   const totalBadgeCount = (isAdmin ? reportCount : 0) + commentCount;
   const badgeClass = isAdmin && reportCount > 0 ? "bg-red-600" : "bg-neutral-800";
 
@@ -83,52 +92,66 @@ export function AccountMenu({
           </Link>
           <div className="border-t border-neutral-200">
             <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new Event("birdfinds:notifications-seen"));
-                }
-                setOpen(false);
-                router.push("/");
-              }}
-              className="block w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
+              onClick={() => setCommentsOpen((prev) => !prev)}
+              className={`flex w-full items-center justify-between px-3 py-2 text-[10px] uppercase tracking-widest hover:bg-neutral-100 ${
+                commentCount > 0
+                  ? "bg-green-50 text-green-700"
+                  : "text-neutral-700"
+              }`}
             >
-              Comments {commentCount > 0 ? `(${commentCount})` : ""}
+              <span>Comments {commentCount > 0 ? `(${commentCount})` : ""}</span>
+              <span className="text-neutral-400 text-[8px]">{commentsOpen ? "▴" : "▾"}</span>
             </button>
-            {commentNotifications.length > 0 ? (
-              commentNotifications.slice(0, 8).map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      window.dispatchEvent(
-                        new CustomEvent("birdfinds:open-comment-notification", {
-                          detail: { notificationId: notification.id, statusId: notification.statusId },
-                        }),
-                      );
-                    }
-                    setOpen(false);
-                    if (pathname !== "/") router.push("/");
-                  }}
-                  className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <div className="text-[10px] uppercase tracking-widest text-neutral-700 truncate">
-                      {notification.fromUsername}
+            {commentsOpen && commentNotifications.length > 0 && (
+              <>
+                {(showAllComments ? commentNotifications : commentNotifications.slice(0, 2)).map((notification) => (
+                  <button
+                    key={notification.id}
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("birdfinds:open-comment-notification", {
+                            detail: { notificationId: notification.id, statusId: notification.statusId },
+                          }),
+                        );
+                      }
+                      setOpen(false);
+                      if (pathname !== "/") router.push("/");
+                    }}
+                    className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="text-[10px] uppercase tracking-widest text-neutral-700 truncate">
+                        {notification.fromUsername}
+                      </div>
+                      {notification.statusDate && (
+                        <div className="text-[9px] text-neutral-400 shrink-0 normal-case tracking-normal">
+                          {notification.statusDate}
+                        </div>
+                      )}
                     </div>
-                    {notification.statusDate && (
-                      <div className="text-[9px] text-neutral-400 shrink-0 normal-case tracking-normal">
-                        {notification.statusDate}
+                    {notification.content && (
+                      <div className="mt-0.5 text-[10px] text-neutral-500 truncate normal-case tracking-normal">
+                        {notification.content.length > 55 ? `${notification.content.slice(0, 55)}…` : notification.content}
                       </div>
                     )}
-                  </div>
-                  {notification.content && (
-                    <div className="mt-0.5 text-[10px] text-neutral-500 truncate normal-case tracking-normal">
-                      {notification.content.length > 55 ? `${notification.content.slice(0, 55)}…` : notification.content}
-                    </div>
-                  )}
-                </button>
-              ))
-            ) : null}
+                  </button>
+                ))}
+                {!showAllComments && commentNotifications.length > 2 && (
+                  <button
+                    onClick={() => setShowAllComments(true)}
+                    className="block w-full text-left px-3 py-2 border-t border-neutral-100 text-[10px] uppercase tracking-widest text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                  >
+                    View {commentNotifications.length - 2} more
+                  </button>
+                )}
+              </>
+            )}
+            {commentsOpen && commentNotifications.length === 0 && (
+              <div className="px-3 py-2 border-t border-neutral-100 text-[10px] text-neutral-400 normal-case tracking-normal">
+                No comments yet
+              </div>
+            )}
           </div>
           <Link
             href="/settings/profile-setup"
