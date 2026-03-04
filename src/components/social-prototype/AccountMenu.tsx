@@ -100,7 +100,11 @@ export function AccountMenu({
               }`}
             >
               <span>Comments {commentCount > 0 ? `(${commentCount})` : ""}</span>
-              <span className="text-neutral-400 text-[11px]">{commentsOpen ? "▴" : "▾"}</span>
+              <svg className="w-3.5 h-3.5 text-neutral-400 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {commentsOpen
+                  ? <polyline points="2,8 6,4 10,8" />
+                  : <polyline points="2,4 6,8 10,4" />}
+              </svg>
             </button>
             {commentsOpen && commentNotifications.length > 0 && (
               <>
