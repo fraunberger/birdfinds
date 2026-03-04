@@ -211,7 +211,8 @@ export function SocialLayout() {
             message: unseen.length === 1
               ? `New comment from ${newest.fromUsername || "someone"}`
               : `${unseen.length} new comments on your posts`,
-            tone: "success",
+            tone: "info",
+            href: "/",
           });
         }
         if (!cancelled) {
@@ -265,6 +266,8 @@ export function SocialLayout() {
         return next;
       });
 
+      // Persist intent so SocialFeed can pick it up on mount when navigating cross-page.
+      window.sessionStorage.setItem("birdfinds:pending-thread", statusId);
       window.dispatchEvent(new CustomEvent("birdfinds:open-comment-thread", { detail: { statusId } }));
     };
     window.addEventListener("birdfinds:open-comment-notification", onOpenNotification as EventListener);

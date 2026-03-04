@@ -63,22 +63,42 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
         void fetchMissingProfiles(userIds);
     }, [allStatuses, isLoaded, fetchMissingProfiles]);
 
+    const scrollToStatus = useCallback((statusId: string, attemptsLeft = 8) => {
+        const target = document.getElementById(`status-${statusId}`);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (attemptsLeft > 0) {
+            window.setTimeout(() => scrollToStatus(statusId, attemptsLeft - 1), 300);
+        }
+    }, []);
+
     useEffect(() => {
         const handleOpenThread = (event: Event) => {
             const customEvent = event as CustomEvent<{ statusId?: string }>;
             const statusId = String(customEvent.detail?.statusId || "");
             if (!statusId) return;
+            // Clear any sessionStorage intent since we're handling it directly now.
+            window.sessionStorage.removeItem("birdfinds:pending-thread");
             setMode('all');
             setVisibleCount((prev) => Math.max(prev, 200));
             setOpenCommentsStatusId(statusId);
-            window.setTimeout(() => {
-                const target = document.getElementById(`status-${statusId}`);
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 30);
+            window.setTimeout(() => scrollToStatus(statusId), 300);
         };
         window.addEventListener('birdfinds:open-comment-thread', handleOpenThread as EventListener);
         return () => window.removeEventListener('birdfinds:open-comment-thread', handleOpenThread as EventListener);
-    }, []);
+    }, [scrollToStatus]);
+
+    // On mount (after data loads), check for a pending notification thread from cross-page navigation.
+    useEffect(() => {
+        if (!isLoaded || typeof window === "undefined") return;
+        const statusId = window.sessionStorage.getItem("birdfinds:pending-thread");
+        if (!statusId) return;
+        window.sessionStorage.removeItem("birdfinds:pending-thread");
+        setMode('all');
+        setVisibleCount((prev) => Math.max(prev, 200));
+        setOpenCommentsStatusId(statusId);
+        window.setTimeout(() => scrollToStatus(statusId), 300);
+    }, [isLoaded, scrollToStatus]);
 
     // Suggestions: only fetch once on initial load (not every time following changes)
     const suggestionsLoadedRef = useRef(false);
