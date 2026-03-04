@@ -448,14 +448,14 @@ export default function ItemPage({
                       </div>
                       <div className="space-y-1.5">
                         {u.episodes.map((ep, idx) => (
-                          <div key={`${u.userId}-${idx}`} className="flex items-start justify-between gap-2">
-                            <p className="text-xs text-neutral-600">{ep.title}</p>
-                            <div className="text-right flex-shrink-0">
-                              <span className="text-[10px] uppercase tracking-widest text-neutral-400">
+                          <div key={`${u.userId}-${idx}`} className="pt-1.5 border-t border-neutral-100 first:border-t-0 first:pt-0">
+                            <p className="text-xs text-neutral-700 leading-tight">{ep.title}</p>
+                            <div className="mt-0.5 flex items-start justify-between gap-2">
+                              <span className="text-[10px] uppercase tracking-widest text-neutral-400 shrink-0">
                                 {typeof ep.rating === 'number' ? `${ep.rating}/10` : '—'}
                               </span>
                               {ep.notes && (
-                                <p className="text-[10px] text-neutral-500 mt-0.5 max-w-xs text-right whitespace-pre-wrap">
+                                <p className="text-[10px] text-neutral-500 text-right whitespace-pre-wrap">
                                   &ldquo;{ep.notes}&rdquo;
                                 </p>
                               )}
