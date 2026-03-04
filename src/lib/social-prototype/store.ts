@@ -168,7 +168,7 @@ interface MeResponse {
 
 export const FEED_PAGE_SIZE = 15;
 const FEED_FETCH_SIZE = FEED_PAGE_SIZE * 2;
-const JOURNAL_PAGE_SIZE = 15;
+const JOURNAL_PAGE_SIZE = 60;
 // Profile data rarely changes mid-session; a longer TTL avoids re-fetching
 // /api/social/me (2 Supabase queries) on every store operation.
 const LINKED_ME_CACHE_TTL_MS = 60_000;
@@ -412,9 +412,15 @@ class SocialStore {
 
     // For editing a specific status that may not be in the local statuses array
     // (e.g. an older post beyond JOURNAL_PAGE_SIZE). Directly sets activeStatus
-    // and activeDate without a statuses-array lookup.
+    // and activeDate, and also inserts/updates the status in the statuses array
+    // so that future syncActiveStatus() calls (from polling/refresh) don't clobber
+    // it with a blank temp-optimistic.
     setActiveStatusForEdit(status: Status) {
-        this.state = { ...this.state, activeDate: status.date, activeStatus: status };
+        const inStatuses = this.state.statuses.some(s => s.id === status.id);
+        const statuses = inStatuses
+            ? this.state.statuses.map(s => s.id === status.id ? status : s)
+            : [status, ...this.state.statuses];
+        this.state = { ...this.state, activeDate: status.date, activeStatus: status, statuses };
         this.emit();
     }
 
