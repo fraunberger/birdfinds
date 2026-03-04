@@ -223,7 +223,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         ? isEpisodeLinked
         : !!parsedMeta.externalSource;
     const hasReviewContent = !!(notes?.trim()) || rating !== undefined;
-    const showReviewGate = hasSearchableApi && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
+    // Beer is excluded: only the brewery (subtitle) is searchable, not the beer itself
+    const showReviewGate = hasSearchableApi && category !== 'beer' && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
 
     const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
