@@ -39,14 +39,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         parsedMeta.externalSource === 'itunes-podcast-episode' ||
         parsedMeta.externalSource === 'tvmaze-episode';
 
-    // All API-coupled categories support a "Review without linking" gate.
-    // For parent/child the bar is episode-level; for single-entity any externalSource counts.
-    const hasSearchableApi = config.coupling === 'api';
-    const isApiLinked = isParentChildCategory
-        ? isEpisodeLinked
-        : !!parsedMeta.externalSource;
-    const showReviewGate = hasSearchableApi && !isApiLinked && !readOnly && !gateDecided;
-
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
     const [musicSearchToken, setMusicSearchToken] = useState(0);
@@ -221,6 +213,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     };
 
     const config = getCategoryConfig(category);
+
+    // All API-coupled categories support a "Review without linking" gate.
+    // For parent/child the bar is episode-level; for single-entity any externalSource counts.
+    const hasSearchableApi = config.coupling === 'api';
+    const isApiLinked = isParentChildCategory
+        ? isEpisodeLinked
+        : !!parsedMeta.externalSource;
+    const showReviewGate = hasSearchableApi && !isApiLinked && !readOnly && !gateDecided;
+
     const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
