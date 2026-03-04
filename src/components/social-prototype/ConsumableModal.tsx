@@ -24,8 +24,8 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
-    const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem));
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
+    const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
     const recipeUrl = parsedMeta.recipeUrl || '';
@@ -213,6 +213,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     };
 
     const config = getCategoryConfig(category);
+
+    // All API-coupled categories support a "Review without linking" gate.
+    // For parent/child the bar is episode-level; for single-entity any externalSource counts.
+    const hasSearchableApi = config.coupling === 'api';
+    const isApiLinked = isParentChildCategory
+        ? isEpisodeLinked
+        : !!parsedMeta.externalSource;
+    const showReviewGate = hasSearchableApi && !isApiLinked && !readOnly && !gateDecided;
+
     const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
@@ -333,24 +342,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {isParentChildCategory && !isEpisodeLinked && !readOnly && !gateDecided && (
-                                    <div className="mt-3 border border-neutral-200 bg-neutral-50 px-3 py-3">
-                                        <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
-                                            Link an episode to rate &amp; review, or continue without
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <button type="button" onClick={() => { setGateDecided(true); triggerSearch(); }}
-                                                className="flex-1 text-[10px] uppercase tracking-widest border border-neutral-400 px-3 py-2 text-neutral-700 hover:border-neutral-700 hover:text-neutral-900">
-                                                Link Episode
-                                            </button>
-                                            <button type="button" onClick={() => setGateDecided(true)}
-                                                className="flex-1 text-[10px] uppercase tracking-widest border border-neutral-300 px-3 py-2 text-neutral-400 hover:text-neutral-600">
-                                                Continue Without
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (!isParentChildCategory || isEpisodeLinked || gateDecided) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -756,7 +748,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && (!hasSearchableApi || isApiLinked || gateDecided || readOnly) && (
                         <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
@@ -884,6 +876,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                             </div>
                         </div>
+                    ) : showReviewGate ? (
+                        <button type="button" onClick={() => setGateDecided(true)}
+                            className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
+                            Review without linking
+                        </button>
                     ) : (
                         <div>
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">

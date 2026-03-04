@@ -9,6 +9,7 @@ export interface ConsumableModalProps {
     onSave?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => void;
     onDelete?: () => void;
     initialCategory?: Category;
+    initialTitle?: string;
     existingItem?: ConsumableItem;
     readOnly?: boolean;
     allUserItems?: ConsumableItem[];
@@ -104,7 +105,7 @@ export interface BrewerySearchResult {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-export function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem): ModalDraft {
+export function buildInitialDraft(initialCategory: Category, existingItem?: ConsumableItem, initialTitle?: string): ModalDraft {
     if (existingItem) {
         return {
             category: existingItem.category,
@@ -117,7 +118,7 @@ export function buildInitialDraft(initialCategory: Category, existingItem?: Cons
     }
     return {
         category: initialCategory,
-        title: '',
+        title: initialTitle || '',
         subtitle: '',
         rating: undefined,
         notes: '',
