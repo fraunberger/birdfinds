@@ -9,7 +9,7 @@
 -- PART 1: FIX DUPLICATE INDEXES (Supabase Linter: duplicate_index)
 -- Both social_statuses_user_date_key and social_statuses_user_date_unique cover (user_id, date)
 -- ==============================================================================================
-DROP INDEX IF EXISTS public.social_statuses_user_date_key;
+ALTER TABLE public.social_statuses DROP CONSTRAINT IF EXISTS social_statuses_user_date_key;
 
 
 -- ==============================================================================================
