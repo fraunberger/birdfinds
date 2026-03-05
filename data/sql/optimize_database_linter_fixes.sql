@@ -270,6 +270,9 @@ CREATE INDEX IF NOT EXISTS idx_follows_following_id ON follows(following_id);
 -- Accelerate Habit Logs lookup per day
 CREATE INDEX IF NOT EXISTS idx_habit_logs_user_date ON habit_logs(user_id, date);
 
+-- Accelerate item-reviews category filter (used by /api/social/item-reviews)
+CREATE INDEX IF NOT EXISTS idx_social_items_category ON social_items(category);
+
 -- ==============================================================================================
 -- PART 4: DATABASE SECURITY LINTS (Supabase Linter: function_search_path_mutable)
 -- Fix security definer functions lacking explicit search_paths

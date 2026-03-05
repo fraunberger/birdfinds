@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, getAuth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { isSocialAdmin } from "@/lib/social-prototype/admin-auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { parseItemMeta, getItemExternalIdentityKey } from "@/lib/social-prototype/item-meta";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -86,17 +87,6 @@ const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string
   }
 };
 
-const getAdminList = (envValue?: string) =>
-  (envValue || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
-  const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
-  const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
-  return adminClerkIds.includes(clerkUserId) || adminLinkedIds.includes(linkedUserId);
-};
 
 const extractErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;

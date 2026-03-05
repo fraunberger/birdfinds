@@ -257,10 +257,10 @@ async function socialWrite(action: string, payload: Record<string, unknown> = {}
                 body: JSON.stringify({ action, payload }),
             });
             const raw = await response.text();
-            let data: { error?: string; [key: string]: unknown } = {};
+            let data: { error?: string;[key: string]: unknown } = {};
             if (raw) {
                 try {
-                    data = JSON.parse(raw) as { error?: string; [key: string]: unknown };
+                    data = JSON.parse(raw) as { error?: string;[key: string]: unknown };
                 } catch {
                     data = { error: raw };
                 }
@@ -364,6 +364,8 @@ interface SocialState {
     activeStatus: Status | null;
     isLoaded: boolean;
     mutedUsers: string[];
+    feedHasMore: boolean;
+    feedCursor: string | null; // ISO timestamp of the oldest loaded feed status
 }
 
 class SocialStore {
@@ -373,7 +375,9 @@ class SocialStore {
         activeDate: getTodayDateString(),
         activeStatus: null,
         isLoaded: false,
-        mutedUsers: []
+        mutedUsers: [],
+        feedHasMore: false,
+        feedCursor: null,
     };
     private listeners = new Set<() => void>();
     private _pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -432,6 +436,8 @@ class SocialStore {
             activeStatus: null,
             isLoaded: false,
             mutedUsers: [],
+            feedHasMore: false,
+            feedCursor: null,
         };
         this.syncActiveStatus();
         this.emit();
@@ -471,152 +477,161 @@ class SocialStore {
         }
         this._lastFetchAt = now;
         this._fetchInFlight = (async () => {
-        try {
-            const me = await getLinkedMe();
-            const linkedUserId = me.linkedUserId;
-            const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+            try {
+                const me = await getLinkedMe();
+                const linkedUserId = me.linkedUserId;
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
 
-            const [journalResp, feedResp] = await Promise.all([
-                linkedUserId
-                    ? supabase
+                const [journalResp, feedResp] = await Promise.all([
+                    linkedUserId
+                        ? supabase
+                            .from('social_statuses')
+                            .select(statusSelect)
+                            .is('deleted_at', null)
+                            .eq('user_id', linkedUserId)
+                            .order('created_at', { ascending: false })
+                            .limit(JOURNAL_PAGE_SIZE)
+                        : Promise.resolve({ data: [], error: null }),
+                    supabase
                         .from('social_statuses')
                         .select(statusSelect)
                         .is('deleted_at', null)
-                        .eq('user_id', linkedUserId)
+                        .eq('published', true)
                         .order('created_at', { ascending: false })
-                        .limit(JOURNAL_PAGE_SIZE)
-                    : Promise.resolve({ data: [], error: null }),
-                supabase
-                    .from('social_statuses')
-                    .select(statusSelect)
-                    .is('deleted_at', null)
-                    .eq('published', true)
-                    .order('created_at', { ascending: false })
-            // Slight over-fetch so filtering still yields a full first page.
-                    .limit(FEED_FETCH_SIZE),
-            ]);
-            if (journalResp.error) throw journalResp.error;
-            if (feedResp.error) throw feedResp.error;
+                        // Slight over-fetch so filtering still yields a full first page.
+                        .limit(FEED_FETCH_SIZE),
+                ]);
+                if (journalResp.error) throw journalResp.error;
+                if (feedResp.error) throw feedResp.error;
 
-            const mergedStatusRows = new Map<string, StatusRow>();
-            ((journalResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
-            ((feedResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
-            const statusRows = Array.from(mergedStatusRows.values());
-            const statusIds = statusRows.map((s) => s.id);
+                const mergedStatusRows = new Map<string, StatusRow>();
+                ((journalResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
+                ((feedResp.data || []) as StatusRow[]).forEach((row) => mergedStatusRows.set(row.id, row));
+                const statusRows = Array.from(mergedStatusRows.values());
+                const statusIds = statusRows.map((s) => s.id);
 
-            // Scope items + comments to only fetched status IDs
-            let itemData: Record<string, unknown>[] = [];
-            let comments: CommentRow[] = [];
+                // Scope items + comments to only fetched status IDs
+                let itemData: Record<string, unknown>[] = [];
+                let comments: CommentRow[] = [];
 
-            if (statusIds.length > 0) {
-                const { data: items, error: itemError } = await supabase
-                    .from('social_items')
-                    .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
-                    .in('status_id', statusIds);
-                if (itemError) throw itemError;
-                itemData = items || [];
+                if (statusIds.length > 0) {
+                    const { data: items, error: itemError } = await supabase
+                        .from('social_items')
+                        .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
+                        .in('status_id', statusIds);
+                    if (itemError) throw itemError;
+                    itemData = items || [];
 
-                const { data: commentData, error: commentError } = await supabase
-                    .from('social_comments')
-                    .select('id,status_id,user_id,content,created_at,deleted_at')
-                    .is('deleted_at', null)
-                    .in('status_id', statusIds);
-                comments = commentError ? [] : ((commentData || []) as CommentRow[]);
+                    const { data: commentData, error: commentError } = await supabase
+                        .from('social_comments')
+                        .select('id,status_id,user_id,content,created_at,deleted_at')
+                        .is('deleted_at', null)
+                        .in('status_id', statusIds);
+                    comments = commentError ? [] : ((commentData || []) as CommentRow[]);
+                }
+
+                // Resolve comment author usernames
+                const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
+                let commentUsernames = new Map<string, string>();
+                if (commentUserIds.length > 0) {
+                    const { data: commentProfiles } = await supabase
+                        .from('user_profiles')
+                        .select('id,username')
+                        .in('id', commentUserIds);
+                    commentUsernames = new Map(
+                        (commentProfiles || []).map((profile) => [profile.id as string, profile.username as string])
+                    );
+                }
+
+                // Build Map-based lookups instead of nested .filter() (O(n+m) vs O(n×m))
+                const itemsByStatus = new Map<string, typeof itemData>();
+                for (const item of itemData) {
+                    const sid = item.status_id as string;
+                    const list = itemsByStatus.get(sid);
+                    if (list) list.push(item);
+                    else itemsByStatus.set(sid, [item]);
+                }
+
+                const commentsByStatus = new Map<string, CommentRow[]>();
+                for (const comment of comments) {
+                    const sid = comment.status_id;
+                    const list = commentsByStatus.get(sid);
+                    if (list) list.push(comment);
+                    else commentsByStatus.set(sid, [comment]);
+                }
+
+                const combined: Status[] = statusRows.map((s) => ({
+                    id: s.id,
+                    content: s.content,
+                    date: s.date,
+                    userId: s.user_id,
+                    published: s.published ?? false,
+                    createdAt: new Date(s.created_at).getTime(),
+                    items: (itemsByStatus.get(s.id) || [])
+                        .map(i => ({
+                            id: i.id as string,
+                            category: i.category as Category,
+                            title: i.title as string,
+                            subtitle: (i.subtitle as string | null) || undefined,
+                            rating: (i.rating as number | null) ?? undefined,
+                            notes: (i.notes as string | null) || undefined,
+                            image: (i.image as string | null) || undefined,
+                            createdAt: new Date(i.created_at as string).getTime(),
+                            consumedDates: Array.isArray(i.consumed_dates)
+                                ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
+                                : undefined,
+                        })),
+                    comments: (commentsByStatus.get(s.id) || [])
+                        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                        .map((comment) => ({
+                            id: comment.id,
+                            statusId: comment.status_id,
+                            userId: comment.user_id,
+                            username: commentUsernames.get(comment.user_id) || 'Unknown',
+                            content: comment.content,
+                            createdAt: new Date(comment.created_at).getTime(),
+                        })),
+                }));
+
+                // Filter for current user (Journal view). If link resolution fails, never fall back
+                // to global statuses here; that can leak another user's entry into composer.
+                const userStatuses = linkedUserId
+                    ? combined.filter(s => s.userId === linkedUserId).sort((a, b) => b.createdAt - a.createdAt)
+                    : [];
+
+                // Fetch Current User's Muted List
+                const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
+
+                // Filter out muted users from allStatuses (Feed)
+                const visibleStatuses = combined
+                    .filter(s => s.userId && !mutedUsers.includes(s.userId))
+                    .sort((a, b) => b.createdAt - a.createdAt);
+
+                // Determine pagination state: if we got a full page from the feed
+                // query, there are likely more statuses available.
+                const feedHasMore = (feedResp.data || []).length >= FEED_FETCH_SIZE;
+                const feedCursor = visibleStatuses.length > 0
+                    ? new Date(visibleStatuses[visibleStatuses.length - 1].createdAt).toISOString()
+                    : null;
+
+                this.state = {
+                    ...this.state,
+                    allStatuses: visibleStatuses,
+                    statuses: userStatuses,
+                    mutedUsers,
+                    isLoaded: true,
+                    feedHasMore,
+                    feedCursor,
+                };
+                this.syncActiveStatus();
+                this.emit();
+            } catch (error) {
+                console.error("Error fetching social data:", error);
+                this.state.isLoaded = true;
+                this.emit();
+            } finally {
+                this._fetchInFlight = null;
             }
-
-            // Resolve comment author usernames
-            const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
-            let commentUsernames = new Map<string, string>();
-            if (commentUserIds.length > 0) {
-                const { data: commentProfiles } = await supabase
-                    .from('user_profiles')
-                    .select('id,username')
-                    .in('id', commentUserIds);
-                commentUsernames = new Map(
-                    (commentProfiles || []).map((profile) => [profile.id as string, profile.username as string])
-                );
-            }
-
-            // Build Map-based lookups instead of nested .filter() (O(n+m) vs O(n×m))
-            const itemsByStatus = new Map<string, typeof itemData>();
-            for (const item of itemData) {
-                const sid = item.status_id as string;
-                const list = itemsByStatus.get(sid);
-                if (list) list.push(item);
-                else itemsByStatus.set(sid, [item]);
-            }
-
-            const commentsByStatus = new Map<string, CommentRow[]>();
-            for (const comment of comments) {
-                const sid = comment.status_id;
-                const list = commentsByStatus.get(sid);
-                if (list) list.push(comment);
-                else commentsByStatus.set(sid, [comment]);
-            }
-
-            const combined: Status[] = statusRows.map((s) => ({
-                id: s.id,
-                content: s.content,
-                date: s.date,
-                userId: s.user_id,
-                published: s.published ?? false,
-                createdAt: new Date(s.created_at).getTime(),
-                items: (itemsByStatus.get(s.id) || [])
-                    .map(i => ({
-                        id: i.id as string,
-                        category: i.category as Category,
-                        title: i.title as string,
-                        subtitle: (i.subtitle as string | null) || undefined,
-                        rating: (i.rating as number | null) ?? undefined,
-                        notes: (i.notes as string | null) || undefined,
-                        image: (i.image as string | null) || undefined,
-                        createdAt: new Date(i.created_at as string).getTime(),
-                        consumedDates: Array.isArray(i.consumed_dates)
-                            ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
-                            : undefined,
-                    })),
-                comments: (commentsByStatus.get(s.id) || [])
-                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                    .map((comment) => ({
-                        id: comment.id,
-                        statusId: comment.status_id,
-                        userId: comment.user_id,
-                        username: commentUsernames.get(comment.user_id) || 'Unknown',
-                        content: comment.content,
-                        createdAt: new Date(comment.created_at).getTime(),
-                    })),
-            }));
-
-            // Filter for current user (Journal view). If link resolution fails, never fall back
-            // to global statuses here; that can leak another user's entry into composer.
-            const userStatuses = linkedUserId
-                ? combined.filter(s => s.userId === linkedUserId).sort((a, b) => b.createdAt - a.createdAt)
-                : [];
-
-            // Fetch Current User's Muted List
-            const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-
-            // Filter out muted users from allStatuses (Feed)
-            const visibleStatuses = combined
-                .filter(s => s.userId && !mutedUsers.includes(s.userId))
-                .sort((a, b) => b.createdAt - a.createdAt);
-
-            this.state = {
-                ...this.state,
-                allStatuses: visibleStatuses,
-                statuses: userStatuses,
-                mutedUsers,
-                isLoaded: true
-            };
-            this.syncActiveStatus();
-            this.emit();
-        } catch (error) {
-            console.error("Error fetching social data:", error);
-            this.state.isLoaded = true;
-            this.emit();
-        } finally {
-            this._fetchInFlight = null;
-        }
         })();
         return this._fetchInFlight;
     }
@@ -641,6 +656,128 @@ class SocialStore {
                 void this.fetchStatuses();
             }
         }, SocialStore.POLL_INTERVAL_MS);
+    }
+
+    /**
+     * Loads the next page of feed statuses using cursor-based pagination.
+     * Appends to `allStatuses` and updates `feedHasMore` / `feedCursor`.
+     * No-op if there are no more pages or a fetch is already in-flight.
+     */
+    async loadMoreFeed(): Promise<void> {
+        const { feedCursor, feedHasMore } = this.state;
+        if (!feedHasMore || !feedCursor || this._fetchInFlight) return;
+
+        const me = await getLinkedMe();
+        const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+
+        const { data: nextPage, error } = await supabase
+            .from('social_statuses')
+            .select(statusSelect)
+            .is('deleted_at', null)
+            .eq('published', true)
+            .lt('created_at', feedCursor)           // cursor: only older than current oldest
+            .order('created_at', { ascending: false })
+            .limit(FEED_FETCH_SIZE);
+
+        if (error) { console.error('loadMoreFeed error:', error); return; }
+
+        const newRows = (nextPage || []) as StatusRow[];
+        if (newRows.length === 0) {
+            this.state = { ...this.state, feedHasMore: false };
+            this.emit();
+            return;
+        }
+
+        const statusIds = newRows.map(s => s.id);
+
+        const [{ data: items }, { data: commentData }] = await Promise.all([
+            supabase
+                .from('social_items')
+                .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
+                .in('status_id', statusIds),
+            supabase
+                .from('social_comments')
+                .select('id,status_id,user_id,content,created_at,deleted_at')
+                .is('deleted_at', null)
+                .in('status_id', statusIds),
+        ]);
+
+        const comments = (commentData || []) as CommentRow[];
+        const commentUserIds = Array.from(new Set(comments.map(c => c.user_id)));
+        let commentUsernames = new Map<string, string>();
+        if (commentUserIds.length > 0) {
+            const { data: profiles } = await supabase
+                .from('user_profiles')
+                .select('id,username')
+                .in('id', commentUserIds);
+            commentUsernames = new Map(
+                (profiles || []).map(p => [p.id as string, p.username as string])
+            );
+        }
+
+        const itemsByStatus = new Map<string, Record<string, unknown>[]>();
+        for (const item of (items || [])) {
+            const sid = (item as Record<string, unknown>).status_id as string;
+            const list = itemsByStatus.get(sid);
+            if (list) list.push(item as Record<string, unknown>);
+            else itemsByStatus.set(sid, [item as Record<string, unknown>]);
+        }
+
+        const commentsByStatus = new Map<string, CommentRow[]>();
+        for (const c of comments) {
+            const list = commentsByStatus.get(c.status_id);
+            if (list) list.push(c);
+            else commentsByStatus.set(c.status_id, [c]);
+        }
+
+        const newStatuses: Status[] = newRows
+            .filter(s => s.user_id && !mutedUsers.includes(s.user_id))
+            .map(s => ({
+                id: s.id,
+                content: s.content,
+                date: s.date,
+                userId: s.user_id,
+                published: s.published ?? false,
+                createdAt: new Date(s.created_at).getTime(),
+                items: (itemsByStatus.get(s.id) || []).map(i => ({
+                    id: i.id as string,
+                    category: i.category as Category,
+                    title: i.title as string,
+                    subtitle: (i.subtitle as string | null) || undefined,
+                    rating: (i.rating as number | null) ?? undefined,
+                    notes: (i.notes as string | null) || undefined,
+                    image: (i.image as string | null) || undefined,
+                    createdAt: new Date(i.created_at as string).getTime(),
+                    consumedDates: Array.isArray(i.consumed_dates)
+                        ? (i.consumed_dates as string[]).map(d => new Date(d).getTime())
+                        : undefined,
+                })),
+                comments: (commentsByStatus.get(s.id) || [])
+                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                    .map(c => ({
+                        id: c.id,
+                        statusId: c.status_id,
+                        userId: c.user_id,
+                        username: commentUsernames.get(c.user_id) || 'Unknown',
+                        content: c.content,
+                        createdAt: new Date(c.created_at).getTime(),
+                    })),
+            }));
+
+        const merged = [...this.state.allStatuses, ...newStatuses];
+        const newFeedHasMore = newRows.length >= FEED_FETCH_SIZE;
+        const newCursor = merged.length > 0
+            ? new Date(merged[merged.length - 1].createdAt).toISOString()
+            : feedCursor;
+
+        this.state = {
+            ...this.state,
+            allStatuses: merged,
+            feedHasMore: newFeedHasMore,
+            feedCursor: newCursor,
+        };
+        this.emit();
     }
 
     async ensureActiveStatus(): Promise<string> {

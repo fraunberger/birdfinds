@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { isSocialAdmin } from "@/lib/social-prototype/admin-auth";
 
 interface ReportRow {
   id: string;
@@ -34,17 +35,6 @@ interface UserRow {
   username: string;
 }
 
-const getAdminList = (envValue?: string) =>
-  (envValue || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
-  const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
-  const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
-  return adminClerkIds.includes(clerkUserId) || adminLinkedIds.includes(linkedUserId);
-};
 
 async function requireAdmin() {
   const { userId: clerkUserId } = await auth();
@@ -77,15 +67,15 @@ export async function GET() {
   const [{ data: statuses }, { data: comments }] = await Promise.all([
     statusIds.length
       ? supabaseAdmin
-          .from("social_statuses")
-          .select("id,content,user_id,created_at,deleted_at")
-          .in("id", statusIds)
+        .from("social_statuses")
+        .select("id,content,user_id,created_at,deleted_at")
+        .in("id", statusIds)
       : Promise.resolve({ data: [] as StatusRow[] }),
     commentIds.length
       ? supabaseAdmin
-          .from("social_comments")
-          .select("id,content,user_id,status_id,created_at,deleted_at")
-          .in("id", commentIds)
+        .from("social_comments")
+        .select("id,content,user_id,status_id,created_at,deleted_at")
+        .in("id", commentIds)
       : Promise.resolve({ data: [] as CommentRow[] }),
   ]);
 
@@ -118,12 +108,12 @@ export async function GET() {
         ...base,
         target: status
           ? {
-              content: status.content,
-              username: userMap.get(status.user_id)?.username || "unknown",
-              createdAt: status.created_at,
-              isHidden: Boolean(status.deleted_at),
-              statusId: status.id,
-            }
+            content: status.content,
+            username: userMap.get(status.user_id)?.username || "unknown",
+            createdAt: status.created_at,
+            isHidden: Boolean(status.deleted_at),
+            statusId: status.id,
+          }
           : null,
       };
     }
@@ -133,13 +123,13 @@ export async function GET() {
       ...base,
       target: comment
         ? {
-            content: comment.content,
-            username: userMap.get(comment.user_id)?.username || "unknown",
-            createdAt: comment.created_at,
-            isHidden: Boolean(comment.deleted_at),
-            commentId: comment.id,
-            statusId: comment.status_id,
-          }
+          content: comment.content,
+          username: userMap.get(comment.user_id)?.username || "unknown",
+          createdAt: comment.created_at,
+          isHidden: Boolean(comment.deleted_at),
+          commentId: comment.id,
+          statusId: comment.status_id,
+        }
         : null,
     };
   });

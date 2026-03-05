@@ -2,12 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
-
-const getAdminList = (envValue?: string) =>
-  (envValue || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+import { getAdminList, isSocialAdmin } from "@/lib/social-prototype/admin-auth";
 
 const SOCIAL_AUTH_DEBUG = process.env.SOCIAL_AUTH_DEBUG === "1";
 const logMeDebug = (requestId: string, message: string, meta?: Record<string, unknown>) => {
@@ -54,9 +49,7 @@ export async function GET() {
       .is("deleted_at", null)
       .limit(1);
 
-    const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
-    const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
-    const isAdmin = adminClerkIds.includes(userId) || adminLinkedIds.includes(linkedUserId);
+    const isAdmin = isSocialAdmin(userId, linkedUserId);
     logMeDebug(requestId, "resolved linked user", {
       clerkUserId: userId,
       linkedUserId,
