@@ -32,14 +32,32 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {/* Legacy cleanup: remove stale bird_election_* keys from localStorage */}
+        {/* Legacy cleanup: remove stale local storage keys from removed features and auth migrations */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                   const key = localStorage.key(i);
-                  if (key && key.startsWith('bird_election_')) {
+                  if (!key) continue;
+                  
+                  // Remove legacy election app keys
+                  if (key.startsWith('bird_election_')) {
+                    localStorage.removeItem(key);
+                  }
+                  // Remove legacy v1 composer drafts
+                  else if (key.startsWith('birdfinds:composer:drafts:v1')) {
+                    localStorage.removeItem(key);
+                  }
+                  // Remove empty v2 composer drafts (left over from account switches / logouts)
+                  else if (key.startsWith('birdfinds:composer:drafts:v2:')) {
+                    const val = localStorage.getItem(key);
+                    if (val === '{}' || val === '[]' || val === '""') {
+                      localStorage.removeItem(key);
+                    }
+                  }
+                  // Remove legacy Supabase UUID comment notifications (they don't start with the Clerk 'user_' prefix)
+                  else if (key.startsWith('birdfinds:comment-notifs:seen:') && !key.startsWith('birdfinds:comment-notifs:seen:user_')) {
                     localStorage.removeItem(key);
                   }
                 }
