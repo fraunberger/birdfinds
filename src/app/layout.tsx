@@ -32,6 +32,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
+        {/* Legacy cleanup: remove stale bird_election_* keys from localStorage */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith('bird_election_')) {
+                    localStorage.removeItem(key);
+                  }
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
         {clerkEnabled ? (
           <ClerkProvider>
             <ToastHost />
