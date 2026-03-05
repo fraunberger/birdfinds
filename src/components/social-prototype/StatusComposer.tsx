@@ -52,6 +52,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const toolbarCategoryConfigs = activeCategoryConfigs.some((cat) => cat.id === 'link')
         ? activeCategoryConfigs
         : [...activeCategoryConfigs, getCategoryConfig('link')];
+    // The v2 prefix isolates drafts from legacy structures. The user.id used here is
+    // provided by Clerk (prefixed 'user_...') not the Supabase database. Its sole purpose 
+    // is to prevent drafts from leaking across accounts if multiple users share the same browser.
     const draftsStorageKey = `birdfinds:composer:drafts:v2:${user?.id || 'anon'}`;
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';

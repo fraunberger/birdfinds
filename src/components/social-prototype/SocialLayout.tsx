@@ -58,12 +58,15 @@ export function SocialLayout() {
       setOnboardingDismissed(false);
       return;
     }
+    // The user.id here is the Clerk user session ID, not the database primary key.
+    // We isolate this key per-user to support shared device scenarios.
     const dismissedKey = `birdfinds:onboarding-dismissed:${user.id}`;
     setOnboardingDismissed(window.localStorage.getItem(dismissedKey) === "1");
   }, [user?.id, needsOnboarding]);
 
   const handleDismissOnboardingChecklist = React.useCallback(() => {
     if (!user?.id || typeof window === "undefined") return;
+    // user.id is the Clerk user session ID, not the database primary key.
     const dismissedKey = `birdfinds:onboarding-dismissed:${user.id}`;
     window.localStorage.setItem(dismissedKey, "1");
     setOnboardingDismissed(true);
@@ -160,7 +163,7 @@ export function SocialLayout() {
     }
 
     let cancelled = false;
-    const storageKey = `birdfinds:comment-notifs:seen:${profile.id}`;
+    const storageKey = `birdfinds:comment-notifs:seen:${user.id}`;
     const readSeen = () => {
       if (typeof window === "undefined") return new Set<string>();
       try {
