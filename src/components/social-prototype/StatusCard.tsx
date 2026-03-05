@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from "next/link";
+import { Bookmark } from 'lucide-react';
 import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
@@ -320,7 +321,10 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 title={savedItemIds.has(item.id) ? 'Remove from Want to Check Out' : 'Save to Want to Check Out'}
                                                 aria-label={savedItemIds.has(item.id) ? 'Unsave item' : 'Save item'}
                                             >
-                                                {savedItemIds.has(item.id) ? '★' : '☆'}
+                                                <Bookmark
+                                                    size={10}
+                                                    className={savedItemIds.has(item.id) ? 'fill-current' : ''}
+                                                />
                                             </button>
                                         )}
                                     </div>
