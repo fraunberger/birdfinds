@@ -1334,6 +1334,9 @@ export function useUserProfile() {
             visibility,
             categoryConfigs,
         });
+        // Bust the linked-me cache so the next getLinkedMe() call re-fetches
+        // fresh profile data (updated username, avatar, categories, etc.)
+        linkedMeCache = null;
         await fetchProfile();
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));

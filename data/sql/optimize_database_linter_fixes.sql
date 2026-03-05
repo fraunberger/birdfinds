@@ -273,6 +273,9 @@ CREATE INDEX IF NOT EXISTS idx_habit_logs_user_date ON habit_logs(user_id, date)
 -- Accelerate item-reviews category filter (used by /api/social/item-reviews)
 CREATE INDEX IF NOT EXISTS idx_social_items_category ON social_items(category);
 
+-- Accelerate SSOT item deduplication check (category + status_id lookup in social.item.add)
+CREATE INDEX IF NOT EXISTS idx_social_items_category_status ON social_items(category, status_id);
+
 -- ==============================================================================================
 -- PART 4: DATABASE SECURITY LINTS (Supabase Linter: function_search_path_mutable)
 -- Fix security definer functions lacking explicit search_paths
