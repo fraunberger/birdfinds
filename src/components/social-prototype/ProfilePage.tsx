@@ -8,6 +8,7 @@ import {
     useUserProfile,
     useSocialStore,
     useFollows,
+    useSavedItems,
     getCategoryConfig,
     Category,
     ConsumableItem,
@@ -32,7 +33,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -40,7 +41,14 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const [statusSort, setStatusSort] = useState<'recent' | 'top'>('recent');
     const [statusCategoryFilter, setStatusCategoryFilter] = useState<'all' | Category>('all');
 
+    const { savedItems: fetchedSavedItems, loading: savedItemsLoading } = useSavedItems(userId);
+    const [wantsCategoryFilter, setWantsCategoryFilter] = useState<'all' | Category>('all');
+    const [showWants, setShowWants] = useState(false);
+
     const isOwnProfile = myProfile?.id === userId;
+    // On own profile, use the store's live savedItems (kept in sync by toggleSaveItem);
+    // on other profiles, use what was fetched by useSavedItems.
+    const savedItems = isOwnProfile ? storeSavedItems : fetchedSavedItems;
     const userStatuses = getUserStatuses(userId);
     const sortedFilteredStatuses = useMemo(() => {
         const visibleStatuses = userStatuses.filter((status) => status.date !== PILE_CATEGORY_STATUS_DATE);
@@ -283,6 +291,103 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 await addItemToPileCategory(item);
                             }}
                         />
+                    )}
+
+                    {/* Want to Check Out Section */}
+                    {!openCategory && (
+                        <div className="mb-6">
+                            <button
+                                onClick={() => setShowWants(prev => !prev)}
+                                className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
+                                    ? 'bg-neutral-800 text-white border-neutral-800'
+                                    : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
+                                    }`}
+                                style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
+                            >
+                                <span>Want to Check Out</span>
+                                <span className={showWants ? 'text-neutral-400' : 'text-neutral-400'}>
+                                    {savedItemsLoading ? '…' : savedItems.length}
+                                </span>
+                            </button>
+
+                            {showWants && (
+                                <div className="border border-t-0 border-neutral-200 p-3">
+                                    {/* Category filter */}
+                                    {savedItems.length > 0 && (
+                                        <div className="mb-3">
+                                            <select
+                                                value={wantsCategoryFilter}
+                                                onChange={e => setWantsCategoryFilter(e.target.value as Category | 'all')}
+                                                className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                            >
+                                                <option value="all">All Categories</option>
+                                                {Array.from(new Set(savedItems.map(s => s.category))).map(cat => (
+                                                    <option key={cat} value={cat}>
+                                                        {getCategoryConfig(cat).label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {savedItemsLoading ? (
+                                        <div className="text-[10px] text-neutral-400 uppercase tracking-widest py-2">Loading…</div>
+                                    ) : savedItems.length === 0 ? (
+                                        <div className="text-center py-6 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
+                                            {isOwnProfile
+                                                ? 'Star items from others\' posts to save them here.'
+                                                : 'No saved items yet.'}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {savedItems
+                                                .filter(s => wantsCategoryFilter === 'all' || s.category === wantsCategoryFilter)
+                                                .map(saved => {
+                                                    const config = getCategoryConfig(saved.category);
+                                                    return (
+                                                        <div
+                                                            key={saved.id}
+                                                            className="flex items-center gap-2 px-2 py-1.5 border border-neutral-100 hover:border-neutral-300 transition-colors"
+                                                            style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}
+                                                        >
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="text-[11px] font-medium text-neutral-800 truncate">{saved.title}</div>
+                                                                {saved.subtitle && (
+                                                                    <div className="text-[10px] text-neutral-500 truncate">{saved.subtitle}</div>
+                                                                )}
+                                                                <div className="text-[9px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
+                                                            </div>
+                                                            {isOwnProfile && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await toggleSaveItem(
+                                                                                { id: saved.itemId, category: saved.category, title: saved.title, subtitle: saved.subtitle, image: saved.image, notes: saved.notes, createdAt: saved.createdAt },
+                                                                                saved.sourceUserId
+                                                                            );
+                                                                        } catch { /* ignore */ }
+                                                                    }}
+                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-1"
+                                                                    title="Remove from Want to Check Out"
+                                                                    aria-label="Remove saved item"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            {savedItems.filter(s => wantsCategoryFilter === 'all' || s.category === wantsCategoryFilter).length === 0 && (
+                                                <div className="text-center py-4 text-neutral-400 text-xs uppercase tracking-widest">
+                                                    No saved items in this category.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* Status Feed (hidden when category sheet is open) */}
