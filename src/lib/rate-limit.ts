@@ -1,9 +1,11 @@
 /**
  * Lightweight in-memory sliding-window rate limiter.
  *
- * Works per-process, so on serverless (Vercel) it limits bursts within a
- * single isolate.  For stronger guarantees swap to Redis using the existing
- * redis dependency.
+ * ⚠️  SERVERLESS LIMITATION: This limiter works per-process. On Vercel
+ * (or any serverless platform) each request may run in a different isolate,
+ * so this only prevents bursts within a single warm instance — it is NOT a
+ * true global rate limit. For stronger guarantees, replace with Redis-backed
+ * rate limiting (e.g. @upstash/ratelimit).
  */
 
 interface RateLimitEntry {
