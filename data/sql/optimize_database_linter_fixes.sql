@@ -25,12 +25,14 @@ ALTER TABLE public.social_statuses DROP CONSTRAINT IF EXISTS social_statuses_use
 -------------------------------------------------------------------------------------------------
 -- Table: user_profiles
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view profiles" ON user_profiles;
 DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON user_profiles;
 DROP POLICY IF EXISTS "Users can insert own profile" ON user_profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON user_profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON user_profiles;
 
 -- Create optimized policies
 CREATE POLICY "Public profiles are viewable by everyone" 
@@ -45,11 +47,15 @@ CREATE POLICY "Users can update their own profile"
 -------------------------------------------------------------------------------------------------
 -- Table: user_habits
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view habits" ON user_habits;
 DROP POLICY IF EXISTS "Users can insert own habits" ON user_habits;
 DROP POLICY IF EXISTS "Users can update own habits" ON user_habits;
 DROP POLICY IF EXISTS "Users can delete own habits" ON user_habits;
+DROP POLICY IF EXISTS "Public habits are viewable by everyone" ON user_habits;
+DROP POLICY IF EXISTS "Users can insert their own habits" ON user_habits;
+DROP POLICY IF EXISTS "Users can update their own habits" ON user_habits;
+DROP POLICY IF EXISTS "Users can delete their own habits" ON user_habits;
 
 -- Create optimized policies
 CREATE POLICY "Public habits are viewable by everyone" 
@@ -67,12 +73,16 @@ CREATE POLICY "Users can delete their own habits"
 -------------------------------------------------------------------------------------------------
 -- Table: habit_logs
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view habit logs" ON habit_logs;
 DROP POLICY IF EXISTS "Users can insert own habit logs" ON habit_logs;
 DROP POLICY IF EXISTS "Users can update own habit logs" ON habit_logs;
 DROP POLICY IF EXISTS "Users can delete own habit logs" ON habit_logs;
 DROP POLICY IF EXISTS "Users can manage their own habit logs" ON habit_logs;
+DROP POLICY IF EXISTS "Public habit logs are viewable by everyone" ON habit_logs;
+DROP POLICY IF EXISTS "Users can insert their own habit logs" ON habit_logs;
+DROP POLICY IF EXISTS "Users can update their own habit logs" ON habit_logs;
+DROP POLICY IF EXISTS "Users can delete their own habit logs" ON habit_logs;
 
 -- Create optimized policies
 CREATE POLICY "Public habit logs are viewable by everyone" 
@@ -90,10 +100,13 @@ CREATE POLICY "Users can delete their own habit logs"
 -------------------------------------------------------------------------------------------------
 -- Table: follows
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view follows" ON follows;
 DROP POLICY IF EXISTS "Users can follow others" ON follows;
 DROP POLICY IF EXISTS "Users can unfollow" ON follows;
+DROP POLICY IF EXISTS "Public follows are viewable by everyone" ON follows;
+DROP POLICY IF EXISTS "Users can insert their own follows" ON follows;
+DROP POLICY IF EXISTS "Users can delete their own follows" ON follows;
 
 -- Create optimized policies
 CREATE POLICY "Public follows are viewable by everyone" 
@@ -108,7 +121,7 @@ CREATE POLICY "Users can delete their own follows"
 -------------------------------------------------------------------------------------------------
 -- Table: social_statuses
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view statuses" ON social_statuses;
 DROP POLICY IF EXISTS "Statuses are viewable by everyone" ON social_statuses;
 DROP POLICY IF EXISTS "select_statuses" ON social_statuses;
@@ -124,6 +137,10 @@ DROP POLICY IF EXISTS "update_statuses" ON social_statuses;
 
 DROP POLICY IF EXISTS "Users can delete own statuses" ON social_statuses;
 DROP POLICY IF EXISTS "delete_statuses" ON social_statuses;
+
+DROP POLICY IF EXISTS "Public statuses are viewable by everyone" ON social_statuses;
+DROP POLICY IF EXISTS "Users can update their own statuses" ON social_statuses;
+DROP POLICY IF EXISTS "Users can delete their own statuses" ON social_statuses;
 
 -- Create optimized policies
 CREATE POLICY "Public statuses are viewable by everyone" 
@@ -141,7 +158,7 @@ CREATE POLICY "Users can delete their own statuses"
 -------------------------------------------------------------------------------------------------
 -- Table: social_items
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Anyone can view items" ON social_items;
 DROP POLICY IF EXISTS "Items are viewable by everyone" ON social_items;
 DROP POLICY IF EXISTS "select_items" ON social_items;
@@ -159,6 +176,11 @@ DROP POLICY IF EXISTS "social_items_update" ON social_items;
 DROP POLICY IF EXISTS "Users can delete own items" ON social_items;
 DROP POLICY IF EXISTS "delete_items" ON social_items;
 DROP POLICY IF EXISTS "social_items_delete" ON social_items;
+
+DROP POLICY IF EXISTS "Public items are viewable by everyone" ON social_items;
+DROP POLICY IF EXISTS "Users can insert their own items" ON social_items;
+DROP POLICY IF EXISTS "Users can update their own items" ON social_items;
+DROP POLICY IF EXISTS "Users can delete their own items" ON social_items;
 
 -- Create optimized policies
 CREATE POLICY "Public items are viewable by everyone" 
@@ -195,8 +217,9 @@ CREATE POLICY "Users can delete their own items"
 -------------------------------------------------------------------------------------------------
 -- Table: social_reports
 -------------------------------------------------------------------------------------------------
--- Drop old policies
+-- Drop old AND potentially partially-created new policies
 DROP POLICY IF EXISTS "Users can file reports" ON social_reports;
+DROP POLICY IF EXISTS "Users can insert their own reports" ON social_reports;
 
 -- Create optimized policies (Assuming reports table has a user_id or reporter_id column. 
 -- Assuming standard authenticated insert logic based on the generic linter warning.)
@@ -210,6 +233,10 @@ CREATE POLICY "Users can insert their own reports"
 -- Let's purge and implement standard public elections.
 DROP POLICY IF EXISTS "Allow all" ON elections;
 DROP POLICY IF EXISTS "Allow anon access" ON elections;
+DROP POLICY IF EXISTS "Elections are publicly readable" ON elections;
+DROP POLICY IF EXISTS "Authenticated users can create elections" ON elections;
+DROP POLICY IF EXISTS "Authenticated users can update elections" ON elections;
+DROP POLICY IF EXISTS "Authenticated users can delete elections" ON elections;
 
 CREATE POLICY "Elections are publicly readable" 
   ON elections FOR SELECT USING (true);
