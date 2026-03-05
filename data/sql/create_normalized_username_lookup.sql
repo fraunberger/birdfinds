@@ -3,8 +3,11 @@
 -- Normalizes by lowercasing and stripping non-alphanumeric characters,
 -- then matches against the provided candidate array.
 create or replace function public.find_profile_by_normalized_username(candidates text[])
-returns table(id uuid, username text)
-language sql stable
+returns table (
+  id uuid,
+  username text
+) 
+language sql security definer set search_path = public
 as $$
   select up.id, up.username
   from public.user_profiles up

@@ -242,3 +242,14 @@ CREATE INDEX IF NOT EXISTS idx_follows_following_id ON follows(following_id);
 
 -- Accelerate Habit Logs lookup per day
 CREATE INDEX IF NOT EXISTS idx_habit_logs_user_date ON habit_logs(user_id, date);
+
+-- ==============================================================================================
+-- PART 4: DATABASE SECURITY LINTS (Supabase Linter: function_search_path_mutable)
+-- Fix security definer functions lacking explicit search_paths
+-- ==============================================================================================
+
+-- 1. Fix find_auth_user_by_email
+ALTER FUNCTION public.find_auth_user_by_email(text) SET search_path = public;
+
+-- 2. Fix find_profile_by_normalized_username
+ALTER FUNCTION public.find_profile_by_normalized_username(text[]) SET search_path = public;
