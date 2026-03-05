@@ -52,19 +52,38 @@ export async function DELETE() {
     if (supabaseUserId) {
       await deleteAvatarObjects(supabaseUserId);
 
-      await supabaseAdmin.from("follows").delete().eq("follower_id", supabaseUserId);
-      await supabaseAdmin.from("follows").delete().eq("following_id", supabaseUserId);
-
-      await supabaseAdmin.from("habit_logs").delete().eq("user_id", supabaseUserId);
-      await supabaseAdmin.from("user_habits").delete().eq("user_id", supabaseUserId);
-
-      await supabaseAdmin.from("social_reports").delete().eq("reporter_id", supabaseUserId);
-      await supabaseAdmin.from("social_comments").delete().eq("user_id", supabaseUserId);
-      await supabaseAdmin.from("social_statuses").delete().eq("user_id", supabaseUserId);
-
+      // 1. Clear soft-delete attribution on OTHER users' content first
+      //    (must happen before we delete our own rows)
       await supabaseAdmin.from("social_statuses").update({ deleted_by: null }).eq("deleted_by", supabaseUserId);
       await supabaseAdmin.from("social_comments").update({ deleted_by: null }).eq("deleted_by", supabaseUserId);
 
+      // 2. Delete follows (no FK dependencies)
+      await supabaseAdmin.from("follows").delete().eq("follower_id", supabaseUserId);
+      await supabaseAdmin.from("follows").delete().eq("following_id", supabaseUserId);
+
+      // 3. Delete habits
+      await supabaseAdmin.from("habit_logs").delete().eq("user_id", supabaseUserId);
+      await supabaseAdmin.from("user_habits").delete().eq("user_id", supabaseUserId);
+
+      // 4. Delete reports filed by user
+      await supabaseAdmin.from("social_reports").delete().eq("reporter_id", supabaseUserId);
+
+      // 5. Delete comments by user
+      await supabaseAdmin.from("social_comments").delete().eq("user_id", supabaseUserId);
+
+      // 6. Collect user's status IDs, then delete items BEFORE statuses (FK order)
+      const { data: userStatuses } = await supabaseAdmin
+        .from("social_statuses")
+        .select("id")
+        .eq("user_id", supabaseUserId);
+      const statusIds = (userStatuses || []).map((s: { id: string }) => s.id);
+
+      if (statusIds.length > 0) {
+        await supabaseAdmin.from("social_items").delete().in("status_id", statusIds);
+      }
+      await supabaseAdmin.from("social_statuses").delete().eq("user_id", supabaseUserId);
+
+      // 7. Delete profile and auth link
       await supabaseAdmin.from("user_profiles").delete().eq("id", supabaseUserId);
       await supabaseAdmin.from("clerk_user_links").delete().eq("clerk_user_id", clerkUserId);
 

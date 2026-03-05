@@ -53,9 +53,15 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const contentType = typeof body?.contentType === "string" ? body.contentType.trim().toLowerCase() : "";
-    if (!contentType.startsWith("image/") || !mimeExtMap[contentType]) {
-      return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 });
+    const rawContentType = typeof body?.contentType === "string" ? body.contentType.trim().toLowerCase() : "";
+    // Double-check against the explicit allowlist (not just startsWith("image/"))
+    // so clients cannot bypass by sending e.g. "image/svg+xml;base64,..."
+    const contentType = rawContentType.split(";")[0].trim(); // strip any params
+    if (!contentType || !mimeExtMap[contentType]) {
+      return NextResponse.json(
+        { error: `Unsupported image type. Allowed: ${Object.keys(mimeExtMap).join(", ")}` },
+        { status: 400 }
+      );
     }
 
     const ownerId = await resolveAvatarOwnerId();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, getAuth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
+import { isSocialAdmin } from "@/lib/social-prototype/admin-auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { parseItemMeta, getItemExternalIdentityKey } from "@/lib/social-prototype/item-meta";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -86,17 +87,6 @@ const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string
   }
 };
 
-const getAdminList = (envValue?: string) =>
-  (envValue || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-const isSocialAdmin = (clerkUserId: string, linkedUserId: string) => {
-  const adminClerkIds = getAdminList(process.env.SOCIAL_ADMIN_CLERK_IDS);
-  const adminLinkedIds = getAdminList(process.env.SOCIAL_ADMIN_LINKED_IDS);
-  return adminClerkIds.includes(clerkUserId) || adminLinkedIds.includes(linkedUserId);
-};
 
 const extractErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -115,9 +105,9 @@ const extractErrorMessage = (error: unknown) => {
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Body size guard ───────────────────────────────────────────
-    const contentLength = Number(req.headers.get("content-length") || "0");
-    if (contentLength > MAX_BODY_BYTES) {
+    // ── Body size guard (reads actual bytes, not spoofable header) ─
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_BODY_BYTES) {
       return NextResponse.json(
         { error: `Request body too large (max ${MAX_BODY_BYTES / 1024} KB)` },
         { status: 413 },
@@ -131,7 +121,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ── Rate limit ────────────────────────────────────────────────
+    // ── Rate limit (in-memory per-isolate; limits bursts within a
+    //    single serverless instance — not a global rate limit) ─────
     const rl = rateLimit(`write:${clerkUserId}`, WRITE_RATE_LIMIT, WRITE_RATE_WINDOW_MS);
     if (!rl.success) {
       return NextResponse.json(
@@ -145,7 +136,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No linked user" }, { status: 400 });
     }
 
-    const body = (await req.json()) as WriteBody;
+    let body: WriteBody;
+    try {
+      body = JSON.parse(rawBody) as WriteBody;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
     const action = body.action;
     const payload = body.payload || {};
     const admin = isSocialAdmin(clerkUserId, linkedUserId);
@@ -195,6 +191,8 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.delete") {
       const statusId = String(payload.statusId || "");
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      // Delete children before parent to respect FK constraints
+      await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
       await supabaseAdmin.from("social_items").delete().eq("status_id", statusId);
       const { error } = await supabaseAdmin.from("social_statuses").delete().eq("id", statusId);
       if (error) throw error;
@@ -220,10 +218,10 @@ export async function POST(req: NextRequest) {
 
         const { data: existingItems } = userStatusIds.length > 0
           ? await supabaseAdmin
-              .from("social_items")
-              .select("id, image, consumed_dates")
-              .eq("category", category)
-              .in("status_id", userStatusIds)
+            .from("social_items")
+            .select("id, image, consumed_dates")
+            .eq("category", category)
+            .in("status_id", userStatusIds)
           : { data: [] };
 
         const ssot = (existingItems || []).find(
@@ -462,6 +460,10 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.follow.toggle") {
       const targetUserId = String(payload.targetUserId || "");
+      if (!targetUserId) return NextResponse.json({ error: "Missing targetUserId" }, { status: 400 });
+      if (targetUserId === linkedUserId) {
+        return NextResponse.json({ error: "Cannot follow yourself" }, { status: 400 });
+      }
       const { data: existing } = await supabaseAdmin
         .from("follows")
         .select("id")
