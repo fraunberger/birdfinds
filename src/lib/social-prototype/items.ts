@@ -64,8 +64,26 @@ export const getCanonicalItemSlug = (
   return buildItemSlug(title, subtitle);
 };
 
+/**
+ * Slug used for the item aggregate page URL.
+ * For parent-child categories (tv, podcast) this is always the parent/show level
+ * so that all episodes share one page. Deduplication keys (getCanonicalItemSlug)
+ * remain episode-level — only the public URL is coarser.
+ */
+export const getItemPageSlug = (
+  category: Category,
+  title: string,
+  subtitle?: string
+): string => {
+  if (category === "tv") {
+    // Show-level page: slug is the show name (title) only
+    return normalizePart(title) || "item";
+  }
+  return getCanonicalItemSlug(category, title, subtitle);
+};
+
 export const buildItemPath = (item: Pick<ConsumableItem, "category" | "title" | "subtitle">) => {
-  return `/item/${encodeURIComponent(item.category)}/${encodeURIComponent(getCanonicalItemSlug(item.category, item.title, item.subtitle))}`;
+  return `/item/${encodeURIComponent(item.category)}/${encodeURIComponent(getItemPageSlug(item.category, item.title, item.subtitle))}`;
 };
 
 export const matchesItemRoute = (
@@ -74,9 +92,10 @@ export const matchesItemRoute = (
   item: Pick<ConsumableItem, "category" | "title" | "subtitle">
 ) => {
   if (item.category !== category) return false;
+  const pageSlug = getItemPageSlug(item.category, item.title, item.subtitle);
   const canonical = getCanonicalItemSlug(item.category, item.title, item.subtitle);
   const legacy = buildItemSlug(item.title, item.subtitle);
-  return canonical === slug || legacy === slug;
+  return pageSlug === slug || canonical === slug || legacy === slug;
 };
 
 export const hasItemAggregatePage = (category: Category) => {
