@@ -24,7 +24,7 @@ interface AggregatedItem {
 }
 
 const isEpisodeCategory = (category: Category) => category === 'tv' || category === 'podcast';
-const isExerciseCategory = (category: Category) => category === 'exercise';
+const isExerciseCategory = (category: Category) => category === 'exercise' || category === 'bird';
 
 const getEpisodeSeriesLabel = (category: Category, item: ConsumableItem) => {
     if (category === 'tv') return item.title.trim();
@@ -42,7 +42,7 @@ const normalizePart = (value?: string) =>
         .trim();
 
 const getAggregateKey = (category: Category, item: ConsumableItem) => {
-    if (category === 'exercise') return item.id; // each session is a unique personal log
+    if (category === 'exercise' || category === 'bird') return item.id; // each sighting/session is a unique personal log
     if (category === 'restaurant') {
         const meta = parseItemMeta(item.image);
         const location = normalizePart(meta.restaurantLocation);
@@ -212,7 +212,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         onChange={(e) => setExerciseNameFilter(e.target.value)}
                         className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
                     >
-                        <option value="all">All Exercises</option>
+                        <option value="all">{category === 'bird' ? 'All Species' : 'All Exercises'}</option>
                         {exerciseNameOptions.map(name => (
                             <option key={name} value={name}>{name}</option>
                         ))}

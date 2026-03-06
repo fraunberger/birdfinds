@@ -129,8 +129,8 @@ export function buildInitialDraft(initialCategory: Category, existingItem?: Cons
     // Exercise: auto-inject a unique session ID so each log creates a distinct item
     // that can have its own effort rating and notes, while grouping under the same
     // exercise name on the item page.
-    const image = initialCategory === 'exercise'
-        ? serializeItemMeta({ externalSource: 'exercise-session', externalId: new Date().toISOString() })
+    const image = initialCategory === 'exercise' || initialCategory === 'bird'
+        ? serializeItemMeta({ externalSource: `${initialCategory}-sighting`, externalId: new Date().toISOString() })
         : undefined;
     return {
         category: initialCategory,

@@ -400,8 +400,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     </div>
                                 )}
                                 {/* Exercise quick-pick — recent chips + full dropdown */}
-                                {category === 'exercise' && !readOnly && (() => {
-                                    const exerciseItems = getAllItemsByCategory('exercise').filter(i => i.title.trim());
+                                {(category === 'exercise' || category === 'bird') && !readOnly && (() => {
+                                    const exerciseItems = getAllItemsByCategory(category).filter(i => i.title.trim());
                                     if (exerciseItems.length === 0) return null;
                                     // Top 3 most recently used (unique names, ordered by most recent log)
                                     const recent: string[] = [];

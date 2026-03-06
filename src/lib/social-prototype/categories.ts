@@ -174,7 +174,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         id: 'bird',
         label: 'Bird', shortLabel: 'BIRD',
         verb: 'spotted',
-        ssotPattern: 'single', coupling: 'api',
+        ssotPattern: 'none', coupling: 'none',
         hasRating: false, ratingScope: null,
         childLabel: null, extras: ['notes'],
         titleLabel: 'Species', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
