@@ -44,6 +44,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { savedItems: fetchedSavedItems, loading: savedItemsLoading } = useSavedItems(userId);
     const [wantsCategoryFilter, setWantsCategoryFilter] = useState<'all' | Category>('all');
     const [showWants, setShowWants] = useState(false);
+    const [selectedSavedItem, setSelectedSavedItem] = useState<{ item: ConsumableItem; sourceUserId: string } | null>(null);
 
     const isOwnProfile = myProfile?.id === userId;
     // On own profile, use the store's live savedItems (kept in sync by toggleSaveItem);
@@ -347,16 +348,35 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                     return (
                                                         <div
                                                             key={saved.id}
-                                                            className="flex items-center gap-2 px-2 py-1.5 border border-neutral-100 hover:border-neutral-300 transition-colors"
+                                                            className="flex items-center gap-2 border border-neutral-100 hover:border-neutral-300 transition-colors"
                                                             style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}
                                                         >
-                                                            <div className="flex-1 min-w-0">
+                                                            <button
+                                                                type="button"
+                                                                className="flex-1 min-w-0 text-left px-2 py-1.5"
+                                                                onClick={() => {
+                                                                    const liveItem = getUserStatuses(saved.sourceUserId)
+                                                                        .flatMap(s => s.items)
+                                                                        .find(i => i.id === saved.itemId);
+                                                                    const item: ConsumableItem = liveItem ?? {
+                                                                        id: saved.itemId,
+                                                                        category: saved.category,
+                                                                        title: saved.title,
+                                                                        subtitle: saved.subtitle,
+                                                                        image: saved.image,
+                                                                        notes: saved.notes,
+                                                                        rating: saved.rating,
+                                                                        createdAt: saved.createdAt,
+                                                                    };
+                                                                    setSelectedSavedItem({ item, sourceUserId: saved.sourceUserId });
+                                                                }}
+                                                            >
                                                                 <div className="text-[11px] font-medium text-neutral-800 truncate">{saved.title}</div>
                                                                 {saved.subtitle && (
                                                                     <div className="text-[10px] text-neutral-500 truncate">{saved.subtitle}</div>
                                                                 )}
                                                                 <div className="text-[9px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
-                                                            </div>
+                                                            </button>
                                                             {isOwnProfile && (
                                                                 <button
                                                                     type="button"
@@ -368,7 +388,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                                             );
                                                                         } catch { /* ignore */ }
                                                                     }}
-                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-1"
+                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-2"
                                                                     title="Remove from Want to Check Out"
                                                                     aria-label="Remove saved item"
                                                                 >
@@ -475,6 +495,20 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     existingItem={selectedTagItem}
                     readOnly
                     onClose={() => setSelectedTagItem(null)}
+                    onSave={() => { }}
+                />
+            )}
+
+            {/* Saved Item Modal — opens source user's original tag */}
+            {selectedSavedItem && (
+                <ConsumableModal
+                    key={selectedSavedItem.item.id}
+                    isOpen={true}
+                    initialCategory={selectedSavedItem.item.category}
+                    existingItem={selectedSavedItem.item}
+                    readOnly
+                    sourceUserId={selectedSavedItem.sourceUserId}
+                    onClose={() => setSelectedSavedItem(null)}
                     onSave={() => { }}
                 />
             )}
