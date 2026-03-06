@@ -321,7 +321,25 @@ export default function ItemPage({
       .sort((a, b) => b.latest - a.latest);
   }, [isParentChildPage, isTvPage, reviews]);
 
-  const supported = hasItemAggregatePage(requestedCategory);
+  const artworkUrl = useMemo(() => {
+    for (const review of reviews) {
+      const meta = parseItemMeta(review.item.image);
+      if (meta.imageUrl) {
+        // Upscale iTunes/mzstatic thumbnails from 100px to 300px
+        if (meta.imageUrl.includes('mzstatic.com')) {
+          return meta.imageUrl.replace(/\d+x\d+bb(\.\w+)$/, '300x300bb$1');
+        }
+        return meta.imageUrl;
+      }
+      // Music via MusicBrainz — fetch cover art from Cover Art Archive
+      if (meta.externalSource === 'musicbrainz' && meta.externalId) {
+        return `https://coverartarchive.org/release-group/${meta.externalId}/front-250`;
+      }
+    }
+    return null;
+  }, [reviews]);
+
+
 
   if (loading) {
     return (
@@ -341,16 +359,27 @@ export default function ItemPage({
         </header>
 
         <section className="border border-neutral-200 bg-white px-4 py-4 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '3px' }}>
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
-          <h1 className="text-xl font-bold uppercase tracking-tight">{title}</h1>
-          {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
-          <div className="mt-3 flex items-center gap-4 text-xs uppercase tracking-widest text-neutral-600">
-            <span>{stats.reviewsCount} reviews</span>
-            <span>{stats.ratingsCount} ratings</span>
-            <span>
-              avg {stats.average !== null ? stats.average.toFixed(1) : "N/A"}
-            </span>
-            {followingIds.length > 0 && <span>{friendReviews.length} from people you follow</span>}
+          <div className="flex gap-4">
+            {artworkUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={artworkUrl}
+                alt=""
+                className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 object-cover border border-neutral-100"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
+              <h1 className="text-xl font-bold uppercase tracking-tight">{title}</h1>
+              {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-neutral-600">
+                <span>{stats.reviewsCount} reviews</span>
+                <span>{stats.ratingsCount} ratings</span>
+                <span>avg {stats.average !== null ? stats.average.toFixed(1) : "N/A"}</span>
+                {followingIds.length > 0 && <span>{friendReviews.length} from people you follow</span>}
+              </div>
+            </div>
           </div>
         </section>
 
