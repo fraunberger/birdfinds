@@ -339,7 +339,7 @@ export default function ItemPage({
     return null;
   }, [reviews]);
 
-
+  const supported = hasItemAggregatePage(requestedCategory);
 
   if (loading) {
     return (
