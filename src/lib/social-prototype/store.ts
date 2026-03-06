@@ -119,6 +119,7 @@ export interface SavedItem {
     subtitle?: string;
     image?: string;
     notes?: string;
+    rating?: number;
     sourceUserId: string;
     createdAt: number;
 }
@@ -623,7 +624,7 @@ class SocialStore {
                 if (linkedUserId) {
                     const { data: savedData } = await supabase
                         .from('saved_items')
-                        .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+                        .select('id,user_id,item_id,category,title,subtitle,image,notes,rating,source_user_id,created_at')
                         .eq('user_id', linkedUserId)
                         .order('created_at', { ascending: false });
                     savedItems = (savedData || []).map((row: Record<string, unknown>) => ({
@@ -635,6 +636,7 @@ class SocialStore {
                         subtitle: (row.subtitle as string | null) || undefined,
                         image: (row.image as string | null) || undefined,
                         notes: (row.notes as string | null) || undefined,
+                        rating: (row.rating as number | null) ?? undefined,
                         sourceUserId: row.source_user_id as string,
                         createdAt: new Date(row.created_at as string).getTime(),
                     }));
@@ -1142,6 +1144,7 @@ class SocialStore {
                 subtitle: item.subtitle,
                 image: item.image,
                 notes: item.notes,
+                rating: item.rating,
                 sourceUserId,
                 createdAt: Date.now(),
             };
@@ -1161,6 +1164,7 @@ class SocialStore {
                     subtitle: item.subtitle,
                     image: item.image,
                     notes: item.notes,
+                    rating: item.rating,
                 },
             });
             this.schedulePostWriteRefresh();
@@ -1671,7 +1675,7 @@ export function useSavedItems(userId: string) {
         setLoading(true);
         const { data } = await supabase
             .from('saved_items')
-            .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+            .select('id,user_id,item_id,category,title,subtitle,image,notes,rating,source_user_id,created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
         setSavedItems((data || []).map((row: Record<string, unknown>) => ({
@@ -1683,6 +1687,7 @@ export function useSavedItems(userId: string) {
             subtitle: (row.subtitle as string | null) || undefined,
             image: (row.image as string | null) || undefined,
             notes: (row.notes as string | null) || undefined,
+            rating: (row.rating as number | null) ?? undefined,
             sourceUserId: row.source_user_id as string,
             createdAt: new Date(row.created_at as string).getTime(),
         })));

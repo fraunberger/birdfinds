@@ -363,7 +363,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                                     onClick={async () => {
                                                                         try {
                                                                             await toggleSaveItem(
-                                                                                { id: saved.itemId, category: saved.category, title: saved.title, subtitle: saved.subtitle, image: saved.image, notes: saved.notes, createdAt: saved.createdAt },
+                                                                                { id: saved.itemId, category: saved.category, title: saved.title, subtitle: saved.subtitle, image: saved.image, notes: saved.notes, rating: saved.rating, createdAt: saved.createdAt },
                                                                                 saved.sourceUserId
                                                                             );
                                                                         } catch { /* ignore */ }
