@@ -335,7 +335,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     ) : savedItems.length === 0 ? (
                                         <div className="text-center py-6 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
                                             {isOwnProfile
-                                                ? 'Star items from others\' posts to save them here.'
+                                                ? 'Bookmark items from others\' posts to save them here.'
                                                 : 'No saved items yet.'}
                                         </div>
                                     ) : (
