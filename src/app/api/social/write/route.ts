@@ -584,6 +584,9 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from("saved_items").delete().eq("id", existing.id);
         return NextResponse.json({ ok: true, saved: false });
       }
+      const ratingVal = typeof snapshot.rating === 'number' && snapshot.rating >= 1 && snapshot.rating <= 10
+        ? Math.round(snapshot.rating)
+        : null;
       const { error } = await supabaseAdmin.from("saved_items").insert({
         user_id: linkedUserId,
         item_id: itemId,
@@ -592,6 +595,7 @@ export async function POST(req: NextRequest) {
         subtitle: snapshot.subtitle ? truncate(String(snapshot.subtitle), MAX_ITEM_SUBTITLE) : null,
         image: snapshot.image ? truncate(String(snapshot.image), MAX_ITEM_IMAGE_URL) : null,
         notes: snapshot.notes ? truncate(String(snapshot.notes), MAX_ITEM_NOTES) : null,
+        rating: ratingVal,
         source_user_id: sourceUserId,
       });
       if (error) throw error;
