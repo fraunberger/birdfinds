@@ -24,6 +24,7 @@ interface AggregatedItem {
 }
 
 const isEpisodeCategory = (category: Category) => category === 'tv' || category === 'podcast';
+const isExerciseCategory = (category: Category) => category === 'exercise';
 
 const getEpisodeSeriesLabel = (category: Category, item: ConsumableItem) => {
     if (category === 'tv') return item.title.trim();
@@ -41,6 +42,7 @@ const normalizePart = (value?: string) =>
         .trim();
 
 const getAggregateKey = (category: Category, item: ConsumableItem) => {
+    if (category === 'exercise') return item.id; // each session is a unique personal log
     if (category === 'restaurant') {
         const meta = parseItemMeta(item.image);
         const location = normalizePart(meta.restaurantLocation);
@@ -56,6 +58,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const [showAddModal, setShowAddModal] = useState(false);
     const [episodeSeriesFilter, setEpisodeSeriesFilter] = useState<string>('all');
     const [episodeTextFilter, setEpisodeTextFilter] = useState('');
+    const [exerciseNameFilter, setExerciseNameFilter] = useState<string>('all');
     const [expandedRestaurantKeys, setExpandedRestaurantKeys] = useState<Set<string>>(new Set());
 
     if (!config) return null;
@@ -85,6 +88,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const totalTaggedCount = items.length;
     const repeatVerb = getRepeatTagVerb(category);
     const episodeFilteringEnabled = isEpisodeCategory(category);
+    const exerciseCat = isExerciseCategory(category);
     const isRestaurantCategory = category === 'restaurant';
 
     const episodeSeriesOptions = (() => {
@@ -97,7 +101,20 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
         return Array.from(names).sort((a, b) => a.localeCompare(b));
     })();
 
+    const exerciseNameOptions = (() => {
+        if (!exerciseCat) return [] as string[];
+        const names = new Set<string>();
+        for (const entry of aggregatedItems) {
+            if (entry.latest.title.trim()) names.add(entry.latest.title.trim());
+        }
+        return Array.from(names).sort((a, b) => a.localeCompare(b));
+    })();
+
     const filteredItems = (() => {
+        if (exerciseCat) {
+            if (exerciseNameFilter === 'all') return aggregatedItems;
+            return aggregatedItems.filter(entry => entry.latest.title.trim() === exerciseNameFilter);
+        }
         if (!episodeFilteringEnabled) return aggregatedItems;
         const query = episodeTextFilter.trim().toLowerCase();
         return aggregatedItems.filter((entry) => {
@@ -188,6 +205,25 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     />
                 </div>
             )}
+            {exerciseCat && exerciseNameOptions.length > 1 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                    <button
+                        onClick={() => setExerciseNameFilter('all')}
+                        className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${exerciseNameFilter === 'all' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}
+                    >
+                        All
+                    </button>
+                    {exerciseNameOptions.map(name => (
+                        <button
+                            key={name}
+                            onClick={() => setExerciseNameFilter(prev => prev === name ? 'all' : name)}
+                            className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${exerciseNameFilter === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}
+                        >
+                            {name}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Items */}
             {sortedItems.length === 0 ? (
@@ -226,13 +262,18 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <div className="text-xs font-bold">{entry.latest.title}</div>
-                                        {entry.count > 1 && (
+                                        {entry.count > 1 && !exerciseCat && (
                                             <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
                                                 {entry.count}X
                                             </span>
                                         )}
+                                        {exerciseCat && (
+                                            <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                                                {new Date(entry.latest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                        )}
                                     </div>
-                                    {entry.count > 1 && (
+                                    {entry.count > 1 && !exerciseCat && (
                                         <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
                                             {repeatVerb} {entry.count} times
                                         </div>
@@ -302,6 +343,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     key={`new-${category}`}
                     isOpen={showAddModal}
                     initialCategory={category}
+                    allUserItems={items}
                     onClose={() => setShowAddModal(false)}
                     onSave={async (item) => {
                         if (onAddItem) {

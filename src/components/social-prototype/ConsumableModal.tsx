@@ -393,6 +393,24 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
+                                {/* Exercise quick-pick — past exercise names */}
+                                {category === 'exercise' && !existingItem && !readOnly && allUserItems && (() => {
+                                    const names = Array.from(new Set(
+                                        allUserItems.filter(i => i.category === 'exercise' && i.title.trim()).map(i => i.title.trim())
+                                    )).sort();
+                                    if (names.length === 0) return null;
+                                    return (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {names.map(name => (
+                                                <button key={name} type="button"
+                                                    onClick={() => setDraft(prev => ({ ...prev, title: name }))}
+                                                    className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${title.trim() === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}>
+                                                    {name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
