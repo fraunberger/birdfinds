@@ -31,6 +31,21 @@ export const follows = pgTable('follows', {
     unq: unique().on(t.followerId, t.followingId)
 }));
 
+export const savedItems = pgTable('saved_items', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    category: text('category').notNull(),
+    title: text('title').notNull(),
+    subtitle: text('subtitle'),
+    image: text('image'),
+    notes: text('notes'),
+    sourceUserId: uuid('source_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+    unq: unique().on(t.userId, t.itemId)
+}));
+
 // NEW CONSOLIDATED TABLE (Replaces social_statuses, social_items, habit_logs)
 // This structure behaves like a NoSQL document but stays within Postgres
 export const dailyPosts = pgTable('daily_posts', {

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from "next/link";
+import { Bookmark } from 'lucide-react';
 import { Status, HIGHLIGHT_COLOR, UserProfile, ConsumableItem, useSocialStore, getCategoryConfig } from '@/lib/social-prototype/store';
 import { HabitChecklist } from './HabitChecklist';
 import { ConsumableModal } from './ConsumableModal';
@@ -36,7 +37,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const ITEM_LIMIT = 3;
     const menuRef = useRef<HTMLDivElement | null>(null);
     const { user } = useAuth();
-    const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment, removeItemFromActive, addItemToStatus } = useSocialStore();
+    const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment, removeItemFromActive, addItemToStatus, toggleSaveItem, savedItems } = useSocialStore();
+    const savedItemIds = React.useMemo(() => new Set(savedItems.map(s => s.itemId)), [savedItems]);
+    const [savingItemId, setSavingItemId] = useState<string | null>(null);
 
     const defer = (fn: () => void | Promise<void>) => {
         window.setTimeout(() => {
@@ -299,6 +302,31 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 {item.rating}<span className="text-[9px]">/10</span>
                                             </span>
                                         ) : null}
+                                        {!isOwn && user && status.userId && (
+                                            <button
+                                                type="button"
+                                                disabled={savingItemId === item.id}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    setSavingItemId(item.id);
+                                                    try {
+                                                        await toggleSaveItem(item, status.userId!);
+                                                    } catch {
+                                                        pushToast({ message: 'Failed to save item', tone: 'error' });
+                                                    } finally {
+                                                        setSavingItemId(null);
+                                                    }
+                                                }}
+                                                className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500 ml-0.5 flex-shrink-0"
+                                                title={savedItemIds.has(item.id) ? 'Remove from Want to Check Out' : 'Save to Want to Check Out'}
+                                                aria-label={savedItemIds.has(item.id) ? 'Unsave item' : 'Save item'}
+                                            >
+                                                <Bookmark
+                                                    size={10}
+                                                    className={savedItemIds.has(item.id) ? 'fill-current' : ''}
+                                                />
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             })}

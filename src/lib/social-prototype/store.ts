@@ -110,6 +110,19 @@ export interface FollowData {
     followers: string[]; // array of userIds following you
 }
 
+export interface SavedItem {
+    id: string;
+    userId: string;
+    itemId: string;       // references social_items.id
+    category: Category;
+    title: string;
+    subtitle?: string;
+    image?: string;
+    notes?: string;
+    sourceUserId: string;
+    createdAt: number;
+}
+
 interface HabitLogRow {
     habit_id: string;
     date: string;
@@ -366,6 +379,7 @@ interface SocialState {
     mutedUsers: string[];
     feedHasMore: boolean;
     feedCursor: string | null; // ISO timestamp of the oldest loaded feed status
+    savedItems: SavedItem[];
 }
 
 class SocialStore {
@@ -378,6 +392,7 @@ class SocialStore {
         mutedUsers: [],
         feedHasMore: false,
         feedCursor: null,
+        savedItems: [],
     };
     private listeners = new Set<() => void>();
     private _pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -438,6 +453,7 @@ class SocialStore {
             mutedUsers: [],
             feedHasMore: false,
             feedCursor: null,
+            savedItems: [],
         };
         this.syncActiveStatus();
         this.emit();
@@ -602,6 +618,28 @@ class SocialStore {
                 // Fetch Current User's Muted List
                 const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
 
+                // Fetch Current User's Saved Items
+                let savedItems: SavedItem[] = [];
+                if (linkedUserId) {
+                    const { data: savedData } = await supabase
+                        .from('saved_items')
+                        .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+                        .eq('user_id', linkedUserId)
+                        .order('created_at', { ascending: false });
+                    savedItems = (savedData || []).map((row: Record<string, unknown>) => ({
+                        id: row.id as string,
+                        userId: row.user_id as string,
+                        itemId: row.item_id as string,
+                        category: row.category as Category,
+                        title: row.title as string,
+                        subtitle: (row.subtitle as string | null) || undefined,
+                        image: (row.image as string | null) || undefined,
+                        notes: (row.notes as string | null) || undefined,
+                        sourceUserId: row.source_user_id as string,
+                        createdAt: new Date(row.created_at as string).getTime(),
+                    }));
+                }
+
                 // Filter out muted users from allStatuses (Feed)
                 const visibleStatuses = combined
                     .filter(s => s.userId && !mutedUsers.includes(s.userId))
@@ -619,6 +657,7 @@ class SocialStore {
                     allStatuses: visibleStatuses,
                     statuses: userStatuses,
                     mutedUsers,
+                    savedItems,
                     isLoaded: true,
                     feedHasMore,
                     feedCursor,
@@ -1085,6 +1124,54 @@ class SocialStore {
         }
     }
 
+    async toggleSaveItem(item: ConsumableItem, sourceUserId: string) {
+        const isSaved = this.state.savedItems.some(s => s.itemId === item.id);
+        // Optimistic update
+        if (isSaved) {
+            this.state = {
+                ...this.state,
+                savedItems: this.state.savedItems.filter(s => s.itemId !== item.id),
+            };
+        } else {
+            const optimistic: SavedItem = {
+                id: `temp-saved-${Date.now()}`,
+                userId: '',
+                itemId: item.id,
+                category: item.category,
+                title: item.title,
+                subtitle: item.subtitle,
+                image: item.image,
+                notes: item.notes,
+                sourceUserId,
+                createdAt: Date.now(),
+            };
+            this.state = {
+                ...this.state,
+                savedItems: [optimistic, ...this.state.savedItems],
+            };
+        }
+        this.emit();
+        try {
+            await socialWrite('social.item.save.toggle', {
+                itemId: item.id,
+                sourceUserId,
+                itemSnapshot: {
+                    category: item.category,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    image: item.image,
+                    notes: item.notes,
+                },
+            });
+            this.schedulePostWriteRefresh();
+        } catch (error) {
+            // Rollback on failure
+            this.schedulePostWriteRefresh();
+            console.error('Error toggling save item:', error);
+            throw error;
+        }
+    }
+
     getAllItemsByCategory(category: Category): ConsumableItem[] {
         if (NON_PILE_CATEGORIES.includes(category)) return [];
         return this.state.statuses.flatMap(s => s.items).filter(i => i.category === category);
@@ -1155,9 +1242,11 @@ export function useSocialStore() {
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
         toggleMute: (uid: string) => socialStore.toggleMute(uid),
+        toggleSaveItem: (item: ConsumableItem, sourceUserId: string) => socialStore.toggleSaveItem(item, sourceUserId),
         refresh: () => socialStore.refresh(),
         resetAndRefresh: () => socialStore.resetAndRefresh(),
         mutedUsers: state.mutedUsers,
+        savedItems: state.savedItems,
     };
 }
 
@@ -1567,4 +1656,45 @@ export function usePublicProfile(userId: string) {
         return () => window.clearTimeout(timer);
     }, [fetch]);
     return { profile, loading };
+}
+
+export function useSavedItems(userId: string) {
+    const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchItems = useCallback(async () => {
+        if (!userId) {
+            setSavedItems([]);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        const { data } = await supabase
+            .from('saved_items')
+            .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+        setSavedItems((data || []).map((row: Record<string, unknown>) => ({
+            id: row.id as string,
+            userId: row.user_id as string,
+            itemId: row.item_id as string,
+            category: row.category as Category,
+            title: row.title as string,
+            subtitle: (row.subtitle as string | null) || undefined,
+            image: (row.image as string | null) || undefined,
+            notes: (row.notes as string | null) || undefined,
+            sourceUserId: row.source_user_id as string,
+            createdAt: new Date(row.created_at as string).getTime(),
+        })));
+        setLoading(false);
+    }, [userId]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            void fetchItems();
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [fetchItems]);
+
+    return { savedItems, loading, refetch: fetchItems };
 }

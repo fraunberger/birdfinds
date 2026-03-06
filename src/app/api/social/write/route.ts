@@ -37,6 +37,7 @@ type WriteAction =
   | "social.item.add"
   | "social.item.update"
   | "social.item.delete"
+  | "social.item.save.toggle"
   | "social.comment.add"
   | "social.comment.delete"
   | "social.comment.soft_delete"
@@ -564,6 +565,37 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
       }
       return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.item.save.toggle") {
+      const itemId = String(payload.itemId || "").trim();
+      const sourceUserId = String(payload.sourceUserId || "").trim();
+      const snapshot = (payload.itemSnapshot || {}) as Record<string, unknown>;
+      if (!itemId || !sourceUserId) {
+        return NextResponse.json({ error: "Missing itemId or sourceUserId" }, { status: 400 });
+      }
+      const { data: existing } = await supabaseAdmin
+        .from("saved_items")
+        .select("id")
+        .eq("user_id", linkedUserId)
+        .eq("item_id", itemId)
+        .maybeSingle();
+      if (existing?.id) {
+        await supabaseAdmin.from("saved_items").delete().eq("id", existing.id);
+        return NextResponse.json({ ok: true, saved: false });
+      }
+      const { error } = await supabaseAdmin.from("saved_items").insert({
+        user_id: linkedUserId,
+        item_id: itemId,
+        category: truncate(String(snapshot.category || ""), MAX_ITEM_TITLE),
+        title: truncate(String(snapshot.title || ""), MAX_ITEM_TITLE),
+        subtitle: snapshot.subtitle ? truncate(String(snapshot.subtitle), MAX_ITEM_SUBTITLE) : null,
+        image: snapshot.image ? truncate(String(snapshot.image), MAX_ITEM_IMAGE_URL) : null,
+        notes: snapshot.notes ? truncate(String(snapshot.notes), MAX_ITEM_NOTES) : null,
+        source_user_id: sourceUserId,
+      });
+      if (error) throw error;
+      return NextResponse.json({ ok: true, saved: true });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
