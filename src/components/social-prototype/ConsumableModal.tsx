@@ -28,7 +28,7 @@ export type { ConsumableModalProps } from './consumable-modal-types';
 
 export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
     const { user } = useAuth();
-    const { savedItems, toggleSaveItem, getUserItemsByCategory } = useSocialStore();
+    const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
     const { profile: sourceProfile } = usePublicProfile(sourceUserId || '');
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
@@ -395,7 +395,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                                 {/* Exercise quick-pick — recent chips + full dropdown */}
                                 {category === 'exercise' && !existingItem && !readOnly && (() => {
-                                    const exerciseItems = getUserItemsByCategory('exercise', user?.id || '').filter(i => i.title.trim());
+                                    const exerciseItems = getAllItemsByCategory('exercise').filter(i => i.title.trim());
                                     if (exerciseItems.length === 0) return null;
                                     // Top 3 most recently used (unique names, ordered by most recent log)
                                     const recent: string[] = [];
