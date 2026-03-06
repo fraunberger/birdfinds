@@ -74,6 +74,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Exercise combobox
     const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
 
+    // Bird multi-select
+    const [birdQuery, setBirdQuery] = useState('');
+
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
     const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
@@ -87,7 +90,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const locationPlaces = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'location', readOnly, enabled: showLocationResults, query: title, endpoint: '/api/places/search', token: locationSearchToken });
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
     const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
-    const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: title, endpoint: '/api/birds/search', token: birdSearchToken });
+    const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: birdQuery, endpoint: '/api/birds/search', token: birdSearchToken });
 
     // Podcast show search (only when no show selected)
     const podcastShows = useSearchPicker<PodcastShowResult>({ category, targetCategory: 'podcast', readOnly, enabled: showPodcastPicker && !selectedPodcast, query: title, endpoint: '/api/podcasts/search', token: podcastShowSearchToken });
@@ -380,8 +383,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 space-y-4">
-                            {/* Title */}
-                            <div>
+                            {/* Title — hidden for bird (uses multi-bird checklist instead) */}
+                            {category !== 'bird' && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.titleLabel}
                                 </label>
@@ -457,7 +460,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book', 'bird'].includes(category) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -803,37 +806,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         )}
                                     />
                                 )}
-                                {category === 'bird' && !readOnly && (
-                                    <SearchResultsPanel
-                                        visible={showBirdResults}
-                                        isSearching={birds.isSearching}
-                                        results={birds.results}
-                                        query={title}
-                                        searchingLabel="Searching eBird..."
-                                        emptyLabel="No species found"
-                                        maxHeightClass="max-h-56"
-                                        keyExtractor={(r) => r.id}
-                                        renderResult={(bird) => (
-                                            <button type="button" onClick={() => {
-                                                setDraft((prev) => ({
-                                                    ...prev,
-                                                    title: bird.comName,
-                                                    image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
-                                                        externalSource: 'ebird',
-                                                        externalId: bird.id,
-                                                    }),
-                                                }));
-                                                setShowBirdResults(false);
-                                            }}
-                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                <div className="text-sm text-neutral-900">{bird.comName}</div>
-                                                <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
-                                            </button>
-                                        )}
-                                    />
-                                )}
-                            </div>
+                            </div>}
                             {/* Subtitle */}
                             {category !== 'cooking' && category !== 'link' && (
                                 <div>
@@ -926,6 +899,97 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     )}
                                 </div>
                             )}
+                            {/* Bird checklist */}
+                            {category === 'bird' && (() => {
+                                const birdList = parsedMeta.birdList || [];
+                                const addBird = (bird: BirdSearchResult) => {
+                                    if (birdList.some(b => b.id === bird.id)) return;
+                                    const next = [...birdList, { id: bird.id, comName: bird.comName, sciName: bird.sciName }];
+                                    const nextTitle = next.length === 1 ? next[0].comName : `${next[0].comName} +${next.length - 1}`;
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        title: nextTitle,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), birdList: next }),
+                                    }));
+                                    setBirdQuery('');
+                                    birds.setResults([]);
+                                    setShowBirdResults(false);
+                                };
+                                const removeBird = (id: string) => {
+                                    const next = birdList.filter(b => b.id !== id);
+                                    const nextTitle = next.length === 0 ? '' : next.length === 1 ? next[0].comName : `${next[0].comName} +${next.length - 1}`;
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        title: nextTitle,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), birdList: next }),
+                                    }));
+                                };
+                                return (
+                                    <div>
+                                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Birds</label>
+                                        {readOnly ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {birdList.length === 0
+                                                    ? <span className="text-sm text-neutral-400">—</span>
+                                                    : birdList.map(b => (
+                                                        <span key={b.id} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{b.comName}</span>
+                                                    ))
+                                                }
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="relative">
+                                                    <input
+                                                        autoFocus
+                                                        type="text"
+                                                        value={birdQuery}
+                                                        onChange={(e) => {
+                                                            setBirdQuery(e.target.value);
+                                                            setShowBirdResults(true);
+                                                            setBirdSearchToken(p => p + 1);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowBirdResults(false), 150)}
+                                                        placeholder="Search species…"
+                                                        className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                                                    />
+                                                    {(birds.isSearching || birds.results.length > 0) && showBirdResults && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-56 overflow-y-auto">
+                                                            {birds.isSearching && (
+                                                                <div className="px-3 py-2 text-xs text-neutral-400">Searching eBird…</div>
+                                                            )}
+                                                            {birds.results.map(bird => (
+                                                                <button
+                                                                    key={bird.id}
+                                                                    type="button"
+                                                                    onMouseDown={() => addBird(bird)}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 ${birdList.some(b => b.id === bird.id) ? 'opacity-40' : ''}`}
+                                                                >
+                                                                    <div className="text-sm text-neutral-900">{bird.comName}</div>
+                                                                    <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {birdList.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {birdList.map(b => (
+                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
+                                                                {b.comName}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeBird(b.id)}
+                                                                    className="text-neutral-400 hover:text-neutral-800 leading-none"
+                                                                >×</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
