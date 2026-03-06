@@ -75,8 +75,8 @@ export const getItemPageSlug = (
   title: string,
   subtitle?: string
 ): string => {
-  if (category === "tv") {
-    // Show-level page: slug is the show name (title) only
+  if (category === "tv" || category === "exercise") {
+    // Show/exercise-level page: title only so all sessions group under one page
     return normalizePart(title) || "item";
   }
   return getCanonicalItemSlug(category, title, subtitle);
