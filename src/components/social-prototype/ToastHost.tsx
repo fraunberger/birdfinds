@@ -47,23 +47,44 @@ export function ToastHost() {
     []
   );
 
+  if (toasts.length === 0) return null;
+
+  const dismissOne = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const dismissAll = () => setToasts([]);
+
+  // All toasts share the tone of the first one for the box border/bg
+  const firstTone = toasts[0].tone;
+
   return (
-    <div className="fixed right-3 top-3 z-[120] flex w-[min(92vw,26rem)] flex-col gap-2">
-      {toasts.map((toast) =>
-        toast.href ? (
-          <Link
-            key={toast.id}
-            href={toast.href}
-            className={`border px-3 py-2 text-xs font-mono shadow-sm hover:opacity-80 ${toneClasses[toast.tone]}`}
-          >
-            {toast.message}
-          </Link>
-        ) : (
-          <div key={toast.id} className={`border px-3 py-2 text-xs font-mono shadow-sm ${toneClasses[toast.tone]}`}>
-            {toast.message}
-          </div>
-        )
-      )}
+    <div className={`fixed right-3 top-3 z-[120] w-[min(92vw,26rem)] border shadow-sm ${toneClasses[firstTone]}`}>
+      <div className="flex items-start justify-between gap-2 px-3 pt-2 pb-1">
+        <div className="flex-1 flex flex-col gap-1">
+          {toasts.map((toast) =>
+            toast.href ? (
+              <Link
+                key={toast.id}
+                href={toast.href}
+                onClick={() => dismissOne(toast.id)}
+                className="text-xs font-mono hover:opacity-70"
+              >
+                {toast.message}
+              </Link>
+            ) : (
+              <div key={toast.id} className="text-xs font-mono">
+                {toast.message}
+              </div>
+            )
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={dismissAll}
+          className="flex-shrink-0 text-current opacity-50 hover:opacity-100 leading-none mt-0.5"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 }
