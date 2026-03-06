@@ -40,11 +40,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // Parent/child categories (podcast, tv) require an episode-level external key before
     // showing notes, rating, or repeat-tag info. Without one the entry is a bare "dead card".
-    const isParentChildCategory = category === 'podcast' || category === 'tv' || category === 'exercise';
+    const isParentChildCategory = category === 'podcast' || category === 'tv';
     const isEpisodeLinked = !isParentChildCategory ||
         parsedMeta.externalSource === 'itunes-podcast-episode' ||
-        parsedMeta.externalSource === 'tvmaze-episode' ||
-        parsedMeta.externalSource === 'exercise-session';
+        parsedMeta.externalSource === 'tvmaze-episode';
 
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
@@ -839,9 +838,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && (
                         <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
-                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">
-                                    {category === 'exercise' ? config.ratingLabel : 'Ep. Score'}
-                                </div>
+                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
                             )}
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
@@ -974,7 +971,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     ) : (
                         <div>
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                {isParentChildCategory && isEpisodeLinked ? (category === 'exercise' ? (config.notesLabel || 'Notes') : 'Episode Notes') : (config.notesLabel || 'Notes')}
+                                {isParentChildCategory && isEpisodeLinked ? 'Episode Notes' : (config.notesLabel || 'Notes')}
                             </label>
                             {readOnly ? (
                                 <div className="text-sm font-mono text-neutral-700 whitespace-pre-wrap leading-relaxed py-2 border-t border-neutral-100 min-h-[100px]">
