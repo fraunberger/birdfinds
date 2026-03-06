@@ -71,6 +71,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Gate — tracks whether the user has explicitly clicked "Review without linking"
     const [gateClicked, setGateClicked] = useState(false);
 
+    // Exercise combobox
+    const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
     const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
@@ -382,6 +385,60 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.titleLabel}
                                 </label>
+                                {(category === 'exercise') && !readOnly ? (() => {
+                                    const allExerciseNames = Array.from(new Set(
+                                        getAllItemsByCategory('exercise').filter(i => i.title.trim()).map(i => i.title.trim())
+                                    )).sort();
+                                    const filtered = title.trim()
+                                        ? allExerciseNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
+                                        : allExerciseNames;
+                                    return (
+                                        <div className="relative">
+                                            <div className="flex items-center border-b border-neutral-200 focus-within:border-neutral-400">
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={title}
+                                                    onChange={(e) => {
+                                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                                        setShowExerciseDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowExerciseDropdown(true)}
+                                                    onBlur={() => setShowExerciseDropdown(false)}
+                                                    placeholder="Type or pick…"
+                                                    className="flex-1 text-base font-mono outline-none py-1 bg-transparent"
+                                                />
+                                                {allExerciseNames.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => { e.preventDefault(); setShowExerciseDropdown(v => !v); }}
+                                                        className="px-1 text-neutral-400 hover:text-neutral-700"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L1 3h10z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showExerciseDropdown && filtered.length > 0 && (
+                                                <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-48 overflow-y-auto">
+                                                    {filtered.map(name => (
+                                                        <button
+                                                            key={name}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setDraft(prev => ({ ...prev, title: name }));
+                                                                setShowExerciseDropdown(false);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${title.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
+                                                        >
+                                                            {name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })() : (
                                 <input
                                     autoFocus={!readOnly}
                                     disabled={readOnly}
@@ -394,45 +451,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
+                                )}
                                 {repeatInfo && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {/* Exercise quick-pick — recent chips + full dropdown */}
-                                {(category === 'exercise' || category === 'bird') && !readOnly && (() => {
-                                    const exerciseItems = getAllItemsByCategory(category).filter(i => i.title.trim());
-                                    if (exerciseItems.length === 0) return null;
-                                    // Top 3 most recently used (unique names, ordered by most recent log)
-                                    const recent: string[] = [];
-                                    for (const item of [...exerciseItems].sort((a, b) => b.createdAt - a.createdAt)) {
-                                        const t = item.title.trim();
-                                        if (!recent.includes(t)) recent.push(t);
-                                        if (recent.length === 3) break;
-                                    }
-                                    const allNames = Array.from(new Set(exerciseItems.map(i => i.title.trim()))).sort();
-                                    return (
-                                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                            {recent.map(name => (
-                                                <button key={name} type="button"
-                                                    onClick={() => setDraft(prev => ({ ...prev, title: name }))}
-                                                    className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${title.trim() === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}>
-                                                    {name}
-                                                </button>
-                                            ))}
-                                            <select
-                                                value=""
-                                                onChange={(e) => { if (e.target.value) setDraft(prev => ({ ...prev, title: e.target.value })); }}
-                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 bg-white text-neutral-600 hover:border-neutral-500 cursor-pointer"
-                                            >
-                                                <option value="">All…</option>
-                                                {allNames.map(name => (
-                                                    <option key={name} value={name}>{name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    );
-                                })()}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book', 'bird'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
