@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore, usePublicProfile } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
-import { buildItemPath, getCanonicalItemKey, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
+import { buildItemPath, getCanonicalItemKey, getItemPageSlug, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
@@ -120,18 +120,23 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim() || category === 'book') return null;
-        // For parent-child categories, skip repeat detection only for bare "show name only"
-        // cards (no episode). If an episode code is present we can match canonically.
-        if (isParentChildCategory && !isEpisodeLinked && !subtitle?.trim()) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
+        // For TV: also match at show level so any previously watched episode of
+        // the same show counts as a repeat (show-level key = title only).
+        const draftShowKey = category === 'tv' ? `tv::${getItemPageSlug('tv', title)}` : null;
         const matches = allUserItems.filter(item => {
             if (existingItem && item.id === existingItem.id) return false;
             if (draftExternalKey) {
                 const itemExternalKey = getItemExternalIdentityKey(item.category, item.image);
                 if (itemExternalKey === draftExternalKey) return true;
             }
-            return getCanonicalItemKey(item) === draftKey;
+            if (getCanonicalItemKey(item) === draftKey) return true;
+            // TV show-level fallback: match any episode of the same show
+            if (draftShowKey && item.category === 'tv') {
+                return `tv::${getItemPageSlug('tv', item.title)}` === draftShowKey;
+            }
+            return false;
         });
         if (matches.length === 0) return null;
         const sorted = [...matches].sort((a, b) => b.createdAt - a.createdAt);
