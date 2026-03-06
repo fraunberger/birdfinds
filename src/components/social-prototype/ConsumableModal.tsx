@@ -120,7 +120,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim() || category === 'book') return null;
-        if (isParentChildCategory && !isEpisodeLinked) return null;
+        // For parent-child categories, skip repeat detection only for bare "show name only"
+        // cards (no episode). If an episode code is present we can match canonically.
+        if (isParentChildCategory && !isEpisodeLinked && !subtitle?.trim()) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
         const matches = allUserItems.filter(item => {
