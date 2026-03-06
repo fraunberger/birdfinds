@@ -13,6 +13,7 @@ export interface ConsumableModalProps {
     existingItem?: ConsumableItem;
     readOnly?: boolean;
     allUserItems?: ConsumableItem[];
+    sourceUserId?: string;
 }
 
 // ---------------------------------------------------------------------------

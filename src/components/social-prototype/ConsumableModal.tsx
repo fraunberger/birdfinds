@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Category, DEFAULT_CATEGORIES, getCategoryConfig } from '@/lib/social-prototype/store';
+import { Bookmark } from 'lucide-react';
+import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
+import { useAuth } from '@/lib/auth';
 import { buildItemPath, getCanonicalItemKey, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import { useSearchPicker } from './useSearchPicker';
@@ -24,7 +26,10 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
+    const { user } = useAuth();
+    const { savedItems, toggleSaveItem } = useSocialStore();
+    const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
@@ -311,12 +316,29 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             </span>
                         )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-neutral-500 hover:text-neutral-800 text-2xl leading-none w-8 h-8 flex items-center justify-center -mr-2"
-                    >
-                        ×
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {readOnly && existingItem && user && sourceUserId && (
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        await toggleSaveItem(existingItem, sourceUserId);
+                                    } catch { /* ignore */ }
+                                }}
+                                className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-800 transition-colors"
+                                title={isSaved ? 'Remove from Want to Check Out' : 'Save to Want to Check Out'}
+                                aria-label={isSaved ? 'Unsave item' : 'Save item'}
+                            >
+                                <Bookmark size={16} className={isSaved ? 'fill-current' : ''} />
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="text-neutral-500 hover:text-neutral-800 text-2xl leading-none w-8 h-8 flex items-center justify-center -mr-2"
+                        >
+                            ×
+                        </button>
+                    </div>
                 </div>
 
                 {/* Form — scrollable */}
@@ -908,32 +930,32 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                 {/* Footer */}
                 <div className="sticky bottom-0 z-10 flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-t border-neutral-300 bg-neutral-50/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-50/90 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-                    <div>
+                    <div className="flex items-center gap-3">
                         {existingItem && onDelete && !readOnly && (
                             <button onClick={handleDelete} className="text-xs uppercase tracking-widest text-neutral-400 hover:text-red-600">
                                 Delete
                             </button>
                         )}
-                    </div>
-                    <div className="flex gap-3">
                         {linkCardHref && (
                             <a href={linkCardHref} target="_blank" rel="noreferrer"
-                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500">
+                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
                                 Open Link
                             </a>
                         )}
                         {restaurantMapHref && (
                             <a href={restaurantMapHref} target="_blank" rel="noreferrer"
-                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500">
-                                Open Google
+                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                Maps
                             </a>
                         )}
                         {showItemPageLink && itemPageHref && (
                             <Link href={itemPageHref}
-                                className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900 px-3 py-1 border border-neutral-300 hover:border-neutral-500">
-                                Open Item Page
+                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                Item Page
                             </Link>
                         )}
+                    </div>
+                    <div className="flex gap-3">
                         <button onClick={onClose} className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-2">
                             Cancel
                         </button>
