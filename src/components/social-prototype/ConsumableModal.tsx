@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
-import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore } from '@/lib/social-prototype/store';
+import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore, usePublicProfile } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import { buildItemPath, getCanonicalItemKey, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
@@ -30,6 +30,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const { user } = useAuth();
     const { savedItems, toggleSaveItem } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
+    const { profile: sourceProfile } = usePublicProfile(sourceUserId || '');
     const [draft, setDraft] = useState<ModalDraft>(() => buildInitialDraft(initialCategory, existingItem, initialTitle));
     const { category, title, subtitle, rating, notes } = draft;
     const parsedMeta = parseItemMeta(draft.image);
@@ -340,6 +341,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </button>
                     </div>
                 </div>
+
+                {/* Attribution — shown when viewing another user's saved tag */}
+                {readOnly && sourceUserId && existingItem && sourceProfile && (
+                    <div className="px-4 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center gap-2">
+                        <span className="text-[10px] text-neutral-500">
+                            Tagged by{' '}
+                            <span className="font-semibold text-neutral-700">@{sourceProfile.username}</span>
+                            {' · '}
+                            {new Date(existingItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                    </div>
+                )}
 
                 {/* Form — scrollable */}
                 <div className="p-4 space-y-6 overflow-y-auto flex-1">
