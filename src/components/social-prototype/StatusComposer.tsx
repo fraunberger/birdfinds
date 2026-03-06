@@ -503,27 +503,29 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
                             <div className="flex items-stretch min-w-max shrink-0">
                                 {toolbarCategoryConfigs.map(cat => {
-                                    const isActive = tagging.quickAddCategory === cat.id;
                                     const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
                                     return (
                                         <button
                                             key={cat.id}
                                             onClick={() => {
-                                                // Clear selection-driven table link mode immediately on tag button press.
                                                 setSelectedPlainText('');
                                                 recentSelectionRef.current = null;
-                                                tagging.handleCategoryTap(cat.id);
+                                                if (hasContext) {
+                                                    tagging.handleCategoryTap(cat.id);
+                                                } else {
+                                                    setActiveCategory(cat.id);
+                                                    setExistingItem(undefined);
+                                                    setIsModalOpen(true);
+                                                }
                                             }}
                                             onMouseDown={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
                                             title={cat.label}
-                                            className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${isActive
-                                                ? 'bg-neutral-900 text-white'
-                                                : hasContext
-                                                    ? 'text-neutral-900 hover:brightness-90'
-                                                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                                            className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
+                                                ? 'text-neutral-900 hover:brightness-90'
+                                                : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
                                                 }`}
-                                            style={hasContext && !isActive ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
+                                            style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
                                         >
                                             {cat.shortLabel}
                                         </button>
@@ -541,36 +543,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 </div>
                             )}
                         </div>
-
-                        {/* ── Quick-Add Input (Flow C) ── */}
-                        {tagging.quickAddCategory && (
-                            <div className="border-b border-neutral-200 bg-neutral-100 flex items-center gap-0">
-                                <span className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-500 border-r border-neutral-200 whitespace-nowrap">
-                                    {getCategoryConfig(tagging.quickAddCategory).shortLabel}
-                                </span>
-                                <input
-                                    ref={tagging.quickAddInputRef}
-                                    type="text"
-                                    value={tagging.quickAddTitle}
-                                    onChange={(e) => tagging.setQuickAddTitle(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') { e.preventDefault(); void tagging.submitQuickAdd(); }
-                                        if (e.key === 'Escape') tagging.cancelQuickAdd();
-                                    }}
-                                    placeholder={getCategoryConfig(tagging.quickAddCategory).titleLabel || 'TITLE'}
-                                    className="flex-1 min-w-0 text-[16px] sm:text-xs font-mono px-2 py-1.5 outline-none bg-transparent placeholder:text-neutral-400 text-neutral-900"
-                                    autoFocus
-                                />
-                                <button onClick={() => void tagging.submitQuickAdd()} disabled={!tagging.quickAddTitle.trim() || tagging.busy}
-                                    className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-900 border-l border-neutral-200 hover:bg-neutral-200 disabled:opacity-30 whitespace-nowrap">
-                                    ADD
-                                </button>
-                                <button onClick={tagging.cancelQuickAdd}
-                                    className="px-2 py-1.5 text-[9px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 border-l border-neutral-200 whitespace-nowrap">
-                                    X
-                                </button>
-                            </div>
-                        )}
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
                         <div className="relative min-h-[100px] bg-white">
