@@ -170,6 +170,18 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
         color: '#f7a55a', icon: '',
     },
+    bird: {
+        id: 'bird',
+        label: 'Bird', shortLabel: 'BIRD',
+        verb: 'spotted',
+        ssotPattern: 'single', coupling: 'api',
+        hasRating: false, ratingScope: null,
+        childLabel: null, extras: ['notes'],
+        titleLabel: 'Species', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
+        ratingLabel: 'Rating',
+        notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
+        color: '#6ab4f7', icon: '🐦',
+    },
 };
 
 /** Look up a category definition by id. Returns null for unknown categories. */

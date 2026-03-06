@@ -104,6 +104,14 @@ export interface BrewerySearchResult {
     location: string;
 }
 
+export interface BirdSearchResult {
+    id: string;       // eBird species code
+    comName: string;  // common name
+    sciName: string;  // scientific name
+    familyComName: string;
+    orderComName: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ import {
     RestaurantSearchResult,
     BookSearchResult,
     BrewerySearchResult,
+    BirdSearchResult,
     buildInitialDraft,
 } from './consumable-modal-types';
 
@@ -58,6 +59,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [bookSearchToken, setBookSearchToken] = useState(0);
     const [showBreweryResults, setShowBreweryResults] = useState(false);
     const [brewerySearchToken, setBrewerySearchToken] = useState(0);
+    const [showBirdResults, setShowBirdResults] = useState(false);
+    const [birdSearchToken, setBirdSearchToken] = useState(0);
 
     // Podcast two-step picker
     const [showPodcastPicker, setShowPodcastPicker] = useState(false);
@@ -81,6 +84,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const locationPlaces = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'location', readOnly, enabled: showLocationResults, query: title, endpoint: '/api/places/search', token: locationSearchToken });
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
     const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
+    const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: title, endpoint: '/api/birds/search', token: birdSearchToken });
 
     // Podcast show search (only when no show selected)
     const podcastShows = useSearchPicker<PodcastShowResult>({ category, targetCategory: 'podcast', readOnly, enabled: showPodcastPicker && !selectedPodcast, query: title, endpoint: '/api/podcasts/search', token: podcastShowSearchToken });
@@ -269,6 +273,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (category === 'restaurant') { setShowRestaurantResults(true); setRestaurantSearchToken((p) => p + 1); }
         if (category === 'location') { setShowLocationResults(true); setLocationSearchToken((p) => p + 1); }
         if (category === 'book') { setShowBookResults(true); setBookSearchToken((p) => p + 1); }
+        if (category === 'bird') { setShowBirdResults(true); setBirdSearchToken((p) => p + 1); }
     };
 
     const searchButtonLabel =
@@ -277,6 +282,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 : category === 'podcast' ? 'Search Shows'
                     : category === 'tv' ? 'Search Shows'
                         : category === 'book' ? 'Search Books'
+                            : category === 'bird' ? 'Search eBird'
                             : 'Search';
 
     // ── Render ──────────────────────────────────────────────────────────
@@ -427,7 +433,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         </div>
                                     );
                                 })()}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book', 'bird'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -769,6 +775,36 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{book.title}</div>
                                                 <div className="text-xs text-neutral-500">{book.author || 'Unknown author'}{book.publishedDate ? ` • ${book.publishedDate}` : ''}</div>
+                                            </button>
+                                        )}
+                                    />
+                                )}
+                                {category === 'bird' && !readOnly && (
+                                    <SearchResultsPanel
+                                        visible={showBirdResults}
+                                        isSearching={birds.isSearching}
+                                        results={birds.results}
+                                        query={title}
+                                        searchingLabel="Searching eBird..."
+                                        emptyLabel="No species found"
+                                        maxHeightClass="max-h-56"
+                                        keyExtractor={(r) => r.id}
+                                        renderResult={(bird) => (
+                                            <button type="button" onClick={() => {
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: bird.comName,
+                                                    image: serializeItemMeta({
+                                                        ...parseItemMeta(prev.image),
+                                                        externalSource: 'ebird',
+                                                        externalId: bird.id,
+                                                    }),
+                                                }));
+                                                setShowBirdResults(false);
+                                            }}
+                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                <div className="text-sm text-neutral-900">{bird.comName}</div>
+                                                <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
                                             </button>
                                         )}
                                     />
