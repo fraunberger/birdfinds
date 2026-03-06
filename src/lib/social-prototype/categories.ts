@@ -160,7 +160,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
     },
     exercise: {
         id: 'exercise',
-        label: 'Exercise', shortLabel: 'GYM',
+        label: 'Exercise', shortLabel: 'EXERCISE',
         verb: 'did',
         ssotPattern: 'none', coupling: 'none',
         hasRating: true, ratingScope: 'entity',
