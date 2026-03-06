@@ -1,4 +1,5 @@
 import { Category, ConsumableItem } from '@/lib/social-prototype/store';
+import { serializeItemMeta } from '@/lib/social-prototype/item-meta';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -117,12 +118,18 @@ export function buildInitialDraft(initialCategory: Category, existingItem?: Cons
             image: existingItem.image,
         };
     }
+    // Exercise: auto-inject a unique session ID so each log creates a distinct item
+    // that can have its own effort rating and notes, while grouping under the same
+    // exercise name on the item page.
+    const image = initialCategory === 'exercise'
+        ? serializeItemMeta({ externalSource: 'exercise-session', externalId: new Date().toISOString() })
+        : undefined;
     return {
         category: initialCategory,
         title: initialTitle || '',
         subtitle: '',
         rating: undefined,
         notes: '',
-        image: undefined,
+        image,
     };
 }
