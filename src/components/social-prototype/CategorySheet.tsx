@@ -206,22 +206,17 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 </div>
             )}
             {exerciseCat && exerciseNameOptions.length > 1 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                    <button
-                        onClick={() => setExerciseNameFilter('all')}
-                        className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${exerciseNameFilter === 'all' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}
+                <div className="mb-3">
+                    <select
+                        value={exerciseNameFilter}
+                        onChange={(e) => setExerciseNameFilter(e.target.value)}
+                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
                     >
-                        All
-                    </button>
-                    {exerciseNameOptions.map(name => (
-                        <button
-                            key={name}
-                            onClick={() => setExerciseNameFilter(prev => prev === name ? 'all' : name)}
-                            className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${exerciseNameFilter === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}
-                        >
-                            {name}
-                        </button>
-                    ))}
+                        <option value="all">All Exercises</option>
+                        {exerciseNameOptions.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
                 </div>
             )}
 
