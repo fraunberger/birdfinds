@@ -52,6 +52,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [movieSearchToken, setMovieSearchToken] = useState(0);
     const [showRestaurantResults, setShowRestaurantResults] = useState(false);
     const [restaurantSearchToken, setRestaurantSearchToken] = useState(0);
+    const [showLocationResults, setShowLocationResults] = useState(false);
+    const [locationSearchToken, setLocationSearchToken] = useState(0);
     const [showBookResults, setShowBookResults] = useState(false);
     const [bookSearchToken, setBookSearchToken] = useState(0);
     const [showBreweryResults, setShowBreweryResults] = useState(false);
@@ -76,6 +78,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const music = useSearchPicker<MusicSearchResult>({ category, targetCategory: 'music', readOnly, enabled: showMusicResults, query: title, endpoint: '/api/music/search', token: musicSearchToken });
     const movies = useSearchPicker<MovieSearchResult>({ category, targetCategory: 'movie', readOnly, enabled: showMovieResults, query: title, endpoint: '/api/movies/search', token: movieSearchToken });
     const restaurants = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'restaurant', readOnly, enabled: showRestaurantResults, query: title, endpoint: '/api/places/search', token: restaurantSearchToken });
+    const locationPlaces = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'location', readOnly, enabled: showLocationResults, query: title, endpoint: '/api/places/search', token: locationSearchToken });
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
     const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
 
@@ -242,7 +245,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
-    const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant')
+    const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
         ? toGoogleMapsLink(draft.image || existingItem?.image, title, subtitle)
         : null;
     const linkCardHref = (existingItem?.category === 'link' || category === 'link') && linkUrl ? linkUrl : null;
@@ -264,15 +267,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (category === 'podcast') { setShowPodcastPicker(true); setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastShowSearchToken((p) => p + 1); }
         if (category === 'tv') { setShowTvPicker(true); setSelectedTvShow(null); setTvEpisodes([]); setTvShowSearchToken((p) => p + 1); }
         if (category === 'restaurant') { setShowRestaurantResults(true); setRestaurantSearchToken((p) => p + 1); }
+        if (category === 'location') { setShowLocationResults(true); setLocationSearchToken((p) => p + 1); }
         if (category === 'book') { setShowBookResults(true); setBookSearchToken((p) => p + 1); }
     };
 
     const searchButtonLabel =
         category === 'restaurant' ? 'Search Places'
-            : category === 'podcast' ? 'Search Shows'
-                : category === 'tv' ? 'Search Shows'
-                    : category === 'book' ? 'Search Books'
-                        : 'Search';
+            : category === 'location' ? 'Search Places'
+                : category === 'podcast' ? 'Search Shows'
+                    : category === 'tv' ? 'Search Shows'
+                        : category === 'book' ? 'Search Books'
+                            : 'Search';
 
     // ── Render ──────────────────────────────────────────────────────────
     if (!isOpen) return null;
@@ -388,7 +393,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'book'].includes(category) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -665,6 +670,41 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         )}
                                     />
                                 )}
+                                {/* Location results */}
+                                {category === 'location' && !readOnly && (
+                                    <SearchResultsPanel
+                                        visible={showLocationResults}
+                                        isSearching={locationPlaces.isSearching}
+                                        results={locationPlaces.results}
+                                        query={title}
+                                        searchingLabel="Searching places..."
+                                        emptyLabel="No places"
+                                        maxHeightClass="max-h-56"
+                                        keyExtractor={(r) => r.id}
+                                        renderResult={(place) => (
+                                            <button type="button" onClick={() => {
+                                                const nextImageRef = place.googleMapsUri
+                                                    ? `mapsurl:${encodeURIComponent(place.googleMapsUri)}`
+                                                    : `place:${place.id}`;
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: place.name,
+                                                    image: serializeItemMeta({
+                                                        ...parseItemMeta(prev.image),
+                                                        imageUrl: nextImageRef,
+                                                        restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        externalSource: 'google-places',
+                                                        externalId: place.id,
+                                                    }),
+                                                }));
+                                                setShowLocationResults(false);
+                                            }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                <div className="text-sm text-neutral-900">{place.name}</div>
+                                                <div className="text-xs text-neutral-500">{place.address || 'No address'}</div>
+                                            </button>
+                                        )}
+                                    />
+                                )}
                                 {/* Book results */}
                                 {category === 'book' && !readOnly && (
                                     <SearchResultsPanel
@@ -761,10 +801,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             )}
                                         />
                                     )}
-                                    {category === 'restaurant' && (
+                                    {(category === 'restaurant' || category === 'location') && (
                                         <div className="mt-3">
                                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                                Location
+                                                Address
                                             </label>
                                             {readOnly ? (
                                                 <div className="text-sm font-mono text-neutral-700 py-1">
