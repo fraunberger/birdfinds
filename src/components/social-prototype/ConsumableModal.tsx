@@ -393,21 +393,37 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {/* Exercise quick-pick — past exercise names */}
+                                {/* Exercise quick-pick — recent chips + full dropdown */}
                                 {category === 'exercise' && !existingItem && !readOnly && allUserItems && (() => {
-                                    const names = Array.from(new Set(
-                                        allUserItems.filter(i => i.category === 'exercise' && i.title.trim()).map(i => i.title.trim())
-                                    )).sort();
-                                    if (names.length === 0) return null;
+                                    const exerciseItems = allUserItems.filter(i => i.category === 'exercise' && i.title.trim());
+                                    if (exerciseItems.length === 0) return null;
+                                    // Top 3 most recently used (unique names, ordered by most recent log)
+                                    const recent: string[] = [];
+                                    for (const item of [...exerciseItems].sort((a, b) => b.createdAt - a.createdAt)) {
+                                        const t = item.title.trim();
+                                        if (!recent.includes(t)) recent.push(t);
+                                        if (recent.length === 3) break;
+                                    }
+                                    const allNames = Array.from(new Set(exerciseItems.map(i => i.title.trim()))).sort();
                                     return (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {names.map(name => (
+                                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                            {recent.map(name => (
                                                 <button key={name} type="button"
                                                     onClick={() => setDraft(prev => ({ ...prev, title: name }))}
                                                     className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${title.trim() === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}>
                                                     {name}
                                                 </button>
                                             ))}
+                                            <select
+                                                value=""
+                                                onChange={(e) => { if (e.target.value) setDraft(prev => ({ ...prev, title: e.target.value })); }}
+                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 bg-white text-neutral-600 hover:border-neutral-500 cursor-pointer"
+                                            >
+                                                <option value="">All…</option>
+                                                {allNames.map(name => (
+                                                    <option key={name} value={name}>{name}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                     );
                                 })()}
