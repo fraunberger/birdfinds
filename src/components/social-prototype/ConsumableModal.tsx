@@ -877,7 +877,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
                                     <span className="text-2xl font-bold text-neutral-800 leading-none">{rating || '—'}</span>
-                                    <span className="text-[9px] text-neutral-400 mt-0.5">/ 10</span>
+                                    <span className="text-[9px] text-neutral-400 mt-0.5">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                                 </div>
                             ) : (
                                 <div className="w-16 h-16 border-2 border-neutral-300 hover:border-neutral-400 flex flex-col items-center justify-center relative bg-white">
@@ -890,7 +890,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
-                                    <span className="text-[9px] text-neutral-400 absolute bottom-1.5 z-0 pointer-events-none">/ 10</span>
+                                    <span className="text-[9px] text-neutral-400 absolute bottom-1.5 z-0 pointer-events-none">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                                 </div>
                             )}
                         </div>
