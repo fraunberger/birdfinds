@@ -76,6 +76,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // Bird multi-select
     const [birdQuery, setBirdQuery] = useState('');
+    const [checklistQuery, setChecklistQuery] = useState('');
 
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
@@ -979,6 +980,73 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => removeBird(b.id)}
+                                                                    className="text-neutral-400 hover:text-neutral-800 leading-none"
+                                                                >×</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                            {/* Bird checklist (target species) */}
+                            {category === 'bird' && (() => {
+                                const checklist = parsedMeta.checklist || [];
+                                const addToChecklist = (name: string) => {
+                                    const trimmed = name.trim();
+                                    if (!trimmed) return;
+                                    if (checklist.some(b => b.comName.toLowerCase() === trimmed.toLowerCase())) return;
+                                    const next = [...checklist, { id: trimmed.toLowerCase().replace(/\s+/g, '-'), comName: trimmed }];
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), checklist: next }),
+                                    }));
+                                    setChecklistQuery('');
+                                };
+                                const removeFromChecklist = (id: string) => {
+                                    const next = checklist.filter(b => b.id !== id);
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), checklist: next }),
+                                    }));
+                                };
+                                return (
+                                    <div className="mt-4">
+                                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Checklist</label>
+                                        {readOnly ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {checklist.length === 0
+                                                    ? <span className="text-sm text-neutral-400">—</span>
+                                                    : checklist.map(b => (
+                                                        <span key={b.id} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{b.comName}</span>
+                                                    ))
+                                                }
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    value={checklistQuery}
+                                                    onChange={(e) => setChecklistQuery(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            addToChecklist(checklistQuery);
+                                                        }
+                                                    }}
+                                                    placeholder="Type species name, press Enter…"
+                                                    className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                                                />
+                                                {checklist.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {checklist.map(b => (
+                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
+                                                                {b.comName}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeFromChecklist(b.id)}
                                                                     className="text-neutral-400 hover:text-neutral-800 leading-none"
                                                                 >×</button>
                                                             </span>
