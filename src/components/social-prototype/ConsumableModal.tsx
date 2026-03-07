@@ -218,16 +218,54 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         return () => { controller.abort(); window.clearTimeout(timeoutId); };
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
+    // ── Book: propagate last page, total pages, cover, and mode from previous logs ──
+    useEffect(() => {
+        if (category !== 'book' || !allUserItems || !title.trim() || readOnly) return;
+        const norm = (s: string) => s.trim().toLowerCase();
+        // Sort all matching logs newest-first; exclude finished reviews (book-review) for progressPage
+        const prevLogs = [...allUserItems]
+            .filter(i => i.category === 'book' && norm(i.title) === norm(title))
+            .sort((a, b) => b.createdAt - a.createdAt);
+        if (prevLogs.length === 0) return;
+        // Most recent progress log (not a finished review) gives us last known page
+        const lastProgress = prevLogs.find(i => parseItemMeta(i.image).externalSource !== 'book-review');
+        // Any log may carry totalPages / imageUrl
+        const withTotal = prevLogs.find(i => parseItemMeta(i.image).totalPages);
+        const withCover = prevLogs.find(i => parseItemMeta(i.image).imageUrl);
+        setDraft(prev => {
+            const prevMeta = parseItemMeta(prev.image);
+            const updates: Record<string, unknown> = {};
+            if (lastProgress && prevMeta.progressPage == null) {
+                const lm = parseItemMeta(lastProgress.image);
+                if (lm.progressPage != null) updates.progressPage = lm.progressPage;
+                if (!prevMeta.progressMode && lm.progressMode) updates.progressMode = lm.progressMode;
+            }
+            if (withTotal && prevMeta.totalPages == null) updates.totalPages = parseItemMeta(withTotal.image).totalPages;
+            if (withCover && !prevMeta.imageUrl) updates.imageUrl = parseItemMeta(withCover.image).imageUrl;
+            if (Object.keys(updates).length === 0) return prev;
+            return { ...prev, image: serializeItemMeta({ ...prevMeta, ...updates }) };
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [category, title, allUserItems, readOnly]);
+
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
         if (!draft.title.trim()) return;
+        let imageToSave = draft.image;
+        if (draft.category === 'book' && parseItemMeta(draft.image).finished) {
+            // Transition to SSOT on finish: use a stable external identity so
+            // subsequent edits to the finished review merge rather than insert.
+            const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            const stableId = [norm(draft.title), norm((draft.subtitle || '').split(',')[0] || '')].filter(Boolean).join('-');
+            imageToSave = serializeItemMeta({ ...parseItemMeta(draft.image), externalSource: 'book-review', externalId: stableId }) ?? draft.image;
+        }
         onSave?.({
             category: draft.category,
             title: draft.title,
             subtitle: draft.subtitle,
             rating: draft.rating,
             notes: draft.notes,
-            image: draft.image,
+            image: imageToSave,
         });
         onClose();
     }, [draft, onClose, onSave]);
@@ -382,6 +420,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 <div className="p-4 space-y-6 overflow-y-auto flex-1">
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
+                        {/* Book cover thumbnail */}
+                        {category === 'book' && parsedMeta.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={parsedMeta.imageUrl}
+                                alt=""
+                                className="flex-shrink-0 w-16 object-cover border border-neutral-100 self-start"
+                                style={{ maxHeight: 96 }}
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                        )}
                         <div className="flex-1 space-y-4">
                             {/* Title */}
                             {<div>
@@ -785,15 +834,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         keyExtractor={(r) => r.id}
                                         renderResult={(book) => (
                                             <button type="button" onClick={() => {
-                                                const source = /^OL\d+W$/i.test(book.id) ? 'openlibrary' : 'googlebooks';
+                                                // Derive cover URL; keep existing book-progress session id as externalSource/externalId
+                                                const isOL = /^OL\d+W$/i.test(book.id);
+                                                const coverUrl = isOL
+                                                    ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
+                                                    : `https://books.google.com/books/content?id=${book.id}&printsec=frontcover&img=1&zoom=1`;
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: book.title,
                                                     subtitle: book.author || prev.subtitle,
                                                     image: serializeItemMeta({
                                                         ...parseItemMeta(prev.image),
-                                                        externalSource: source,
-                                                        externalId: book.id,
+                                                        imageUrl: coverUrl,
                                                         releaseDate: book.publishedDate || undefined,
                                                     }),
                                                 }));
@@ -1019,17 +1071,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && (
-                        <div className={`flex-shrink-0 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
+                        <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
-                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center mb-1">Ep. Score</div>
+                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
                             )}
                             {readOnly ? (
-                                <div className="w-16 h-16 border-2 border-neutral-200 flex flex-col items-center justify-center bg-neutral-50/50">
+                                <div className="w-16 h-16 border-2 border-neutral-200 flex items-center justify-center bg-neutral-50/50">
                                     <span className="text-2xl font-bold text-neutral-800 leading-none">{rating || '—'}</span>
-                                    <span className="text-[9px] text-neutral-400 mt-0.5">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                                 </div>
                             ) : (
-                                <div className="w-16 h-16 border-2 border-neutral-300 hover:border-neutral-400 flex flex-col items-center justify-center relative bg-white">
+                                <div className="w-16 h-16 border-2 border-neutral-300 hover:border-neutral-400 flex items-center justify-center relative bg-white">
                                     <input
                                         type="number" min="0" max="10" step="0.1"
                                         value={rating || ''}
@@ -1039,9 +1090,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         className="w-full h-full bg-transparent text-center text-2xl font-bold text-neutral-800 outline-none absolute inset-0 z-10 p-0"
                                         placeholder="-"
                                     />
-                                    <span className="text-[9px] text-neutral-400 absolute bottom-1.5 z-0 pointer-events-none">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                                 </div>
                             )}
+                            <span className="text-[9px] text-neutral-400 uppercase tracking-widest">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                         </div>
                         )}
                         {/* Liked/disliked signal for recipes */}
@@ -1088,6 +1139,157 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     placeholder="https://..."
                                     className="w-full text-xs font-mono outline-none border border-neutral-300 focus:border-neutral-500 p-2 bg-white"
                                 />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Book reading progress */}
+                    {category === 'book' && !parsedMeta.finished && (
+                        <div>
+                            {/* Mode toggle: Pages vs Audio % */}
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs uppercase tracking-widest text-neutral-500">Progress</label>
+                                {!readOnly && (
+                                    <div className="flex border border-neutral-200 text-[9px] uppercase tracking-widest">
+                                        <button type="button"
+                                            onClick={() => setDraft(prev => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), progressMode: undefined }) }))}
+                                            className={`px-2 py-0.5 transition-colors ${parsedMeta.progressMode !== 'percent' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
+                                            Pages
+                                        </button>
+                                        <button type="button"
+                                            onClick={() => setDraft(prev => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), progressMode: 'percent' }) }))}
+                                            className={`px-2 py-0.5 border-l border-neutral-200 transition-colors ${parsedMeta.progressMode === 'percent' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
+                                            Audio %
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {parsedMeta.progressMode === 'percent' ? (
+                                /* ── Percent / Audio mode ── */
+                                <div className="flex items-center gap-3">
+                                    {readOnly ? (
+                                        <span className="text-2xl font-bold text-neutral-800 font-mono">
+                                            {parsedMeta.progressPage ?? '—'}%
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="number" min="0" max="100" step="1"
+                                                value={parsedMeta.progressPage ?? ''}
+                                                placeholder="0"
+                                                onChange={(e) => {
+                                                    const val = e.target.value === '' ? undefined : Math.min(100, parseInt(e.target.value, 10));
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), progressPage: val }),
+                                                    }));
+                                                }}
+                                                className="w-20 text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-1 text-center bg-transparent"
+                                            />
+                                            <span className="text-sm text-neutral-500">%</span>
+                                        </>
+                                    )}
+                                    {!readOnly && (
+                                        <button type="button"
+                                            onClick={() => {
+                                                const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                                                const stableId = [norm(title), norm(subtitle.split(',')[0] || '')].filter(Boolean).join('-');
+                                                setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: true, externalSource: 'book-review', externalId: stableId }) }));
+                                            }}
+                                            className="ml-auto text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
+                                            ✓ Mark Finished
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                /* ── Pages mode ── */
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-neutral-500">p.</span>
+                                        {readOnly ? (
+                                            <span className="text-sm font-bold text-neutral-800 w-16 text-center font-mono">
+                                                {parsedMeta.progressPage ?? '—'}
+                                            </span>
+                                        ) : (
+                                            <input
+                                                type="number" min="0" step="1"
+                                                value={parsedMeta.progressPage ?? ''}
+                                                placeholder="0"
+                                                onChange={(e) => {
+                                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), progressPage: val }),
+                                                    }));
+                                                }}
+                                                className="w-20 text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-1 text-center bg-transparent"
+                                            />
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-neutral-400">/</span>
+                                    <div className="flex items-center gap-1.5">
+                                        {readOnly ? (
+                                            <span className="text-sm text-neutral-600">
+                                                {parsedMeta.totalPages ? `${parsedMeta.totalPages} pages` : '—'}
+                                            </span>
+                                        ) : (
+                                            <input
+                                                type="number" min="1" step="1"
+                                                value={parsedMeta.totalPages ?? ''}
+                                                placeholder="total pages"
+                                                onChange={(e) => {
+                                                    const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                                    setDraft((prev) => ({
+                                                        ...prev,
+                                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), totalPages: val }),
+                                                    }));
+                                                }}
+                                                className="w-28 text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-1 text-center bg-transparent"
+                                            />
+                                        )}
+                                    </div>
+                                    {!readOnly && (
+                                        <button type="button"
+                                            onClick={() => {
+                                                const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                                                const stableId = [norm(title), norm(subtitle.split(',')[0] || '')].filter(Boolean).join('-');
+                                                setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: true, externalSource: 'book-review', externalId: stableId }) }));
+                                            }}
+                                            className="ml-auto text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
+                                            ✓ Mark Finished
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Progress bar */}
+                            {(() => {
+                                const pct = parsedMeta.progressMode === 'percent'
+                                    ? parsedMeta.progressPage
+                                    : (parsedMeta.progressPage != null && parsedMeta.totalPages
+                                        ? (parsedMeta.progressPage / parsedMeta.totalPages) * 100
+                                        : null);
+                                if (pct == null) return null;
+                                return (
+                                    <div className="mt-2 h-1.5 bg-neutral-100 border border-neutral-200">
+                                        <div className="h-full bg-neutral-700 transition-all" style={{ width: `${Math.min(100, pct).toFixed(1)}%` }} />
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+                    {/* Book finished — show as review mode */}
+                    {category === 'book' && parsedMeta.finished && (
+                        <div className="border border-neutral-200 px-3 py-2 bg-neutral-50 flex items-center justify-between">
+                            <span className="text-xs uppercase tracking-widest text-neutral-800 font-bold">✓ Finished</span>
+                            {!readOnly && (
+                                <button type="button"
+                                    onClick={() => setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: undefined, externalSource: 'book-progress', externalId: new Date().toISOString() }) }))}
+                                    className="text-[9px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                    undo
+                                </button>
                             )}
                         </div>
                     )}

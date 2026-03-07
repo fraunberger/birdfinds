@@ -79,6 +79,10 @@ export const getItemPageSlug = (
     // Show-level page: slug is the show name (title) only
     return normalizePart(title) || "item";
   }
+  if (category === "beer") {
+    // Brewery-level page: slug is the brewery name (subtitle) only
+    return normalizePart(subtitle || title) || "item";
+  }
   return getCanonicalItemSlug(category, title, subtitle);
 };
 

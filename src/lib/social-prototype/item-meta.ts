@@ -17,6 +17,10 @@ export interface ItemMetaData {
     releaseDate?: string;
     birdList?: Array<{ id: string; comName: string; sciName: string }>;
     checklist?: Array<{ id: string; comName: string }>;
+    progressPage?: number;   // current page (book progress) or percent if progressMode='percent'
+    totalPages?: number;     // total pages in the book
+    progressMode?: 'pages' | 'percent';  // default 'pages'
+    finished?: boolean;      // true when the book is marked done
 }
 
 const META_PREFIX = 'meta:';
@@ -39,6 +43,10 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
             releaseDate: typeof parsed.releaseDate === 'string' ? parsed.releaseDate : undefined,
             birdList: Array.isArray(parsed.birdList) ? parsed.birdList : undefined,
             checklist: Array.isArray(parsed.checklist) ? parsed.checklist : undefined,
+            progressPage: typeof parsed.progressPage === 'number' ? parsed.progressPage : undefined,
+            totalPages: typeof parsed.totalPages === 'number' ? parsed.totalPages : undefined,
+            progressMode: parsed.progressMode === 'percent' ? 'percent' : undefined,
+            finished: typeof parsed.finished === 'boolean' ? parsed.finished : undefined,
         };
     } catch {
         return {};
@@ -51,10 +59,10 @@ export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const releaseDate = meta.releaseDate?.trim();
     const birdList = meta.birdList && meta.birdList.length > 0 ? meta.birdList : undefined;
     const checklist = meta.checklist && meta.checklist.length > 0 ? meta.checklist : undefined;
-    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !releaseDate && !birdList && !checklist) return undefined;
     const externalSource = meta.externalSource?.trim();
     const externalId = meta.externalId?.trim();
-    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && !releaseDate && !birdList && !checklist && meta.imageUrl) return meta.imageUrl;
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !releaseDate && !externalSource && !externalId && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.progressMode) return undefined;
+    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && !releaseDate && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.progressMode && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
@@ -66,6 +74,10 @@ export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
         releaseDate,
         birdList,
         checklist,
+        progressPage: meta.progressPage,
+        totalPages: meta.totalPages,
+        progressMode: meta.progressMode,
+        finished: meta.finished,
     }))}`;
 };
 
