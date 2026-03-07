@@ -1061,7 +1061,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && (
+                        {/* For books: only show the score box after marking finished (progress logs don't have a rating) */}
+                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
