@@ -126,11 +126,12 @@ export function buildInitialDraft(initialCategory: Category, existingItem?: Cons
             image: existingItem.image,
         };
     }
-    // Exercise: auto-inject a unique session ID so each log creates a distinct item
-    // that can have its own effort rating and notes, while grouping under the same
-    // exercise name on the item page.
+    // Exercise/bird/book: inject a unique session ID so each log creates a distinct
+    // item in the DB. They group visually by title but never SSOT-merge.
     const image = initialCategory === 'exercise' || initialCategory === 'bird'
         ? serializeItemMeta({ externalSource: `${initialCategory}-sighting`, externalId: new Date().toISOString() })
+        : initialCategory === 'book'
+        ? serializeItemMeta({ externalSource: 'book-progress', externalId: new Date().toISOString() })
         : undefined;
     return {
         category: initialCategory,

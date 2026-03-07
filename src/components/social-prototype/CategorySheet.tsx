@@ -25,6 +25,7 @@ interface AggregatedItem {
 
 const isEpisodeCategory = (category: Category) => category === 'tv' || category === 'podcast';
 const isExerciseCategory = (category: Category) => category === 'exercise' || category === 'bird';
+const isBookCategory = (category: Category) => category === 'book';
 
 const getEpisodeSeriesLabel = (category: Category, item: ConsumableItem) => {
     if (category === 'tv') return item.title.trim();
@@ -60,6 +61,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const [episodeTextFilter, setEpisodeTextFilter] = useState('');
     const [exerciseNameFilter, setExerciseNameFilter] = useState<string>('all');
     const [expandedRestaurantKeys, setExpandedRestaurantKeys] = useState<Set<string>>(new Set());
+    const [expandedBookKeys, setExpandedBookKeys] = useState<Set<string>>(new Set());
 
     if (!config) return null;
 
@@ -89,6 +91,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const repeatVerb = getRepeatTagVerb(category);
     const episodeFilteringEnabled = isEpisodeCategory(category);
     const exerciseCat = isExerciseCategory(category);
+    const bookCat = isBookCategory(category);
     const isRestaurantCategory = category === 'restaurant';
 
     const episodeSeriesOptions = (() => {
@@ -241,6 +244,19 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                         });
                                         return;
                                     }
+                                    if (bookCat) {
+                                        const finishedVisit = entry.visits.find(v => parseItemMeta(v.image).finished);
+                                        if (finishedVisit) { setSelectedItem(finishedVisit); return; }
+                                        if (entry.count > 1) {
+                                            setExpandedBookKeys((prev) => {
+                                                const next = new Set(prev);
+                                                if (next.has(entry.key)) next.delete(entry.key);
+                                                else next.add(entry.key);
+                                                return next;
+                                            });
+                                            return;
+                                        }
+                                    }
                                     setSelectedItem(entry.latest);
                                 }}
                                 className="w-full text-left"
@@ -254,47 +270,96 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 )}
 
                                 {/* Main info */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <div className="text-xs font-bold">{entry.latest.title}</div>
-                                        {entry.count > 1 && !exerciseCat && (
-                                            <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
-                                                {entry.count}X
-                                            </span>
+                                {(() => {
+                                    const bookMeta = bookCat ? parseItemMeta(entry.latest.image) : null;
+                                    return (
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-xs font-bold">{entry.latest.title}</div>
+                                            {entry.count > 1 && !exerciseCat && !bookCat && (
+                                                <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                    {entry.count}X
+                                                </span>
+                                            )}
+                                            {exerciseCat && (
+                                                <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                                                    {new Date(entry.latest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                </span>
+                                            )}
+                                            {bookCat && (bookMeta?.finished || entry.visits.some(v => parseItemMeta(v.image).finished)) && (
+                                                <span className="text-[9px] uppercase tracking-widest px-1 py-0.5 bg-neutral-800 text-white">✓</span>
+                                            )}
+                                        </div>
+                                        {entry.count > 1 && !exerciseCat && !bookCat && (
+                                            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
+                                                {repeatVerb} {entry.count} times
+                                            </div>
                                         )}
-                                        {exerciseCat && (
-                                            <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
-                                                {new Date(entry.latest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            </span>
+                                        {entry.latest.subtitle && (
+                                            <div className="text-[11px] text-neutral-600 mt-0.5">
+                                                {entry.latest.subtitle.split('\n')[0]}
+                                            </div>
+                                        )}
+                                        {bookCat && (() => {
+                                            // Prefer finished review entry for display; fall back to latest progress log
+                                            const finishedVisit = entry.visits.find(v => parseItemMeta(v.image).finished);
+                                            const displayMeta = finishedVisit ? parseItemMeta(finishedVisit.image) : bookMeta;
+                                            const isPercent = displayMeta?.progressMode === 'percent';
+                                            const pct = isPercent
+                                                ? displayMeta?.progressPage
+                                                : (displayMeta?.progressPage != null && displayMeta?.totalPages
+                                                    ? (displayMeta.progressPage / displayMeta.totalPages) * 100
+                                                    : null);
+                                            return (
+                                                <div className="mt-1">
+                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-widest">
+                                                        {isPercent
+                                                            ? (displayMeta?.progressPage != null ? `${displayMeta.progressPage}%` : 'No progress')
+                                                            : (displayMeta?.progressPage != null ? `p. ${displayMeta.progressPage}` : 'No progress')}
+                                                        {!isPercent && displayMeta?.totalPages ? ` / ${displayMeta.totalPages}` : ''}
+                                                    </span>
+                                                    {pct != null && (
+                                                        <div className="mt-1 h-1 bg-neutral-100 border border-neutral-200">
+                                                            <div className="h-full bg-neutral-600" style={{ width: `${Math.min(100, pct).toFixed(1)}%` }} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                        {!bookCat && entry.latest.notes && (
+                                            <div className="text-[10px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
+                                                {entry.latest.notes}
+                                            </div>
                                         )}
                                     </div>
-                                    {entry.count > 1 && !exerciseCat && (
-                                        <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
-                                            {repeatVerb} {entry.count} times
-                                        </div>
-                                    )}
-                                    {entry.latest.subtitle && (
-                                        <div className="text-[11px] text-neutral-600 mt-0.5">
-                                            {entry.latest.subtitle.split('\n')[0]}
-                                        </div>
-                                    )}
-                                    {entry.latest.notes && (
-                                        <div className="text-[10px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
-                                            {entry.latest.notes}
-                                        </div>
-                                    )}
-                                </div>
+                                    );
+                                })()}
 
                                 {/* Rating /10 — prominent on the right */}
-                                {entry.latest.rating && entry.latest.rating > 0 && (
+                                {entry.latest.rating && entry.latest.rating > 0 && !bookCat && (
                                     <div className="flex-shrink-0 text-right">
                                         <span className="text-sm font-bold text-neutral-800">{entry.latest.rating}</span>
                                         <span className="text-[9px] text-neutral-400">/10</span>
                                     </div>
                                 )}
+                                {bookCat && (() => {
+                                    const finishedVisit = entry.visits.find(v => parseItemMeta(v.image).finished);
+                                    if (!finishedVisit?.rating) return null;
+                                    return (
+                                        <div className="flex-shrink-0 text-right">
+                                            <span className="text-sm font-bold text-neutral-800">{finishedVisit.rating}</span>
+                                            <span className="text-[9px] text-neutral-400">/10</span>
+                                        </div>
+                                    );
+                                })()}
                                 {isRestaurantCategory && entry.count > 1 && (
                                     <div className="flex-shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
                                         {expandedRestaurantKeys.has(entry.key) ? 'Hide' : 'Show'}
+                                    </div>
+                                )}
+                                {bookCat && entry.count > 1 && (
+                                    <div className="flex-shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
+                                        {expandedBookKeys.has(entry.key) ? 'Hide' : `${entry.count} logs`}
                                     </div>
                                 )}
                                 </div>
@@ -312,6 +377,28 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+                            {bookCat && entry.count > 1 && expandedBookKeys.has(entry.key) && (
+                                <div className="border-x border-b border-neutral-200 bg-neutral-50 px-3 py-2">
+                                    <div className="space-y-1.5">
+                                        {entry.visits.map((visit) => {
+                                            const vm = parseItemMeta(visit.image);
+                                            return (
+                                                <button key={visit.id} type="button" onClick={() => setSelectedItem(visit)}
+                                                    className="w-full flex items-center justify-between gap-2 text-[11px] hover:bg-neutral-100 px-1 py-0.5 rounded">
+                                                    <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
+                                                        {new Date(visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </div>
+                                                    <div className="text-neutral-700 text-right">
+                                                        {vm.progressPage != null ? `p. ${vm.progressPage}` : '—'}
+                                                        {vm.totalPages ? ` / ${vm.totalPages}` : ''}
+                                                        {vm.finished ? ' ✓' : ''}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
