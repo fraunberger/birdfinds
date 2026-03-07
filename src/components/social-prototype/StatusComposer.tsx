@@ -50,7 +50,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         : Object.keys(CATEGORY_CONFIGS) as Category[];
     // LINK is always first; remaining categories follow user-defined order.
     // First MAX_PINNED become toolbar buttons; the rest live in an overflow dropdown.
-    const MAX_PINNED = 4;
+    const MAX_PINNED = 6;
     const linkConfig = getCategoryConfig('link');
     const nonLinkConfigs = activeCategories.filter(c => c !== 'link').map(c => getCategoryConfig(c));
     const pinnedConfigs = nonLinkConfigs.slice(0, MAX_PINNED);
@@ -514,51 +514,64 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     {/* Editor Container */}
                     <div className="border border-neutral-300">
                         {/* ── Inline Category Toolbar ── */}
-                        <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
-                            <div className="flex items-stretch min-w-max shrink-0">
-                                {toolbarCategoryConfigs.map(cat => {
-                                    const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => {
-                                                setSelectedPlainText('');
-                                                recentSelectionRef.current = null;
-                                                if (hasContext) {
-                                                    tagging.handleCategoryTap(cat.id);
-                                                } else {
-                                                    setActiveCategory(cat.id);
-                                                    setExistingItem(undefined);
-                                                    setIsModalOpen(true);
-                                                }
-                                            }}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            disabled={tagging.busy}
-                                            title={cat.label}
-                                            className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
-                                                ? 'text-neutral-900 hover:brightness-90'
-                                                : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
-                                                }`}
-                                            style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
-                                        >
-                                            {cat.shortLabel}
-                                        </button>
-                                    );
-                                })}
+                        <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch">
+                            {/* Scrollable pinned buttons — overflow-x-auto is scoped here so the ▾ dropdown isn't clipped */}
+                            <div className="flex items-stretch overflow-x-auto flex-1 min-w-0">
+                                <div className="flex items-stretch min-w-max shrink-0">
+                                    {toolbarCategoryConfigs.map(cat => {
+                                        const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => {
+                                                    setSelectedPlainText('');
+                                                    recentSelectionRef.current = null;
+                                                    if (hasContext) {
+                                                        tagging.handleCategoryTap(cat.id);
+                                                    } else {
+                                                        setActiveCategory(cat.id);
+                                                        setExistingItem(undefined);
+                                                        setIsModalOpen(true);
+                                                    }
+                                                }}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                disabled={tagging.busy}
+                                                title={cat.label}
+                                                className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
+                                                    ? 'text-neutral-900 hover:brightness-90'
+                                                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                                                    }`}
+                                                style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
+                                            >
+                                                {cat.shortLabel}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {tagging.selectedText && (
+                                    <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
+                                        TEXT SELECTED → TAP A CATEGORY
+                                    </div>
+                                )}
+                                {!tagging.selectedText && tagging.atPrefixText && (
+                                    <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
+                                        @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
+                                    </div>
+                                )}
                             </div>
-                            {/* Overflow dropdown for extra categories */}
+                            {/* Overflow dropdown — outside scroll container so dropdown isn't clipped */}
                             {overflowConfigs.length > 0 && (
                                 <div ref={overflowRef} className="relative flex items-stretch shrink-0">
                                     <button
                                         type="button"
                                         onClick={() => setShowOverflow(p => !p)}
-                                        className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest border-r border-neutral-200 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                                        className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest border-l border-neutral-200 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                                         title="More categories"
                                     >
                                         ▾
                                     </button>
                                     {showOverflow && (
-                                        <div className="absolute top-full left-0 z-50 bg-white border border-neutral-300 shadow-sm min-w-[120px]">
+                                        <div className="absolute top-full right-0 z-50 bg-white border border-neutral-300 shadow-sm min-w-[120px]">
                                             {overflowConfigs.map(cat => {
                                                 const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
                                                 return (
@@ -588,16 +601,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             })}
                                         </div>
                                     )}
-                                </div>
-                            )}
-                            {tagging.selectedText && (
-                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
-                                    TEXT SELECTED → TAP A CATEGORY
-                                </div>
-                            )}
-                            {!tagging.selectedText && tagging.atPrefixText && (
-                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
-                                    @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
                                 </div>
                             )}
                         </div>
@@ -686,7 +689,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         content={content}
                         isMobileTagging={tagging.isMobileTagging}
                         selectedPlainText={selectedPlainText}
-                        activeCategoryConfigs={toolbarCategoryConfigs}
+                        activeCategoryConfigs={[...toolbarCategoryConfigs, ...overflowConfigs]}
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}

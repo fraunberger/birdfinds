@@ -528,12 +528,12 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                             Toolbar Order
                         </label>
                         <p className="text-[10px] text-neutral-400 uppercase tracking-widest mb-2">
-                            LINK is always first. First 4 below show as buttons; rest go in ▾ overflow.
+                            LINK is always first. First 6 below show as buttons; rest go in ▾ overflow.
                         </p>
                         <div className="space-y-1">
                             {selectedCategories.filter(c => c !== 'link').map((cat, idx, arr) => {
                                 const config = getCategoryConfig(cat);
-                                const isPinned = idx < 4;
+                                const isPinned = idx < 6;
                                 return (
                                     <div key={cat} className={`flex items-center gap-2 px-2 py-1.5 border text-[11px] uppercase tracking-widest ${isPinned ? 'border-neutral-300 bg-white text-neutral-700' : 'border-neutral-200 bg-neutral-50 text-neutral-400'}`}>
                                         <span className="flex-1 truncate">
