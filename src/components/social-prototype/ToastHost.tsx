@@ -23,7 +23,7 @@ export function ToastHost() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     let idCounter = 1;
-    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let timerId: number | null = null;
     const eventName = getToastEventName();
 
     const handler = (event: Event) => {
