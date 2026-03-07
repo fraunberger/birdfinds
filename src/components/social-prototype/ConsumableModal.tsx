@@ -290,7 +290,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Beer is excluded: only the brewery (subtitle) is searchable, not the beer itself
     const showReviewGate = hasSearchableApi && category !== 'beer' && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
 
-    const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
+    // For book: linked means the user confirmed via API search (cover URL fetched).
+    // For all other categories: linked means externalSource+externalId are set.
+    const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
@@ -420,17 +422,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 <div className="p-4 space-y-6 overflow-y-auto flex-1">
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
-                        {/* Book cover thumbnail */}
-                        {category === 'book' && parsedMeta.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={parsedMeta.imageUrl}
-                                alt=""
-                                className="flex-shrink-0 w-16 object-cover border border-neutral-100 self-start"
-                                style={{ maxHeight: 96 }}
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                            />
-                        )}
                         <div className="flex-1 space-y-4">
                             {/* Title */}
                             {<div>
@@ -1070,7 +1061,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && (
+                        {/* For books: only show the score box after marking finished (progress logs don't have a rating) */}
+                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
