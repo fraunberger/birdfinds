@@ -383,8 +383,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 space-y-4">
-                            {/* Title — hidden for bird (uses multi-bird checklist instead) */}
-                            {category !== 'bird' && <div>
+                            {/* Title */}
+                            {<div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.titleLabel}
                                 </label>
@@ -808,7 +808,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                             </div>}
                             {/* Subtitle */}
-                            {category !== 'cooking' && category !== 'link' && category !== 'bird' && (
+                            {category !== 'cooking' && category !== 'link' && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         {config.subtitleLabel}
@@ -952,31 +952,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 return (
                                     <div>
                                         {readOnly ? (
-                                            <>
-                                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Birds</label>
-                                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                                    {birdList.length === 0
-                                                        ? <span className="text-sm text-neutral-400">—</span>
-                                                        : birdList.map(b => (
-                                                            <span key={b.id} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{b.comName}</span>
-                                                        ))
-                                                    }
-                                                </div>
-                                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Checklist</label>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {checklist.length === 0
-                                                        ? <span className="text-sm text-neutral-400">—</span>
-                                                        : checklist.map(b => (
-                                                            <span key={b.id} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{b.comName}</span>
-                                                        ))
-                                                    }
-                                                </div>
-                                            </>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {[...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].length === 0
+                                                    ? <span className="text-sm text-neutral-400">—</span>
+                                                    : [...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].map((name, i) => (
+                                                        <span key={i} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{name}</span>
+                                                    ))
+                                                }
+                                            </div>
                                         ) : (
                                             <>
                                                 <div className="relative">
                                                     <input
-                                                        autoFocus
                                                         type="text"
                                                         value={birdQuery}
                                                         onChange={(e) => {
@@ -1003,8 +990,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 <button
                                                                     key={bird.id}
                                                                     type="button"
-                                                                    onMouseDown={() => addBird(bird)}
-                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 ${birdList.some(b => b.id === bird.id) ? 'opacity-40' : ''}`}
+                                                                    onMouseDown={() => addToChecklist(bird.comName)}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 ${checklist.some(b => b.comName === bird.comName) ? 'opacity-40' : ''}`}
                                                                 >
                                                                     <div className="text-sm text-neutral-900">{bird.comName}</div>
                                                                     <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
@@ -1013,31 +1000,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         </div>
                                                     )}
                                                 </div>
-                                                {birdList.length > 0 && (
-                                                    <>
-                                                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mt-3 mb-1">Birds</label>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {birdList.map(b => (
-                                                                <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
-                                                                    {b.comName}
-                                                                    <button type="button" onClick={() => removeBird(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                )}
                                                 {checklist.length > 0 && (
-                                                    <>
-                                                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mt-3 mb-1">Checklist</label>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {checklist.map(b => (
-                                                                <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
-                                                                    {b.comName}
-                                                                    <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </>
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {checklist.map(b => (
+                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
+                                                                {b.comName}
+                                                                <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </>
                                         )}
