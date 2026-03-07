@@ -290,7 +290,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Beer is excluded: only the brewery (subtitle) is searchable, not the beer itself
     const showReviewGate = hasSearchableApi && category !== 'beer' && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
 
-    const isCoupled = !!getItemExternalIdentityKey(category, draft.image);
+    const isCoupled = (() => { const key = getItemExternalIdentityKey(category, draft.image); if (!key) return false; if (category === 'book' && key.includes('::book-progress::')) return false; return true; })();
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
@@ -420,17 +420,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 <div className="p-4 space-y-6 overflow-y-auto flex-1">
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
-                        {/* Book cover thumbnail */}
-                        {category === 'book' && parsedMeta.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={parsedMeta.imageUrl}
-                                alt=""
-                                className="flex-shrink-0 w-16 object-cover border border-neutral-100 self-start"
-                                style={{ maxHeight: 96 }}
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                            />
-                        )}
                         <div className="flex-1 space-y-4">
                             {/* Title */}
                             {<div>
