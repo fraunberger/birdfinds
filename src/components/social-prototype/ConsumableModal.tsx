@@ -218,29 +218,32 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         return () => { controller.abort(); window.clearTimeout(timeoutId); };
     }, [category, readOnly, selectedTvShow, tvEpisodeSearchToken]);
 
-    // ── Book: propagate totalPages + cover from previous logs when title matches ──
+    // ── Book: propagate last page, total pages, cover, and mode from previous logs ──
     useEffect(() => {
         if (category !== 'book' || !allUserItems || !title.trim() || readOnly) return;
-        const currentMeta = parseItemMeta(draft.image);
-        if (currentMeta.totalPages && currentMeta.imageUrl) return; // already complete
         const norm = (s: string) => s.trim().toLowerCase();
-        const match = [...allUserItems]
+        // Sort all matching logs newest-first; exclude finished reviews (book-review) for progressPage
+        const prevLogs = [...allUserItems]
             .filter(i => i.category === 'book' && norm(i.title) === norm(title))
-            .sort((a, b) => b.createdAt - a.createdAt)
-            .find(i => { const m = parseItemMeta(i.image); return m.totalPages || m.imageUrl; });
-        if (!match) return;
-        const matchMeta = parseItemMeta(match.image);
+            .sort((a, b) => b.createdAt - a.createdAt);
+        if (prevLogs.length === 0) return;
+        // Most recent progress log (not a finished review) gives us last known page
+        const lastProgress = prevLogs.find(i => parseItemMeta(i.image).externalSource !== 'book-review');
+        // Any log may carry totalPages / imageUrl
+        const withTotal = prevLogs.find(i => parseItemMeta(i.image).totalPages);
+        const withCover = prevLogs.find(i => parseItemMeta(i.image).imageUrl);
         setDraft(prev => {
             const prevMeta = parseItemMeta(prev.image);
-            if (prevMeta.totalPages && prevMeta.imageUrl) return prev;
-            return {
-                ...prev,
-                image: serializeItemMeta({
-                    ...prevMeta,
-                    totalPages: prevMeta.totalPages ?? matchMeta.totalPages,
-                    imageUrl: prevMeta.imageUrl ?? matchMeta.imageUrl,
-                }),
-            };
+            const updates: Record<string, unknown> = {};
+            if (lastProgress && prevMeta.progressPage == null) {
+                const lm = parseItemMeta(lastProgress.image);
+                if (lm.progressPage != null) updates.progressPage = lm.progressPage;
+                if (!prevMeta.progressMode && lm.progressMode) updates.progressMode = lm.progressMode;
+            }
+            if (withTotal && prevMeta.totalPages == null) updates.totalPages = parseItemMeta(withTotal.image).totalPages;
+            if (withCover && !prevMeta.imageUrl) updates.imageUrl = parseItemMeta(withCover.image).imageUrl;
+            if (Object.keys(updates).length === 0) return prev;
+            return { ...prev, image: serializeItemMeta({ ...prevMeta, ...updates }) };
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [category, title, allUserItems, readOnly]);
