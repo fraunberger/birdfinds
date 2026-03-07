@@ -71,6 +71,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Gate — tracks whether the user has explicitly clicked "Review without linking"
     const [gateClicked, setGateClicked] = useState(false);
 
+    // Exercise combobox
+    const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+
+    // Bird multi-select
+    const [birdQuery, setBirdQuery] = useState('');
+
     // TV two-step picker
     const [showTvPicker, setShowTvPicker] = useState(false);
     const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
@@ -84,7 +90,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const locationPlaces = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'location', readOnly, enabled: showLocationResults, query: title, endpoint: '/api/places/search', token: locationSearchToken });
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
     const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
-    const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: title, endpoint: '/api/birds/search', token: birdSearchToken });
+    const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: birdQuery, endpoint: '/api/birds/search', token: birdSearchToken });
 
     // Podcast show search (only when no show selected)
     const podcastShows = useSearchPicker<PodcastShowResult>({ category, targetCategory: 'podcast', readOnly, enabled: showPodcastPicker && !selectedPodcast, query: title, endpoint: '/api/podcasts/search', token: podcastShowSearchToken });
@@ -377,11 +383,65 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 space-y-4">
-                            {/* Title */}
-                            <div>
+                            {/* Title — hidden for bird (uses multi-bird checklist instead) */}
+                            {category !== 'bird' && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.titleLabel}
                                 </label>
+                                {(category === 'exercise') && !readOnly ? (() => {
+                                    const allExerciseNames = Array.from(new Set(
+                                        getAllItemsByCategory('exercise').filter(i => i.title.trim()).map(i => i.title.trim())
+                                    )).sort();
+                                    const filtered = title.trim()
+                                        ? allExerciseNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
+                                        : allExerciseNames;
+                                    return (
+                                        <div className="relative">
+                                            <div className="flex items-center border-b border-neutral-200 focus-within:border-neutral-400">
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={title}
+                                                    onChange={(e) => {
+                                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                                        setShowExerciseDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowExerciseDropdown(true)}
+                                                    onBlur={() => setShowExerciseDropdown(false)}
+                                                    placeholder="Type or pick…"
+                                                    className="flex-1 text-base font-mono outline-none py-1 bg-transparent"
+                                                />
+                                                {allExerciseNames.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => { e.preventDefault(); setShowExerciseDropdown(v => !v); }}
+                                                        className="px-1 text-neutral-400 hover:text-neutral-700"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L1 3h10z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showExerciseDropdown && filtered.length > 0 && (
+                                                <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-48 overflow-y-auto">
+                                                    {filtered.map(name => (
+                                                        <button
+                                                            key={name}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setDraft(prev => ({ ...prev, title: name }));
+                                                                setShowExerciseDropdown(false);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${title.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
+                                                        >
+                                                            {name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })() : (
                                 <input
                                     autoFocus={!readOnly}
                                     disabled={readOnly}
@@ -394,46 +454,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }}
                                     className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
                                 />
+                                )}
                                 {repeatInfo && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {/* Exercise quick-pick — recent chips + full dropdown */}
-                                {(category === 'exercise' || category === 'bird') && !readOnly && (() => {
-                                    const exerciseItems = getAllItemsByCategory(category).filter(i => i.title.trim());
-                                    if (exerciseItems.length === 0) return null;
-                                    // Top 3 most recently used (unique names, ordered by most recent log)
-                                    const recent: string[] = [];
-                                    for (const item of [...exerciseItems].sort((a, b) => b.createdAt - a.createdAt)) {
-                                        const t = item.title.trim();
-                                        if (!recent.includes(t)) recent.push(t);
-                                        if (recent.length === 3) break;
-                                    }
-                                    const allNames = Array.from(new Set(exerciseItems.map(i => i.title.trim()))).sort();
-                                    return (
-                                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                            {recent.map(name => (
-                                                <button key={name} type="button"
-                                                    onClick={() => setDraft(prev => ({ ...prev, title: name }))}
-                                                    className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${title.trim() === name ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'}`}>
-                                                    {name}
-                                                </button>
-                                            ))}
-                                            <select
-                                                value=""
-                                                onChange={(e) => { if (e.target.value) setDraft(prev => ({ ...prev, title: e.target.value })); }}
-                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 bg-white text-neutral-600 hover:border-neutral-500 cursor-pointer"
-                                            >
-                                                <option value="">All…</option>
-                                                {allNames.map(name => (
-                                                    <option key={name} value={name}>{name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    );
-                                })()}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book', 'bird'].includes(category) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -779,37 +806,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         )}
                                     />
                                 )}
-                                {category === 'bird' && !readOnly && (
-                                    <SearchResultsPanel
-                                        visible={showBirdResults}
-                                        isSearching={birds.isSearching}
-                                        results={birds.results}
-                                        query={title}
-                                        searchingLabel="Searching eBird..."
-                                        emptyLabel="No species found"
-                                        maxHeightClass="max-h-56"
-                                        keyExtractor={(r) => r.id}
-                                        renderResult={(bird) => (
-                                            <button type="button" onClick={() => {
-                                                setDraft((prev) => ({
-                                                    ...prev,
-                                                    title: bird.comName,
-                                                    image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
-                                                        externalSource: 'ebird',
-                                                        externalId: bird.id,
-                                                    }),
-                                                }));
-                                                setShowBirdResults(false);
-                                            }}
-                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                <div className="text-sm text-neutral-900">{bird.comName}</div>
-                                                <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
-                                            </button>
-                                        )}
-                                    />
-                                )}
-                            </div>
+                            </div>}
                             {/* Subtitle */}
                             {category !== 'cooking' && category !== 'link' && (
                                 <div>
@@ -902,6 +899,97 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     )}
                                 </div>
                             )}
+                            {/* Bird checklist */}
+                            {category === 'bird' && (() => {
+                                const birdList = parsedMeta.birdList || [];
+                                const addBird = (bird: BirdSearchResult) => {
+                                    if (birdList.some(b => b.id === bird.id)) return;
+                                    const next = [...birdList, { id: bird.id, comName: bird.comName, sciName: bird.sciName }];
+                                    const nextTitle = next.length === 1 ? next[0].comName : `${next[0].comName} +${next.length - 1}`;
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        title: nextTitle,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), birdList: next }),
+                                    }));
+                                    setBirdQuery('');
+                                    birds.setResults([]);
+                                    setShowBirdResults(false);
+                                };
+                                const removeBird = (id: string) => {
+                                    const next = birdList.filter(b => b.id !== id);
+                                    const nextTitle = next.length === 0 ? '' : next.length === 1 ? next[0].comName : `${next[0].comName} +${next.length - 1}`;
+                                    setDraft(prev => ({
+                                        ...prev,
+                                        title: nextTitle,
+                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), birdList: next }),
+                                    }));
+                                };
+                                return (
+                                    <div>
+                                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Birds</label>
+                                        {readOnly ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {birdList.length === 0
+                                                    ? <span className="text-sm text-neutral-400">—</span>
+                                                    : birdList.map(b => (
+                                                        <span key={b.id} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{b.comName}</span>
+                                                    ))
+                                                }
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="relative">
+                                                    <input
+                                                        autoFocus
+                                                        type="text"
+                                                        value={birdQuery}
+                                                        onChange={(e) => {
+                                                            setBirdQuery(e.target.value);
+                                                            setShowBirdResults(true);
+                                                            setBirdSearchToken(p => p + 1);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowBirdResults(false), 150)}
+                                                        placeholder="Search species…"
+                                                        className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                                                    />
+                                                    {(birds.isSearching || birds.results.length > 0) && showBirdResults && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-56 overflow-y-auto">
+                                                            {birds.isSearching && (
+                                                                <div className="px-3 py-2 text-xs text-neutral-400">Searching eBird…</div>
+                                                            )}
+                                                            {birds.results.map(bird => (
+                                                                <button
+                                                                    key={bird.id}
+                                                                    type="button"
+                                                                    onMouseDown={() => addBird(bird)}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 ${birdList.some(b => b.id === bird.id) ? 'opacity-40' : ''}`}
+                                                                >
+                                                                    <div className="text-sm text-neutral-900">{bird.comName}</div>
+                                                                    <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {birdList.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {birdList.map(b => (
+                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
+                                                                {b.comName}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeBird(b.id)}
+                                                                    className="text-neutral-400 hover:text-neutral-800 leading-none"
+                                                                >×</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
