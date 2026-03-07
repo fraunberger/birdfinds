@@ -520,6 +520,58 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                             ))}
                     </div>
                 )}
+
+                {/* Toolbar order — visible when 2+ categories selected */}
+                {selectedCategories.length > 1 && (
+                    <div className="mt-4">
+                        <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                            Toolbar Order
+                        </label>
+                        <p className="text-[10px] text-neutral-400 uppercase tracking-widest mb-2">
+                            LINK is always first. First 4 below show as buttons; rest go in ▾ overflow.
+                        </p>
+                        <div className="space-y-1">
+                            {selectedCategories.filter(c => c !== 'link').map((cat, idx, arr) => {
+                                const config = getCategoryConfig(cat);
+                                const isPinned = idx < 4;
+                                return (
+                                    <div key={cat} className={`flex items-center gap-2 px-2 py-1.5 border text-[11px] uppercase tracking-widest ${isPinned ? 'border-neutral-300 bg-white text-neutral-700' : 'border-neutral-200 bg-neutral-50 text-neutral-400'}`}>
+                                        <span className="flex-1 truncate">
+                                            {isPinned && <span className="mr-1 text-[9px] text-neutral-400">{idx + 1}.</span>}
+                                            {config.icon && <span className="mr-1">{config.icon}</span>}
+                                            {config.label}
+                                            {!isPinned && <span className="ml-1 text-[9px]">(overflow)</span>}
+                                        </span>
+                                        <div className="flex gap-1">
+                                            <button
+                                                type="button"
+                                                disabled={idx === 0}
+                                                onClick={() => setSelectedCategories(prev => {
+                                                    const nonLink = prev.filter(c => c !== 'link');
+                                                    const next = [...nonLink];
+                                                    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                                    return prev.includes('link') ? ['link', ...next] : next;
+                                                })}
+                                                className="px-1 text-neutral-400 hover:text-neutral-800 disabled:opacity-20"
+                                            >↑</button>
+                                            <button
+                                                type="button"
+                                                disabled={idx === arr.length - 1}
+                                                onClick={() => setSelectedCategories(prev => {
+                                                    const nonLink = prev.filter(c => c !== 'link');
+                                                    const next = [...nonLink];
+                                                    [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                                                    return prev.includes('link') ? ['link', ...next] : next;
+                                                })}
+                                                className="px-1 text-neutral-400 hover:text-neutral-800 disabled:opacity-20"
+                                            >↓</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Habits */}
