@@ -61,6 +61,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [brewerySearchToken, setBrewerySearchToken] = useState(0);
     const [showBirdResults, setShowBirdResults] = useState(false);
     const [birdSearchToken, setBirdSearchToken] = useState(0);
+    const [showChecklistResults, setShowChecklistResults] = useState(false);
+    const [checklistSearchToken, setChecklistSearchToken] = useState(0);
 
     // Podcast two-step picker
     const [showPodcastPicker, setShowPodcastPicker] = useState(false);
@@ -92,6 +94,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
     const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
     const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: birdQuery, endpoint: '/api/birds/search', token: birdSearchToken });
+    const checklistBirds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showChecklistResults, query: checklistQuery, endpoint: '/api/birds/search', token: checklistSearchToken });
 
     // Podcast show search (only when no show selected)
     const podcastShows = useSearchPicker<PodcastShowResult>({ category, targetCategory: 'podcast', readOnly, enabled: showPodcastPicker && !selectedPodcast, query: title, endpoint: '/api/podcasts/search', token: podcastShowSearchToken });
@@ -994,16 +997,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             {/* Bird checklist (target species) */}
                             {category === 'bird' && (() => {
                                 const checklist = parsedMeta.checklist || [];
-                                const addToChecklist = (name: string) => {
-                                    const trimmed = name.trim();
-                                    if (!trimmed) return;
-                                    if (checklist.some(b => b.comName.toLowerCase() === trimmed.toLowerCase())) return;
-                                    const next = [...checklist, { id: trimmed.toLowerCase().replace(/\s+/g, '-'), comName: trimmed }];
+                                const addToChecklist = (bird: { id: string; comName: string }) => {
+                                    if (checklist.some(b => b.id === bird.id)) return;
+                                    const next = [...checklist, { id: bird.id, comName: bird.comName }];
                                     setDraft(prev => ({
                                         ...prev,
                                         image: serializeItemMeta({ ...parseItemMeta(prev.image), checklist: next }),
                                     }));
                                     setChecklistQuery('');
+                                    checklistBirds.setResults([]);
+                                    setShowChecklistResults(false);
+                                };
+                                const addToChecklistByName = (name: string) => {
+                                    const trimmed = name.trim();
+                                    if (!trimmed) return;
+                                    addToChecklist({ id: trimmed.toLowerCase().replace(/\s+/g, '-'), comName: trimmed });
                                 };
                                 const removeFromChecklist = (id: string) => {
                                     const next = checklist.filter(b => b.id !== id);
@@ -1026,19 +1034,44 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             </div>
                                         ) : (
                                             <>
-                                                <input
-                                                    type="text"
-                                                    value={checklistQuery}
-                                                    onChange={(e) => setChecklistQuery(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            addToChecklist(checklistQuery);
-                                                        }
-                                                    }}
-                                                    placeholder="Type species name, press Enter…"
-                                                    className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
-                                                />
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={checklistQuery}
+                                                        onChange={(e) => {
+                                                            setChecklistQuery(e.target.value);
+                                                            setShowChecklistResults(true);
+                                                            setChecklistSearchToken(p => p + 1);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowChecklistResults(false), 150)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addToChecklistByName(checklistQuery);
+                                                            }
+                                                        }}
+                                                        placeholder="Search species…"
+                                                        className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                                                    />
+                                                    {(checklistBirds.isSearching || checklistBirds.results.length > 0) && showChecklistResults && (
+                                                        <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-56 overflow-y-auto">
+                                                            {checklistBirds.isSearching && (
+                                                                <div className="px-3 py-2 text-xs text-neutral-400">Searching eBird…</div>
+                                                            )}
+                                                            {checklistBirds.results.map(bird => (
+                                                                <button
+                                                                    key={bird.id}
+                                                                    type="button"
+                                                                    onMouseDown={() => addToChecklist(bird)}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 ${checklist.some(b => b.id === bird.id) ? 'opacity-40' : ''}`}
+                                                                >
+                                                                    <div className="text-sm text-neutral-900">{bird.comName}</div>
+                                                                    <div className="text-xs text-neutral-500 italic">{bird.sciName}{bird.familyComName ? ` · ${bird.familyComName}` : ''}</div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 {checklist.length > 0 && (
                                                     <div className="mt-2 flex flex-wrap gap-1.5">
                                                         {checklist.map(b => (
