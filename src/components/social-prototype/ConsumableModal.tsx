@@ -290,7 +290,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Beer is excluded: only the brewery (subtitle) is searchable, not the beer itself
     const showReviewGate = hasSearchableApi && category !== 'beer' && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
 
-    const isCoupled = (() => { const key = getItemExternalIdentityKey(category, draft.image); if (!key) return false; if (category === 'book' && key.includes('::book-progress::')) return false; return true; })();
+    // For book: linked means the user confirmed via API search (cover URL fetched).
+    // For all other categories: linked means externalSource+externalId are set.
+    const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
