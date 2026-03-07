@@ -195,6 +195,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
         setGateClicked(false);
+        setShowBookResults(false);
+        books.setResults([]);
+        setShowMusicResults(false);
+        music.setResults([]);
+        setShowMovieResults(false);
+        movies.setResults([]);
+        setShowRestaurantResults(false);
+        restaurants.setResults([]);
+        setShowLocationResults(false);
+        locationPlaces.setResults([]);
+        setShowBreweryResults(false);
+        breweries.setResults([]);
+        setShowBirdResults(false);
+        birds.setResults([]);
     }, [existingItem, initialCategory, isOpen]);
 
     useEffect(() => {
