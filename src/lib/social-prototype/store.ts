@@ -357,6 +357,12 @@ export function getCategoryConfig(category: Category): CategoryConfig {
         extras: [],
     };
 
+    // Never apply user overrides to predefined categories — overrides are only
+    // meaningful for user-created custom categories. Applying them to predefined
+    // categories corrupts labels (e.g. "RESTAURA" / "Details") when the logged-in
+    // user happens to have a custom override stored under the same key.
+    if (predefined) return base;
+
     const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
     if (!override) return base;
 
