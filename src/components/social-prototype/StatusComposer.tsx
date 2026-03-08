@@ -48,28 +48,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeCategories = userCategories && userCategories.length > 0
         ? userCategories
         : Object.keys(CATEGORY_CONFIGS) as Category[];
-    // LINK is always first; remaining categories follow user-defined order.
-    // First MAX_PINNED become toolbar buttons; the rest live in an overflow dropdown.
-    const MAX_PINNED = 6;
+    // LINK is always first; all remaining categories scroll horizontally.
     const linkConfig = getCategoryConfig('link');
     const nonLinkConfigs = activeCategories.filter(c => c !== 'link').map(c => getCategoryConfig(c));
-    const pinnedConfigs = nonLinkConfigs.slice(0, MAX_PINNED);
-    const overflowConfigs = nonLinkConfigs.slice(MAX_PINNED);
-    const toolbarCategoryConfigs = [linkConfig, ...pinnedConfigs];
-    const [showOverflow, setShowOverflow] = React.useState(false);
-    const overflowRef = React.useRef<HTMLDivElement>(null);
-    React.useEffect(() => {
-        if (!showOverflow) return;
-        const handler = (e: MouseEvent | TouchEvent) => {
-            if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) setShowOverflow(false);
-        };
-        document.addEventListener('mousedown', handler as (e: MouseEvent) => void);
-        document.addEventListener('touchstart', handler as (e: TouchEvent) => void, { passive: true });
-        return () => {
-            document.removeEventListener('mousedown', handler as (e: MouseEvent) => void);
-            document.removeEventListener('touchstart', handler as (e: TouchEvent) => void);
-        };
-    }, [showOverflow]);
+    const toolbarCategoryConfigs = [linkConfig, ...nonLinkConfigs];
     // The v2 prefix isolates drafts from legacy structures. The user.id used here is
     // provided by Clerk (prefixed 'user_...') not the Supabase database. Its sole purpose 
     // is to prevent drafts from leaking across accounts if multiple users share the same browser.
@@ -517,94 +499,47 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     )}
                     {/* Editor Container */}
                     <div className="border border-neutral-300">
-                        {/* ── Inline Category Toolbar ── */}
-                        <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch">
-                            {/* Scrollable pinned buttons — overflow-x-auto is scoped here so the ▾ dropdown isn't clipped */}
-                            <div className="flex items-stretch overflow-x-auto flex-1 min-w-0">
-                                <div className="flex items-stretch min-w-max shrink-0">
-                                    {toolbarCategoryConfigs.map(cat => {
-                                        const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
-                                        return (
-                                            <button
-                                                key={cat.id}
-                                                onClick={() => {
-                                                    setSelectedPlainText('');
-                                                    recentSelectionRef.current = null;
-                                                    if (hasContext) {
-                                                        tagging.handleCategoryTap(cat.id);
-                                                    } else {
-                                                        setActiveCategory(cat.id);
-                                                        setExistingItem(undefined);
-                                                        setIsModalOpen(true);
-                                                    }
-                                                }}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                disabled={tagging.busy}
-                                                title={cat.label}
-                                                className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
-                                                    ? 'text-neutral-900 hover:brightness-90'
-                                                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
-                                                    }`}
-                                                style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
-                                            >
-                                                {cat.shortLabel}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {tagging.selectedText && (
-                                    <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
-                                        TEXT SELECTED → TAP A CATEGORY
-                                    </div>
-                                )}
-                                {!tagging.selectedText && tagging.atPrefixText && (
-                                    <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
-                                        @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
-                                    </div>
-                                )}
+                        {/* ── Inline Category Toolbar — horizontally scrollable ── */}
+                        <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
+                            <div className="flex items-stretch min-w-max shrink-0">
+                                {toolbarCategoryConfigs.map(cat => {
+                                    const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
+                                    return (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => {
+                                                setSelectedPlainText('');
+                                                recentSelectionRef.current = null;
+                                                if (hasContext) {
+                                                    tagging.handleCategoryTap(cat.id);
+                                                } else {
+                                                    setActiveCategory(cat.id);
+                                                    setExistingItem(undefined);
+                                                    setIsModalOpen(true);
+                                                }
+                                            }}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            disabled={tagging.busy}
+                                            title={cat.label}
+                                            className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
+                                                ? 'text-neutral-900 hover:brightness-90'
+                                                : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                                                }`}
+                                            style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
+                                        >
+                                            {cat.shortLabel}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                            {/* Overflow dropdown — outside scroll container so dropdown isn't clipped */}
-                            {overflowConfigs.length > 0 && (
-                                <div ref={overflowRef} className="relative flex items-stretch shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowOverflow(p => !p)}
-                                        className="px-3 sm:px-2 py-3 sm:py-1.5 text-[9px] font-bold uppercase tracking-widest border-l border-neutral-200 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 touch-manipulation"
-                                        title="More categories"
-                                    >
-                                        ▾
-                                    </button>
-                                    {showOverflow && (
-                                        <div className="absolute bottom-full right-0 sm:top-full sm:bottom-auto z-50 bg-white border border-neutral-300 shadow-sm min-w-[140px]">
-                                            {overflowConfigs.map(cat => {
-                                                const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
-                                                return (
-                                                    <button
-                                                        key={cat.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setShowOverflow(false);
-                                                            setSelectedPlainText('');
-                                                            recentSelectionRef.current = null;
-                                                            if (hasContext) {
-                                                                tagging.handleCategoryTap(cat.id);
-                                                            } else {
-                                                                setActiveCategory(cat.id);
-                                                                setExistingItem(undefined);
-                                                                setIsModalOpen(true);
-                                                            }
-                                                        }}
-                                                        onMouseDown={e => e.preventDefault()}
-                                                        disabled={tagging.busy}
-                                                        className="w-full text-left px-3 py-3 sm:py-2 text-[9px] font-bold uppercase tracking-widest border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 disabled:opacity-40 touch-manipulation"
-                                                        style={hasContext ? { color: cat.color || '#737373' } : { color: '#737373' }}
-                                                    >
-                                                        {cat.shortLabel}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                            {tagging.selectedText && (
+                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
+                                    TEXT SELECTED → TAP A CATEGORY
+                                </div>
+                            )}
+                            {!tagging.selectedText && tagging.atPrefixText && (
+                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
+                                    @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
                                 </div>
                             )}
                         </div>
@@ -693,7 +628,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         content={content}
                         isMobileTagging={tagging.isMobileTagging}
                         selectedPlainText={selectedPlainText}
-                        activeCategoryConfigs={[...toolbarCategoryConfigs, ...overflowConfigs]}
+                        activeCategoryConfigs={toolbarCategoryConfigs}
                         onOpenItem={openModal}
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}
