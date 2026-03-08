@@ -29,11 +29,6 @@ interface ProfilePageProps {
     onSettings?: () => void;
 }
 
-/** Returns true for built-in categories (movie, tv, book, etc.), false for user-created ones. */
-function isPredefinedCategory(cat: string): boolean {
-    return cat in CATEGORY_CONFIGS;
-}
-
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
