@@ -11,6 +11,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useUserProfile } from "@/lib/social-prototype/store";
 
+const decodeRouteSegment = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 export default function PilePage({
   params: _params,
 }: {
@@ -21,7 +29,7 @@ export default function PilePage({
   const { user } = useAuth();
   const { profile, isAdmin } = useUserProfile();
   const routeParams = useParams<{ user: string }>();
-  const routeUser = decodeURIComponent(routeParams?.user || "");
+  const routeUser = decodeRouteSegment(routeParams?.user || "");
   const pileHref = user
     ? (profile?.username
       ? `/pile/${encodeURIComponent(profile.username)}`
