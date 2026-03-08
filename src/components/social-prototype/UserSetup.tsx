@@ -18,7 +18,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
 
     const [username, setUsername] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
-    const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+    const [selectedCategories, setSelectedCategories] = useState<Category[]>(['movie', 'restaurant']);
     const [visibility, setVisibility] = useState<ProfileVisibility>('public');
     const [newHabitName, setNewHabitName] = useState('');
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -42,7 +42,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
         if (profile) {
             setUsername(profile.username || '');
             setAvatarUrl(profile.avatarUrl);
-            setSelectedCategories(profile.categories || []);
+            setSelectedCategories(profile.categories?.length ? profile.categories : ['movie', 'restaurant']);
             setVisibility(profile.visibility || (profile.isPrivate ? 'private' : 'public'));
             setCategoryConfigs(profile.categoryConfigs || {});
         }
