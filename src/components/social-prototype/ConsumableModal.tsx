@@ -130,15 +130,40 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [tvEpisodes, setTvEpisodes] = useState<TvEpisodeResult[]>([]);
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
 
+    const config = getCategoryConfig(category);
+
+    // ── Linkage status — determines whether the card is "alive" ────────
+    // API categories need externalSource, URL categories need a URL,
+    // coupling:'none' categories are always linked (no linkage step).
+    const isLinked = config.coupling === 'none'
+        || (config.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
+        || (config.coupling === 'api' && !!parsedMeta.externalSource);
+
+    // Clear the card back to dead state (reset everything).
+    const clearLinkage = useCallback(() => {
+        setDraft(prev => ({
+            ...prev,
+            title: '',
+            subtitle: '',
+            rating: undefined,
+            notes: '',
+            image: undefined,
+        }));
+        setPopulatedFromId(null);
+        setGateClicked(false);
+        // Reset parent-child picker state
+        setSelectedPodcast(null);
+        setPodcastEpisodes([]);
+        setPodcastEpisodeSearchToken(0);
+        setSelectedTvShow(null);
+        setTvEpisodes([]);
+        setTvEpisodeSearchToken(0);
+    }, []);
+
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
-    // Only compute after linkage: API categories need externalSource, URL
-    // categories need a URL, and coupling:'none' categories are always linked.
+    // Only compute after linkage.
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim() || category === 'book') return null;
-        const catConfig = getCategoryConfig(category);
-        const isLinked = catConfig.coupling === 'none'
-            || (catConfig.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
-            || (catConfig.coupling === 'api' && !!parsedMeta.externalSource);
         if (!isLinked) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
@@ -297,8 +322,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             onClose();
         }
     };
-
-    const config = getCategoryConfig(category);
 
     // All API-coupled categories support a "Review without linking" gate.
     // For parent/child the bar is episode-level; for single-entity any externalSource counts.
@@ -502,7 +525,19 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             )}
                                         </div>
                                     );
-                                })() : (
+                                })() : isLinked && config.coupling !== 'none' && !readOnly ? (
+                                <div className="flex items-center border-b border-neutral-200">
+                                    <span className="flex-1 text-base font-mono py-1 text-neutral-800 truncate">{title}</span>
+                                    <button
+                                        type="button"
+                                        onClick={clearLinkage}
+                                        className="ml-1 px-1.5 text-neutral-400 hover:text-neutral-700 text-sm"
+                                        title="Clear and re-search"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                ) : (
                                 <input
                                     autoFocus={!readOnly}
                                     disabled={readOnly}
