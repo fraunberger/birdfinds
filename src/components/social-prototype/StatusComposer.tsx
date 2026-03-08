@@ -60,11 +60,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const overflowRef = React.useRef<HTMLDivElement>(null);
     React.useEffect(() => {
         if (!showOverflow) return;
-        const handler = (e: MouseEvent) => {
+        const handler = (e: MouseEvent | TouchEvent) => {
             if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) setShowOverflow(false);
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('mousedown', handler as (e: MouseEvent) => void);
+        document.addEventListener('touchstart', handler as (e: TouchEvent) => void, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', handler as (e: MouseEvent) => void);
+            document.removeEventListener('touchstart', handler as (e: TouchEvent) => void);
+        };
     }, [showOverflow]);
     // The v2 prefix isolates drafts from legacy structures. The user.id used here is
     // provided by Clerk (prefixed 'user_...') not the Supabase database. Its sole purpose 
@@ -565,13 +569,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     <button
                                         type="button"
                                         onClick={() => setShowOverflow(p => !p)}
-                                        className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest border-l border-neutral-200 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                                        className="px-3 sm:px-2 py-3 sm:py-1.5 text-[9px] font-bold uppercase tracking-widest border-l border-neutral-200 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 touch-manipulation"
                                         title="More categories"
                                     >
                                         ▾
                                     </button>
                                     {showOverflow && (
-                                        <div className="absolute top-full right-0 z-50 bg-white border border-neutral-300 shadow-sm min-w-[120px]">
+                                        <div className="absolute bottom-full right-0 sm:top-full sm:bottom-auto z-50 bg-white border border-neutral-300 shadow-sm min-w-[140px]">
                                             {overflowConfigs.map(cat => {
                                                 const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
                                                 return (
@@ -592,7 +596,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                         }}
                                                         onMouseDown={e => e.preventDefault()}
                                                         disabled={tagging.busy}
-                                                        className="w-full text-left px-3 py-2 text-[9px] font-bold uppercase tracking-widest border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 disabled:opacity-40"
+                                                        className="w-full text-left px-3 py-3 sm:py-2 text-[9px] font-bold uppercase tracking-widest border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 disabled:opacity-40 touch-manipulation"
                                                         style={hasContext ? { color: cat.color || '#737373' } : { color: '#737373' }}
                                                     >
                                                         {cat.shortLabel}
@@ -677,7 +681,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 }
                             }}
                             disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges)}
-                            className={`ml-auto shrink-0 px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all border rounded shadow-sm whitespace-nowrap touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>

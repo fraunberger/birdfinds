@@ -16,7 +16,6 @@ import {
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { StatusComposer } from './StatusComposer';
-import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
@@ -33,10 +32,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
-    const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
+    const [itemSort, setItemSort] = useState<'date' | 'rating'>('date');
+    const [itemCategoryFilter, setItemCategoryFilter] = useState<'all' | Category>('all');
     const [selectedTagItem, setSelectedTagItem] = useState<ConsumableItem | null>(null);
     const [statusSort, setStatusSort] = useState<'recent' | 'top'>('recent');
     const [statusCategoryFilter, setStatusCategoryFilter] = useState<'all' | Category>('all');
@@ -124,9 +124,27 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         });
     }
 
-    const toggleCategory = (cat: Category) => {
-        setOpenCategory(prev => prev === cat ? null : cat);
-    };
+    const allItemsSorted = useMemo(() => {
+        const cats = (profile?.categories || []).filter(cat => itemCategoryFilter === 'all' || cat === itemCategoryFilter);
+        const flat = cats.flatMap(cat => (categoryItems[cat] || []));
+        // Deduplicate by external identity key or canonical slug, keeping newest
+        const map = new Map<string, ConsumableItem>();
+        for (const item of flat) {
+            const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
+            const existing = map.get(key);
+            if (!existing || item.createdAt > existing.createdAt) map.set(key, item);
+        }
+        const deduped = Array.from(map.values());
+        if (itemSort === 'rating') {
+            return deduped.sort((a, b) => {
+                const aR = typeof a.rating === 'number' ? a.rating : -1;
+                const bR = typeof b.rating === 'number' ? b.rating : -1;
+                return bR - aR;
+            });
+        }
+        return deduped.sort((a, b) => b.createdAt - a.createdAt);
+    }, [profile?.categories, categoryItems, itemCategoryFilter, itemSort]);
+
 
     return (
         <div className="font-mono relative">
@@ -251,65 +269,83 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
 
                 {/* Right: Main content */}
                 <div className="flex-1 min-w-0">
-                    {/* Category Dropdowns */}
+                    {/* Items list — flat view sorted by date or rating */}
                     {profile.categories && profile.categories.length > 0 && (
                         <div className="mb-6">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                                {profile.categories.map(cat => {
-                                    const config = getCategoryConfig(cat);
-                                    const count = dedupedCategoryItems[cat]?.length || 0;
-                                    const isOpen = openCategory === cat;
-                                    return (
-                                        <button
-                                            key={cat}
-                                            onClick={() => toggleCategory(cat)}
-                                            className={`text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${isOpen
-                                                ? 'bg-neutral-800 text-white border-neutral-800'
-                                                : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
-                                                }`}
-                                            style={!isOpen ? {
-                                                borderLeftColor: config.color || '#d4d4d4',
-                                                borderLeftWidth: '3px',
-                                            } : undefined}
-                                        >
-                                            <span>{config.label}</span>
-                                            <span className={isOpen ? 'text-neutral-400' : 'text-neutral-400'}>{count}</span>
-                                        </button>
-                                    );
-                                })}
+                            {/* Sort + filter controls */}
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                <button
+                                    onClick={() => setItemSort('date')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${itemSort === 'date' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                >
+                                    Date
+                                </button>
+                                <button
+                                    onClick={() => setItemSort('rating')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${itemSort === 'rating' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                >
+                                    Rating
+                                </button>
+                                <select
+                                    value={itemCategoryFilter}
+                                    onChange={e => setItemCategoryFilter(e.target.value as 'all' | Category)}
+                                    className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                >
+                                    <option value="all">All Categories</option>
+                                    {profile.categories.map(cat => (
+                                        <option key={cat} value={cat}>{getCategoryConfig(cat).label}</option>
+                                    ))}
+                                </select>
                             </div>
+
+                            {allItemsSorted.length === 0 ? (
+                                <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
+                                    No items yet
+                                </div>
+                            ) : (
+                                <div className="space-y-0.5">
+                                    {allItemsSorted.map(item => {
+                                        const config = getCategoryConfig(item.category);
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                onClick={() => setSelectedTagItem(item)}
+                                                className="flex items-center justify-between w-full text-left px-2.5 py-2 border border-neutral-100 hover:border-neutral-300 hover:bg-neutral-50 transition-colors touch-manipulation"
+                                                style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="text-[11px] font-medium text-neutral-800 truncate">{item.title}</div>
+                                                    {item.subtitle && (
+                                                        <div className="text-[10px] text-neutral-500 truncate">{item.subtitle}</div>
+                                                    )}
+                                                    <div className="text-[9px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
+                                                </div>
+                                                {typeof item.rating === 'number' && (
+                                                    <span className="ml-2 text-[11px] font-mono text-neutral-600 shrink-0">{item.rating}</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Category Sheet — slides over profile content */}
-                    {openCategory && (
-                        <CategorySheet
-                            category={openCategory}
-                            items={categoryItems[openCategory] || []}
-                            onClose={() => setOpenCategory(null)}
-                            canAddItem={isOwnProfile}
-                            onAddItem={async (item) => {
-                                await addItemToPileCategory(item);
-                            }}
-                        />
-                    )}
-
                     {/* Want to Check Out Section */}
-                    {!openCategory && (
-                        <div className="mb-6">
-                            <button
-                                onClick={() => setShowWants(prev => !prev)}
-                                className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
-                                    ? 'bg-neutral-800 text-white border-neutral-800'
-                                    : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
-                                    }`}
-                                style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
-                            >
-                                <span>Want to Check Out</span>
-                                <span className={showWants ? 'text-neutral-400' : 'text-neutral-400'}>
-                                    {savedItemsLoading ? '…' : savedItems.length}
-                                </span>
-                            </button>
+                    <div className="mb-6">
+                        <button
+                            onClick={() => setShowWants(prev => !prev)}
+                            className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
+                                ? 'bg-neutral-800 text-white border-neutral-800'
+                                : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
+                                }`}
+                            style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
+                        >
+                            <span>Want to Check Out</span>
+                            <span className={showWants ? 'text-neutral-400' : 'text-neutral-400'}>
+                                {savedItemsLoading ? '…' : savedItems.length}
+                            </span>
+                        </button>
 
                             {showWants && (
                                 <div className="border border-t-0 border-neutral-200 p-3">
@@ -408,16 +444,14 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 </div>
                             )}
                         </div>
-                    )}
 
-                    {/* Status Feed (hidden when category sheet is open) */}
-                    {!openCategory && (
-                        <div>
-                            {isOwnProfile && (
-                                <div className="mb-4">
-                                    <StatusComposer userCategories={profile.categories || []} />
-                                </div>
-                            )}
+                    {/* Status Feed */}
+                    <div>
+                        {isOwnProfile && (
+                            <div className="mb-4">
+                                <StatusComposer userCategories={profile.categories || []} />
+                            </div>
+                        )}
                             <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
                                 Posts
                             </h3>
@@ -474,7 +508,6 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 )}
                             </div>
                         </div>
-                    )}
                 </div>
             </div>
 
