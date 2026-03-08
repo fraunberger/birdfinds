@@ -562,7 +562,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         .filter(i => {
                                             if (i.category !== 'book') return false;
                                             const m = parseItemMeta(i.image);
-                                            return m.progressPage != null && !m.finished;
+                                            // Show any book not finished — whether or not progressPage is set
+                                            return !m.finished && m.externalSource !== 'book-review';
                                         })
                                         .sort((a, b) => b.createdAt - a.createdAt)
                                         .filter(i => {
@@ -574,7 +575,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     if (inProgressBooks.length === 0) return null;
                                     return (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">In progress:</span>
+                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Recent:</span>
                                             {inProgressBooks.map(book => {
                                                 const m = parseItemMeta(book.image);
                                                 return (
