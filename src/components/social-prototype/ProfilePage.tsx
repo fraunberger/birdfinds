@@ -12,10 +12,12 @@ import {
     getCategoryConfig,
     Category,
     ConsumableItem,
-    PILE_CATEGORY_STATUS_DATE
+    PILE_CATEGORY_STATUS_DATE,
+    CATEGORY_CONFIGS,
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { StatusComposer } from './StatusComposer';
+import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
@@ -28,15 +30,21 @@ interface ProfilePageProps {
     onSettings?: () => void;
 }
 
+/** Returns true for built-in categories (movie, tv, book, etc.), false for user-created ones. */
+function isPredefinedCategory(cat: string): boolean {
+    return cat in CATEGORY_CONFIGS;
+}
+
 export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: ProfilePageProps) {
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
+    const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
-    const [itemSort, setItemSort] = useState<'date' | 'rating'>('date');
-    const [itemCategoryFilter, setItemCategoryFilter] = useState<'all' | Category>('all');
+    const [customItemSort, setCustomItemSort] = useState<'date' | 'rating'>('date');
+    const [customItemCategoryFilter, setCustomItemCategoryFilter] = useState<'all' | Category>('all');
     const [selectedTagItem, setSelectedTagItem] = useState<ConsumableItem | null>(null);
     const [statusSort, setStatusSort] = useState<'recent' | 'top'>('recent');
     const [statusCategoryFilter, setStatusCategoryFilter] = useState<'all' | Category>('all');
@@ -47,10 +55,9 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const [selectedSavedItem, setSelectedSavedItem] = useState<{ item: ConsumableItem; sourceUserId: string } | null>(null);
 
     const isOwnProfile = myProfile?.id === userId;
-    // On own profile, use the store's live savedItems (kept in sync by toggleSaveItem);
-    // on other profiles, use what was fetched by useSavedItems.
     const savedItems = isOwnProfile ? storeSavedItems : fetchedSavedItems;
     const userStatuses = getUserStatuses(userId);
+
     const sortedFilteredStatuses = useMemo(() => {
         const visibleStatuses = userStatuses.filter((status) => status.date !== PILE_CATEGORY_STATUS_DATE);
         const withCategory = visibleStatuses.filter((status) => {
@@ -71,6 +78,58 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         });
     }, [userStatuses, statusSort, statusCategoryFilter]);
 
+    // All items grouped by category — built here so both the predefined grid
+    // and custom flat-list can reference the same data.
+    const categoryItems = useMemo(() => {
+        const result: Record<string, ConsumableItem[]> = {};
+        for (const cat of (profile?.categories || [])) {
+            result[cat] = getUserItemsByCategory(cat, userId);
+        }
+        return result;
+    }, [profile?.categories, getUserItemsByCategory, userId]);
+
+    // Deduped counts for predefined category pills and header stat.
+    const dedupedCategoryItems = useMemo(() => {
+        const result: Record<string, ConsumableItem[]> = {};
+        for (const [cat, raw] of Object.entries(categoryItems)) {
+            const map = new Map<string, ConsumableItem>();
+            for (const item of raw) {
+                const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
+                const existing = map.get(key);
+                if (!existing || item.createdAt > existing.createdAt) map.set(key, item);
+            }
+            result[cat] = Array.from(map.values());
+        }
+        return result;
+    }, [categoryItems]);
+
+    // Flat sorted list for user-created (custom) categories only.
+    const customCategories = useMemo(
+        () => (profile?.categories || []).filter(cat => !isPredefinedCategory(cat)),
+        [profile?.categories]
+    );
+
+    const customItemsSorted = useMemo(() => {
+        const cats = customCategories.filter(cat => customItemCategoryFilter === 'all' || cat === customItemCategoryFilter);
+        const flat = cats.flatMap(cat => categoryItems[cat] || []);
+        const map = new Map<string, ConsumableItem>();
+        for (const item of flat) {
+            const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
+            const existing = map.get(key);
+            if (!existing || item.createdAt > existing.createdAt) map.set(key, item);
+        }
+        const deduped = Array.from(map.values());
+        if (customItemSort === 'rating') {
+            return deduped.sort((a, b) => {
+                const aR = typeof a.rating === 'number' ? a.rating : -1;
+                const bR = typeof b.rating === 'number' ? b.rating : -1;
+                return bR - aR;
+            });
+        }
+        return deduped.sort((a, b) => b.createdAt - a.createdAt);
+    }, [customCategories, categoryItems, customItemCategoryFilter, customItemSort]);
+
+    // ── Early returns (must come after all hooks) ──────────────────────
     if (profileLoading) {
         return (
             <div className="flex items-center justify-center py-20 font-mono">
@@ -104,47 +163,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         );
     }
 
-    const categoryItems: Record<string, ConsumableItem[]> = {};
-    const dedupedCategoryItems: Record<string, ConsumableItem[]> = {};
-    if (profile?.categories) {
-        profile.categories.forEach(cat => {
-            const raw = getUserItemsByCategory(cat, userId);
-            categoryItems[cat] = raw;
-            // Deduplicate for counts and sheets.
-            // Prefer the stable externalId for API-linked items; fall back to canonical slug.
-            const map = new Map<string, ConsumableItem>();
-            for (const item of raw) {
-                const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
-                const existing = map.get(key);
-                if (!existing || item.createdAt > existing.createdAt) {
-                    map.set(key, item);
-                }
-            }
-            dedupedCategoryItems[cat] = Array.from(map.values());
-        });
-    }
+    const predefinedCategories = (profile.categories || []).filter(isPredefinedCategory);
 
-    const allItemsSorted = useMemo(() => {
-        const cats = (profile?.categories || []).filter(cat => itemCategoryFilter === 'all' || cat === itemCategoryFilter);
-        const flat = cats.flatMap(cat => (categoryItems[cat] || []));
-        // Deduplicate by external identity key or canonical slug, keeping newest
-        const map = new Map<string, ConsumableItem>();
-        for (const item of flat) {
-            const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
-            const existing = map.get(key);
-            if (!existing || item.createdAt > existing.createdAt) map.set(key, item);
-        }
-        const deduped = Array.from(map.values());
-        if (itemSort === 'rating') {
-            return deduped.sort((a, b) => {
-                const aR = typeof a.rating === 'number' ? a.rating : -1;
-                const bR = typeof b.rating === 'number' ? b.rating : -1;
-                return bR - aR;
-            });
-        }
-        return deduped.sort((a, b) => b.createdAt - a.createdAt);
-    }, [profile?.categories, categoryItems, itemCategoryFilter, itemSort]);
-
+    const toggleCategory = (cat: Category) => {
+        setOpenCategory(prev => prev === cat ? null : cat);
+    };
 
     return (
         <div className="font-mono relative">
@@ -240,7 +263,6 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     </h3>
                     <div className="space-y-0.5">
                         {(() => {
-                            // Aggregate recent items across all categories
                             const allItems = (profile.categories || [])
                                 .flatMap(cat => (categoryItems[cat] || []).map(item => ({ ...item, cat })));
                             const sorted = allItems
@@ -269,42 +291,87 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
 
                 {/* Right: Main content */}
                 <div className="flex-1 min-w-0">
-                    {/* Items list — flat view sorted by date or rating */}
-                    {profile.categories && profile.categories.length > 0 && (
+                    {/* Predefined categories — original grid + CategorySheet */}
+                    {predefinedCategories.length > 0 && (
+                        <div className="mb-6">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                {predefinedCategories.map(cat => {
+                                    const config = getCategoryConfig(cat);
+                                    const count = dedupedCategoryItems[cat]?.length || 0;
+                                    const isOpen = openCategory === cat;
+                                    return (
+                                        <button
+                                            key={cat}
+                                            onClick={() => toggleCategory(cat)}
+                                            className={`text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${isOpen
+                                                ? 'bg-neutral-800 text-white border-neutral-800'
+                                                : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
+                                                }`}
+                                            style={!isOpen ? {
+                                                borderLeftColor: config.color || '#d4d4d4',
+                                                borderLeftWidth: '3px',
+                                            } : undefined}
+                                        >
+                                            <span>{config.label}</span>
+                                            <span className="text-neutral-400">{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CategorySheet for predefined categories */}
+                    {openCategory && (
+                        <CategorySheet
+                            category={openCategory}
+                            items={categoryItems[openCategory] || []}
+                            onClose={() => setOpenCategory(null)}
+                            canAddItem={isOwnProfile}
+                            onAddItem={async (item) => {
+                                await addItemToPileCategory(item);
+                            }}
+                        />
+                    )}
+
+                    {/* User-created (custom) categories — flat sorted list */}
+                    {!openCategory && customCategories.length > 0 && (
                         <div className="mb-6">
                             {/* Sort + filter controls */}
                             <div className="flex flex-wrap items-center gap-2 mb-3">
                                 <button
-                                    onClick={() => setItemSort('date')}
-                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${itemSort === 'date' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                    onClick={() => setCustomItemSort('date')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${customItemSort === 'date' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
                                 >
                                     Date
                                 </button>
                                 <button
-                                    onClick={() => setItemSort('rating')}
-                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${itemSort === 'rating' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                    onClick={() => setCustomItemSort('rating')}
+                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${customItemSort === 'rating' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
                                 >
                                     Rating
                                 </button>
-                                <select
-                                    value={itemCategoryFilter}
-                                    onChange={e => setItemCategoryFilter(e.target.value as 'all' | Category)}
-                                    className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
-                                >
-                                    <option value="all">All Categories</option>
-                                    {profile.categories.map(cat => (
-                                        <option key={cat} value={cat}>{getCategoryConfig(cat).label}</option>
-                                    ))}
-                                </select>
+                                {customCategories.length > 1 && (
+                                    <select
+                                        value={customItemCategoryFilter}
+                                        onChange={e => setCustomItemCategoryFilter(e.target.value as 'all' | Category)}
+                                        className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                    >
+                                        <option value="all">All</option>
+                                        {customCategories.map(cat => (
+                                            <option key={cat} value={cat}>{getCategoryConfig(cat).label}</option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
 
-                            {allItemsSorted.length === 0 ? (
+                            {customItemsSorted.length === 0 ? (
                                 <div className="text-center py-8 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
                                     No items yet
                                 </div>
                             ) : (
                                 <div className="space-y-0.5">
-                                    {allItemsSorted.map(item => {
+                                    {customItemsSorted.map(item => {
                                         const config = getCategoryConfig(item.category);
                                         return (
                                             <button
@@ -332,24 +399,24 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     )}
 
                     {/* Want to Check Out Section */}
-                    <div className="mb-6">
-                        <button
-                            onClick={() => setShowWants(prev => !prev)}
-                            className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
-                                ? 'bg-neutral-800 text-white border-neutral-800'
-                                : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
-                                }`}
-                            style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
-                        >
-                            <span>Want to Check Out</span>
-                            <span className={showWants ? 'text-neutral-400' : 'text-neutral-400'}>
-                                {savedItemsLoading ? '…' : savedItems.length}
-                            </span>
-                        </button>
+                    {!openCategory && (
+                        <div className="mb-6">
+                            <button
+                                onClick={() => setShowWants(prev => !prev)}
+                                className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
+                                    ? 'bg-neutral-800 text-white border-neutral-800'
+                                    : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
+                                    }`}
+                                style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
+                            >
+                                <span>Want to Check Out</span>
+                                <span className="text-neutral-400">
+                                    {savedItemsLoading ? '…' : savedItems.length}
+                                </span>
+                            </button>
 
                             {showWants && (
                                 <div className="border border-t-0 border-neutral-200 p-3">
-                                    {/* Category filter */}
                                     {savedItems.length > 0 && (
                                         <div className="mb-3">
                                             <select
@@ -444,14 +511,16 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 </div>
                             )}
                         </div>
+                    )}
 
-                    {/* Status Feed */}
-                    <div>
-                        {isOwnProfile && (
-                            <div className="mb-4">
-                                <StatusComposer userCategories={profile.categories || []} />
-                            </div>
-                        )}
+                    {/* Status Feed (hidden when category sheet is open) */}
+                    {!openCategory && (
+                        <div>
+                            {isOwnProfile && (
+                                <div className="mb-4">
+                                    <StatusComposer userCategories={profile.categories || []} />
+                                </div>
+                            )}
                             <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
                                 Posts
                             </h3>
@@ -508,6 +577,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 )}
                             </div>
                         </div>
+                    )}
                 </div>
             </div>
 
