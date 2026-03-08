@@ -131,8 +131,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [isLoadingTvEpisodes, setIsLoadingTvEpisodes] = useState(false);
 
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
+    // Only compute after linkage: API categories need externalSource, URL
+    // categories need a URL, and coupling:'none' categories are always linked.
     const repeatInfo = useMemo(() => {
         if (!allUserItems || !title.trim() || category === 'book') return null;
+        const catConfig = getCategoryConfig(category);
+        const isLinked = catConfig.coupling === 'none'
+            || (catConfig.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
+            || (catConfig.coupling === 'api' && !!parsedMeta.externalSource);
+        if (!isLinked) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
         // For TV: also match at show level so any previously watched episode of
@@ -442,9 +449,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {config.titleLabel}
                                 </label>
-                                {(category === 'exercise') && !readOnly ? (() => {
+                                {(config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
                                     const allExerciseNames = Array.from(new Set(
-                                        getAllItemsByCategory('exercise').filter(i => i.title.trim()).map(i => i.title.trim())
+                                        getAllItemsByCategory(category).filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
                                     const filtered = title.trim()
                                         ? allExerciseNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
@@ -514,6 +521,55 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
+                                {category === 'book' && !readOnly && !existingItem && (() => {
+                                    const seen = new Set<string>();
+                                    const inProgressBooks = (allUserItems || [])
+                                        .filter(i => {
+                                            if (i.category !== 'book') return false;
+                                            const m = parseItemMeta(i.image);
+                                            return m.progressPage != null && !m.finished;
+                                        })
+                                        .sort((a, b) => b.createdAt - a.createdAt)
+                                        .filter(i => {
+                                            const key = i.title.trim().toLowerCase();
+                                            if (seen.has(key)) return false;
+                                            seen.add(key);
+                                            return true;
+                                        });
+                                    if (inProgressBooks.length === 0) return null;
+                                    return (
+                                        <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">In progress:</span>
+                                            {inProgressBooks.map(book => {
+                                                const m = parseItemMeta(book.image);
+                                                return (
+                                                    <button key={book.id} type="button"
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            setDraft(prev => ({
+                                                                ...prev,
+                                                                title: book.title,
+                                                                subtitle: book.subtitle || '',
+                                                                rating: undefined,
+                                                                notes: '',
+                                                                image: serializeItemMeta({
+                                                                    imageUrl: m.imageUrl,
+                                                                    totalPages: m.totalPages,
+                                                                    progressPage: m.progressPage,
+                                                                    progressMode: m.progressMode,
+                                                                    releaseDate: m.releaseDate,
+                                                                }),
+                                                            }));
+                                                            setPopulatedFromId(null);
+                                                        }}
+                                                        className="text-[10px] border border-neutral-300 px-1.5 py-0.5 text-neutral-600 hover:border-neutral-500 hover:bg-neutral-50">
+                                                        {book.title}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
@@ -538,14 +594,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     ...prev,
                                                     title: r.title,
                                                     subtitle: r.artist,
+                                                    rating: undefined,
+                                                    notes: '',
                                                     image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
-                                                        imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
+                                                        imageUrl: r.image || undefined,
                                                         externalSource: 'musicbrainz',
                                                         externalId: r.id,
                                                         releaseDate: r.releaseDate || undefined,
                                                     }),
                                                 }));
+                                                setPopulatedFromId(null);
                                                 setShowMusicResults(false);
                                             }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
@@ -572,15 +630,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     ...prev,
                                                     title: r.title,
                                                     // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
-                                                    subtitle: source === 'itunes' ? (r.subtitle || prev.subtitle) : prev.subtitle,
+                                                    subtitle: source === 'itunes' ? (r.subtitle || '') : '',
+                                                    rating: undefined,
+                                                    notes: '',
                                                     image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
-                                                        imageUrl: r.image || parseItemMeta(prev.image).imageUrl,
+                                                        imageUrl: r.image || undefined,
                                                         externalSource: source,
                                                         externalId: r.id,
                                                         releaseDate: r.releaseDate || undefined,
                                                     }),
                                                 }));
+                                                setPopulatedFromId(null);
                                                 setShowMovieResults(false);
                                             }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
@@ -611,13 +671,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             ...prev,
                                                             title: show.name,
                                                             subtitle: '',
+                                                            rating: undefined,
+                                                            notes: '',
                                                             image: serializeItemMeta({
-                                                                ...parseItemMeta(prev.image),
-                                                                imageUrl: show.image || parseItemMeta(prev.image).imageUrl,
+                                                                imageUrl: show.image || undefined,
                                                                 externalSource: 'itunes-podcast-show',
                                                                 externalId: show.id,
                                                             }),
                                                         }));
+                                                        setPopulatedFromId(null);
                                                     }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{show.name}</div>
                                                         <div className="text-xs text-neutral-500">{show.author || 'Unknown'}</div>
@@ -653,14 +715,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             ...prev,
                                                             title: ep.title,
                                                             subtitle: selectedPodcast.name,
+                                                            rating: undefined,
+                                                            notes: '',
                                                             image: serializeItemMeta({
-                                                                ...parseItemMeta(prev.image),
-                                                                imageUrl: selectedPodcast.image || parseItemMeta(prev.image).imageUrl,
+                                                                imageUrl: selectedPodcast.image || undefined,
                                                                 externalSource: 'itunes-podcast-episode',
                                                                 externalId: episodeIdentity,
                                                                 releaseDate: ep.publishedAt || undefined,
                                                             }),
                                                         }));
+                                                        setPopulatedFromId(null);
                                                         setShowPodcastPicker(false);
                                                     }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
@@ -693,14 +757,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             ...prev,
                                                             title: show.name,
                                                             subtitle: '',
+                                                            rating: undefined,
+                                                            notes: '',
                                                             image: serializeItemMeta({
-                                                                ...parseItemMeta(prev.image),
-                                                                imageUrl: show.image || parseItemMeta(prev.image).imageUrl,
+                                                                imageUrl: show.image || undefined,
                                                                 externalSource: 'tvmaze-show',
                                                                 externalId: show.id,
                                                                 releaseDate: show.premiered || undefined,
                                                             }),
                                                         }));
+                                                        setPopulatedFromId(null);
                                                         setShowTvPicker(true);
                                                     }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                         <div className="text-sm text-neutral-900">{show.name}</div>
@@ -737,14 +803,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             ...prev,
                                                             title: selectedTvShow.name,
                                                             subtitle: ep.label,
+                                                            rating: undefined,
+                                                            notes: '',
                                                             image: serializeItemMeta({
-                                                                ...parseItemMeta(prev.image),
-                                                                imageUrl: selectedTvShow.image || parseItemMeta(prev.image).imageUrl,
+                                                                imageUrl: selectedTvShow.image || undefined,
                                                                 externalSource: 'tvmaze-episode',
                                                                 externalId: episodeIdentity,
                                                                 releaseDate: ep.airdate || undefined,
                                                             }),
                                                         }));
+                                                        setPopulatedFromId(null);
                                                         setShowTvPicker(false);
                                                     }}
                                                         className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
@@ -775,14 +843,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: place.name,
+                                                    rating: undefined,
+                                                    notes: '',
                                                     image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
                                                         imageUrl: nextImageRef,
-                                                        restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        restaurantLocation: place.address || undefined,
                                                         externalSource: 'google-places',
                                                         externalId: place.id,
                                                     }),
                                                 }));
+                                                setPopulatedFromId(null);
                                                 setShowRestaurantResults(false);
                                             }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{place.name}</div>
@@ -810,14 +880,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: place.name,
+                                                    rating: undefined,
+                                                    notes: '',
                                                     image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
                                                         imageUrl: nextImageRef,
-                                                        restaurantLocation: place.address || parseItemMeta(prev.image).restaurantLocation,
+                                                        restaurantLocation: place.address || undefined,
                                                         externalSource: 'google-places',
                                                         externalId: place.id,
                                                     }),
                                                 }));
+                                                setPopulatedFromId(null);
                                                 setShowLocationResults(false);
                                             }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
                                                 <div className="text-sm text-neutral-900">{place.name}</div>
@@ -839,7 +911,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         keyExtractor={(r) => r.id}
                                         renderResult={(book) => (
                                             <button type="button" onClick={() => {
-                                                // Derive cover URL; keep existing book-progress session id as externalSource/externalId
                                                 const isOL = /^OL\d+W$/i.test(book.id);
                                                 const coverUrl = isOL
                                                     ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
@@ -847,13 +918,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: book.title,
-                                                    subtitle: book.author || prev.subtitle,
+                                                    subtitle: book.author || '',
+                                                    rating: undefined,
+                                                    notes: '',
                                                     image: serializeItemMeta({
-                                                        ...parseItemMeta(prev.image),
                                                         imageUrl: coverUrl,
                                                         releaseDate: book.publishedDate || undefined,
                                                     }),
                                                 }));
+                                                setPopulatedFromId(null);
                                                 setShowBookResults(false);
                                             }}
                                                 className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
@@ -910,12 +983,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     setDraft((prev) => ({
                                                         ...prev,
                                                         subtitle: brewery.name,
+                                                        rating: undefined,
+                                                        notes: '',
                                                         image: serializeItemMeta({
-                                                            ...parseItemMeta(prev.image),
                                                             externalSource: 'openbrewerydb',
                                                             externalId: brewery.id,
                                                         }),
                                                     }));
+                                                    setPopulatedFromId(null);
                                                     setShowBreweryResults(false);
                                                 }}
                                                     className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
