@@ -428,11 +428,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             isLinkedForDisplay ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
                                     style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
-                                    linked
+                                    filled
                                 </span>
                             ) : !readOnly ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                                    {config.coupling === 'api' ? 'search to link' : 'add detail to link'}
+                                    {config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
                                 </span>
                             ) : null
                         )}

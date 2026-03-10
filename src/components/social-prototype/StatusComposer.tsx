@@ -591,19 +591,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
                         {unlinkedCount > 0 && (
                             <div className="relative flex items-center gap-1 text-[10px] text-neutral-400 shrink-0">
-                                <span>{unlinkedCount} unlinked</span>
+                                <span>{unlinkedCount} unfilled</span>
                                 <button
                                     type="button"
                                     onClick={() => setShowLinkHelp(v => !v)}
                                     className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-neutral-300 text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 text-[9px] leading-none"
-                                    aria-label="What does unlinked mean?"
+                                    aria-label="What does unfilled mean?"
                                 >
                                     ?
                                 </button>
                                 {showLinkHelp && (
                                     <div className="absolute bottom-full right-0 mb-1.5 w-56 bg-white border border-neutral-200 shadow-md p-2.5 text-[10px] text-neutral-600 leading-relaxed z-50">
-                                        <p className="font-semibold text-neutral-800 mb-1">Linking a tag</p>
-                                        <p>Click a tag in the table below, then search for the item using the search bar to connect it to a shared record. Linked tags enable ratings, history, and deduplication across posts.</p>
+                                        <p className="font-semibold text-neutral-800 mb-1">Filling a tag</p>
+                                        <p>Click a tag in the table below, then search for the item using the search bar to connect it to a shared record. Filled tags enable ratings, history, and deduplication across posts.</p>
                                     </div>
                                 )}
                             </div>

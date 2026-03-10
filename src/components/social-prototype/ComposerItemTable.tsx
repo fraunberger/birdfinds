@@ -191,7 +191,7 @@ export function ComposerItemTable({
                                             border: `1.5px solid ${config.color || '#d4d4d4'}`,
                                         }} />
                                         {!isLinked && (
-                                            <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNLINKED ·</span>
+                                            <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNFILLED ·</span>
                                         )}
                                         {item.title}
                                     </span>
