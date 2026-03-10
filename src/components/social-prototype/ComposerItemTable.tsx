@@ -158,11 +158,9 @@ export function ComposerItemTable({
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
                         const itemMeta = parseItemMeta(item.image);
-                        const isLinked = config.coupling === 'none'
-                            || item.category === 'cooking'
-                            || (item.category === 'book' && !!itemMeta.imageUrl)
-                            || (config.coupling === 'url' && !!(itemMeta.recipeUrl || itemMeta.linkUrl))
-                            || (config.coupling === 'api' && !!itemMeta.externalSource);
+                        const isLinked = config.coupling === 'api'
+                            ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
+                            : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
                         const isRemoving = removingItemIds.has(item.id);
                         return (
                             <tr
