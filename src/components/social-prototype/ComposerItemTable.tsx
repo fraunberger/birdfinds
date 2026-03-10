@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
@@ -156,6 +157,10 @@ export function ComposerItemTable({
                 <tbody>
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
+                        const itemMeta = parseItemMeta(item.image);
+                        const isLinked = config.coupling === 'none'
+                            || (config.coupling === 'url' && !!(itemMeta.recipeUrl || itemMeta.linkUrl))
+                            || (config.coupling === 'api' && !!itemMeta.externalSource);
                         const isRemoving = removingItemIds.has(item.id);
                         return (
                             <tr
@@ -175,7 +180,21 @@ export function ComposerItemTable({
                                     onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
                                     onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
                                 >
-                                    {item.title}
+                                    <span className="inline-flex items-center gap-1 min-w-0">
+                                        <span style={{
+                                            display: 'inline-block',
+                                            width: '7px',
+                                            height: '7px',
+                                            borderRadius: '50%',
+                                            flexShrink: 0,
+                                            backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
+                                            border: `1.5px solid ${config.color || '#d4d4d4'}`,
+                                        }} />
+                                        {!isLinked && (
+                                            <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNLINKED ·</span>
+                                        )}
+                                        {item.title}
+                                    </span>
                                     {item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>}
                                     {isLinkingMode && (
                                         <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
