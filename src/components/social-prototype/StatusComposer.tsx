@@ -459,22 +459,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         {isPreparingComposer ? 'LOADING ENTRY…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
                     </h2>
                 </button>
-                <div className="flex items-center gap-3">
-                    {isExpanded && (
-                        <button type="button" onClick={() => setShowHowToPost(true)}
-                            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600"
-                            aria-label="How to post?">
-                            How to post?
-                        </button>
-                    )}
-                    <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>{draftBadgeText}</span>
-                    <div className="relative inline-flex items-center gap-1 p-1 border-b border-transparent hover:border-neutral-300 transition-colors">
-                        <span className="block font-mono text-[16px] sm:text-[10px] text-neutral-500 select-none">{activeDate}</span>
-                        <span className="text-neutral-400" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" />
-                            </svg>
-                        </span>
+                <div className="flex items-center gap-2.5 text-[10px] uppercase tracking-widest">
+                    <button type="button" onClick={() => setShowHowToPost(true)}
+                        className="text-neutral-400 hover:text-neutral-600 transition-colors whitespace-nowrap"
+                        aria-label="How to post?">
+                        How to post?
+                    </button>
+                    <span className="text-neutral-200">|</span>
+                    <span className={`whitespace-nowrap ${draftBadgeTone}`}>{draftBadgeText}</span>
+                    <span className="text-neutral-200">|</span>
+                    <div className="relative inline-flex items-center gap-1 hover:text-neutral-700 transition-colors cursor-pointer">
+                        <span className="font-mono text-neutral-500 whitespace-nowrap select-none">{activeDate}</span>
+                        <svg viewBox="0 0 24 24" className="w-3 h-3 text-neutral-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" />
+                        </svg>
                         <input ref={dateInputRef} type="date" value={activeDate} onChange={(e) => setActiveDate(e.target.value)}
                             onClick={(e) => { try { const t = e.target as HTMLInputElement; if (typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
                             aria-label="Select date" className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -501,28 +499,28 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
                         <div className="px-4 py-4 space-y-4 text-[11px] text-neutral-600 leading-relaxed">
                             <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">One Post, One Pile, Every Day!</p>
-                            <p className="-mt-2">Check the calendar before starting!</p>
+                            <p className="-mt-2">Each day gets one entry. Check the calendar to make sure you're on the right date before starting.</p>
 
                             <div className="space-y-1">
-                                <p><span className="font-bold text-neutral-900 tracking-wide">TAG</span> your finds!</p>
-                                <p>Enter the items you want to log from your day into the daily pile. Do this directly in the table before writing (recommended) or during status entry (advanced)*</p>
+                                <p><span className="font-bold text-neutral-900 tracking-wide">TAG</span> your finds</p>
+                                <p>Add items to your daily pile using the table below. Type the title and select a category. Do this before writing your status (recommended) or inline using @title while writing (advanced)*</p>
                             </div>
 
                             <div className="space-y-1">
-                                <p><span className="font-bold text-neutral-900 tracking-wide">FILL OUT</span> your finds!</p>
-                                <p>Click the item in your pile to open its card. Search for your item to link it to a database (if applicable). Rate and review after linking. This allows for community ratings and repeat counts.</p>
+                                <p><span className="font-bold text-neutral-900 tracking-wide">FILL OUT</span> your finds</p>
+                                <p>Tap any item in the table to open its card. Search to link it to a shared database record, then rate and review it. Linked items unlock community ratings and repeat tracking.</p>
                             </div>
 
                             <div className="space-y-1">
-                                <p><span className="font-bold text-neutral-900 tracking-wide">COUPLE</span> finds to your status!</p>
-                                <p>After writing your status, reference finds directly in it. Highlight the word and tap the item's row in the table to couple it. They will now be highlighted with the category color!</p>
+                                <p><span className="font-bold text-neutral-900 tracking-wide">COUPLE</span> finds to your status</p>
+                                <p>In your status text, highlight a word and tap the matching item's row in the table. The word will be colored by category — this connects your words directly to the tagged item.</p>
                             </div>
 
                             <div className="border-t border-neutral-200 pt-3 space-y-2">
-                                <p>* Automatically tag and couple 2 ways:</p>
-                                <p className="pl-2">1. Type <span className="font-semibold">@</span> followed by your title, and click the top bar category to close</p>
-                                <p className="pl-2">2. Highlight words and click the top bar</p>
-                                <p className="pt-1">** Don't forget to fill out your cards!</p>
+                                <p>* Two ways to tag inline while writing:</p>
+                                <p className="pl-2">1. Type <span className="font-semibold">@title</span> then tap a category in the top bar to confirm</p>
+                                <p className="pl-2">2. Highlight words in your status and tap a category in the top bar</p>
+                                <p className="pt-1">** Items tagged inline still need to be filled out — tap the row to open the card.</p>
                             </div>
                         </div>
                     </div>
