@@ -33,7 +33,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     const [commentDraft, setCommentDraft] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
     const [showAllItems, setShowAllItems] = useState(false);
-    const ITEM_LIMIT = 3;
+    const ITEM_LIMIT = 5;
     const menuRef = useRef<HTMLDivElement | null>(null);
     const { user } = useAuth();
     const { deleteStatus, addComment, deleteComment, reportStatus, reportComment, softDeleteStatus, softDeleteComment, removeItemFromActive, addItemToStatus } = useSocialStore();
@@ -284,9 +284,6 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                             className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
                                             title={item.title}
                                         >
-                                            {!isLinked && (
-                                                <span className="font-normal text-neutral-400 tracking-wider mr-1">UNLINKED ·</span>
-                                            )}
                                             {item.title}
                                         </button>
                                         {hasItemAggregatePage(item.category) && (
