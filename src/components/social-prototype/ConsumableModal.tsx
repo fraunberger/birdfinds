@@ -337,6 +337,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // For book: linked means the user confirmed via API search (cover URL fetched).
     // For all other categories: linked means externalSource+externalId are set.
     const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
+    // Unified linkage check for the header badge — mirrors StatusCard logic.
+    const isLinkedForDisplay = config.coupling === 'api'
+        ? isCoupled
+        : config.coupling === 'none'
+            ? true
+            : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
@@ -418,11 +424,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </span>
                             </div>
                         )}
-                        {isCoupled && (
-                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
-                                linked
-                            </span>
+                        {config.coupling !== 'none' && (
+                            isLinkedForDisplay ? (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                                    style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
+                                    linked
+                                </span>
+                            ) : !readOnly ? (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                    {config.coupling === 'api' ? 'search to link' : 'add detail to link'}
+                                </span>
+                            ) : null
                         )}
                     </div>
                     <div className="flex items-center gap-3">
@@ -449,13 +461,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </button>
                     </div>
                 </div>
-
-                {/* Unlinked nudge */}
-                {!isCoupled && !readOnly && (
-                    <div className="px-4 py-2 border-b border-amber-300 bg-amber-50 text-[11px] font-semibold uppercase tracking-widest text-amber-700">
-                        {config.coupling === 'api' ? 'Search to link' : 'Add detail to link'}
-                    </div>
-                )}
 
                 {/* Attribution — shown when viewing another user's saved tag */}
                 {readOnly && sourceUserId && existingItem && sourceProfile && (
