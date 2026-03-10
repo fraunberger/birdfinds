@@ -450,6 +450,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     </div>
                 </div>
 
+                {/* Unlinked nudge */}
+                {!isCoupled && !readOnly && (
+                    <div className="px-4 py-2 border-b border-neutral-200 bg-neutral-50 text-[10px] uppercase tracking-widest text-neutral-400">
+                        {config.coupling === 'api' ? 'Search to link' : 'Add detail to link'}
+                    </div>
+                )}
+
                 {/* Attribution — shown when viewing another user's saved tag */}
                 {readOnly && sourceUserId && existingItem && sourceProfile && (
                     <div className="px-4 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center gap-2">
