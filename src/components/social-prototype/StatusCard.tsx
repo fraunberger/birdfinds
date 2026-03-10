@@ -137,7 +137,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         if (cursor < text.length) parts.push(text.slice(cursor));
 
         return (
-            <p className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default">
+            <p className="text-neutral-800 text-xs leading-relaxed whitespace-pre-wrap font-mono cursor-default break-words">
                 {parts}
             </p>
         );
@@ -259,7 +259,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                 return (
                                     <div
                                         key={item.id}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border"
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
                                         style={{
                                             backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
                                             borderColor: config.color || '#e5e5e5',
@@ -267,7 +267,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     >
                                         <button
                                             onClick={() => setSelectedItem(item)}
-                                            className="font-medium text-neutral-800 hover:opacity-70 transition-opacity max-w-[160px] truncate"
+                                            className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
                                             title={item.title}
                                         >
                                             {item.title}
