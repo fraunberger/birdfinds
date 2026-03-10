@@ -466,7 +466,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                 <div className="p-4 space-y-6 overflow-y-auto flex-1">
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
-                        <div className="flex-1 space-y-4">
+                        <div className="flex-1 min-w-0 space-y-4">
                             {/* Title */}
                             {<div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
@@ -548,7 +548,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         if (category === 'podcast' && selectedPodcast) { setSelectedPodcast(null); setPodcastEpisodes([]); }
                                         if (category === 'tv' && selectedTvShow) { setSelectedTvShow(null); setTvEpisodes([]); }
                                     }}
-                                    className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent"
+                                    className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent disabled:text-neutral-600 disabled:border-transparent min-w-0"
                                 />
                                 )}
                                 {repeatInfo && title.trim() && (
