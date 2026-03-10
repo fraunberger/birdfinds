@@ -452,7 +452,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                 {/* Unlinked nudge */}
                 {!isCoupled && !readOnly && (
-                    <div className="px-4 py-2 border-b border-neutral-200 bg-neutral-50 text-[10px] uppercase tracking-widest text-neutral-400">
+                    <div className="px-4 py-2 border-b border-amber-300 bg-amber-50 text-[11px] font-semibold uppercase tracking-widest text-amber-700">
                         {config.coupling === 'api' ? 'Search to link' : 'Add detail to link'}
                     </div>
                 )}
