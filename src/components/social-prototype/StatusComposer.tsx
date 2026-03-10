@@ -442,7 +442,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             `}</style>
 
             {/* Header */}
-            <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300">
+            <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300 gap-4">
                 <button
                     onClick={async () => {
                         const next = !isExpanded;
@@ -452,25 +452,23 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         setIsExpanded(next);
                     }}
                     disabled={isPreparingComposer}
-                    className="flex items-center gap-2 p-2 -ml-2 hover:bg-neutral-100 rounded transition-colors"
+                    className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity"
                 >
-                    <span className={`text-[10px] transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                    <h2 className="text-[10px] font-bold uppercase tracking-widest text-neutral-600">
-                        {isPreparingComposer ? 'LOADING ENTRY…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
+                    <span className={`text-xs transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 whitespace-nowrap">
+                        {isPreparingComposer ? 'LOADING…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
                     </h2>
                 </button>
-                <div className="flex items-center gap-2.5 text-[10px] uppercase tracking-widest">
+                <div className="flex items-center justify-end gap-4 text-xs uppercase tracking-widest">
                     <button type="button" onClick={() => setShowHowToPost(true)}
                         className="text-neutral-400 hover:text-neutral-600 transition-colors whitespace-nowrap"
                         aria-label="How to post?">
                         How to post?
                     </button>
-                    <span className="text-neutral-200">|</span>
                     <span className={`whitespace-nowrap ${draftBadgeTone}`}>{draftBadgeText}</span>
-                    <span className="text-neutral-200">|</span>
-                    <div className="relative inline-flex items-center gap-1 hover:text-neutral-700 transition-colors cursor-pointer">
+                    <div className="relative inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
                         <span className="font-mono text-neutral-500 whitespace-nowrap select-none">{activeDate}</span>
-                        <svg viewBox="0 0 24 24" className="w-3 h-3 text-neutral-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-neutral-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
                             <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" />
                         </svg>
                         <input ref={dateInputRef} type="date" value={activeDate} onChange={(e) => setActiveDate(e.target.value)}
