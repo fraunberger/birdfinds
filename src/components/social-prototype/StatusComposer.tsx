@@ -28,6 +28,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
+    const [showLinkHelp, setShowLinkHelp] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
@@ -59,6 +60,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = useMemo(() => activeStatus?.items ?? [], [activeStatus?.items]);
+    const unlinkedCount = useMemo(() => items.filter(item => {
+        const config = getCategoryConfig(item.category);
+        if (config.coupling !== 'api') return false;
+        const meta = parseItemMeta(item.image);
+        return !meta.externalSource;
+    }).length, [items]);
 
     const setContentForActive = useCallback((value: string) => {
         if (draftStatus === 'error') setDraftStatus('saved');
@@ -582,6 +589,25 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} />
                         </div>
+                        {unlinkedCount > 0 && (
+                            <div className="relative flex items-center gap-1 text-[10px] text-neutral-400 shrink-0">
+                                <span>{unlinkedCount} unlinked</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLinkHelp(v => !v)}
+                                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-neutral-300 text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 text-[9px] leading-none"
+                                    aria-label="What does unlinked mean?"
+                                >
+                                    ?
+                                </button>
+                                {showLinkHelp && (
+                                    <div className="absolute bottom-full right-0 mb-1.5 w-56 bg-white border border-neutral-200 shadow-md p-2.5 text-[10px] text-neutral-600 leading-relaxed z-50">
+                                        <p className="font-semibold text-neutral-800 mb-1">Linking a tag</p>
+                                        <p>Click a tag in the table below, then search for the item using the search bar to connect it to a shared record. Linked tags enable ratings, history, and deduplication across posts.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <button
                             type="button"
                             onClick={async () => {
