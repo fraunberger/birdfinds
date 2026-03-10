@@ -1247,7 +1247,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                     {category === 'link' && (
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Hyperlink</label>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">URL</label>
                             {readOnly ? (
                                 linkUrl ? (
                                     <a href={linkUrl} target="_blank" rel="noreferrer" className="text-xs text-neutral-700 underline hover:text-neutral-900 break-all">{linkUrl}</a>
