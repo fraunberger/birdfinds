@@ -425,7 +425,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-3">
                         {readOnly && existingItem && user && sourceUserId && (
                             <button
                                 type="button"
@@ -438,7 +438,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 title={isSaved ? 'Remove from Want to Check Out' : 'Save to Want to Check Out'}
                                 aria-label={isSaved ? 'Unsave item' : 'Save item'}
                             >
-                                <Bookmark size={16} className={isSaved ? 'fill-current' : ''} />
+                                <Bookmark size={22} className={isSaved ? 'fill-current' : ''} />
                             </button>
                         )}
                         <button
