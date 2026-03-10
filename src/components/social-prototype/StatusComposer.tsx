@@ -27,7 +27,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [showTagHelp, setShowTagHelp] = useState(false);
     const [showHowToPost, setShowHowToPost] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
@@ -451,7 +450,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             await prepareComposerForEntry();
                         }
                         setIsExpanded(next);
-                        if (!next) setShowTagHelp(false);
                     }}
                     disabled={isPreparingComposer}
                     className="flex items-center gap-2 p-2 -ml-2 hover:bg-neutral-100 rounded transition-colors"
@@ -463,10 +461,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 </button>
                 <div className="flex items-center gap-3">
                     {isExpanded && (
-                        <button type="button" onClick={() => setShowTagHelp((prev) => !prev)}
-                            className="h-5 w-5 inline-flex items-center justify-center border border-neutral-300 text-[10px] text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                            title="How tagging works" aria-label="How tagging works">
-                            ?
+                        <button type="button" onClick={() => setShowHowToPost(true)}
+                            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600"
+                            aria-label="How to post?">
+                            How to post?
                         </button>
                     )}
                     <span className={`text-[10px] uppercase tracking-widest ${draftBadgeTone}`}>{draftBadgeText}</span>
@@ -484,19 +482,56 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 </div>
             </header>
 
+            {showHowToPost && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+                    onClick={() => setShowHowToPost(false)}
+                >
+                    <div
+                        className="bg-white border border-neutral-300 w-full max-w-sm font-mono max-h-[85vh] overflow-y-auto"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">How to Post</span>
+                            <button
+                                type="button"
+                                onClick={() => setShowHowToPost(false)}
+                                className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-7 h-7 flex items-center justify-center"
+                            >×</button>
+                        </div>
+                        <div className="px-4 py-4 space-y-4 text-[11px] text-neutral-600 leading-relaxed">
+                            <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">One Post, One Pile, Every Day!</p>
+                            <p className="-mt-2">Check the calendar before starting!</p>
+
+                            <div className="space-y-1">
+                                <p><span className="font-bold text-neutral-900 tracking-wide">TAG</span> your finds!</p>
+                                <p>Enter the items you want to log from your day into the daily pile. Do this directly in the table before writing (recommended) or during status entry (advanced)*</p>
+                            </div>
+
+                            <div className="space-y-1">
+                                <p><span className="font-bold text-neutral-900 tracking-wide">FILL OUT</span> your finds!</p>
+                                <p>Click the item in your pile to open its card. Search for your item to link it to a database (if applicable). Rate and review after linking. This allows for community ratings and repeat counts.</p>
+                            </div>
+
+                            <div className="space-y-1">
+                                <p><span className="font-bold text-neutral-900 tracking-wide">COUPLE</span> finds to your status!</p>
+                                <p>After writing your status, reference finds directly in it. Highlight the word and tap the item's row in the table to couple it. They will now be highlighted with the category color!</p>
+                            </div>
+
+                            <div className="border-t border-neutral-200 pt-3 space-y-2">
+                                <p>* Automatically tag and couple 2 ways:</p>
+                                <p className="pl-2">1. Type <span className="font-semibold">@</span> followed by your title, and click the top bar category to close</p>
+                                <p className="pl-2">2. Highlight words and click the top bar</p>
+                                <p className="pt-1">** Don't forget to fill out your cards!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Collapsible Content */}
             {isExpanded && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                    {showTagHelp && (
-                        <div className="mb-2 border border-neutral-300 bg-neutral-50 px-3 py-2 text-[10px] text-neutral-700">
-                            <p className="uppercase tracking-widest font-bold mb-1">Tagging Help</p>
-                            <p>Select text in the editor, then tap a category button to tag it.</p>
-                            <p className="mt-1">Or type @item in the editor, then tap a category to tag everything after the @.</p>
-                            <p className="mt-1">Or tap a category with no selection to type a new item name.</p>
-                            <p className="mt-1">Use the LINK tag for article-style links with notes (not tracked in pile categories).</p>
-                            <p className="mt-1">Use the table LINK button to connect selected words to an existing item.</p>
-                        </div>
-                    )}
                     {/* Editor Container */}
                     <div className="border border-neutral-300">
                         {/* ── Inline Category Toolbar — horizontally scrollable ── */}
@@ -582,59 +617,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} />
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setShowHowToPost(true)}
-                            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 shrink-0"
-                        >
-                            How to post?
-                        </button>
-                        {showHowToPost && (
-                            <div
-                                className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-                                onClick={() => setShowHowToPost(false)}
-                            >
-                                <div
-                                    className="bg-white border border-neutral-300 w-full max-w-sm font-mono max-h-[85vh] overflow-y-auto"
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">How to Post</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowHowToPost(false)}
-                                            className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-7 h-7 flex items-center justify-center"
-                                        >×</button>
-                                    </div>
-                                    <div className="px-4 py-4 space-y-4 text-[11px] text-neutral-600 leading-relaxed">
-                                        <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">One Post, One Pile, Every Day!</p>
-                                        <p className="text-neutral-500 -mt-2">Check the calendar before starting!</p>
-
-                                        <div className="space-y-1">
-                                            <p><span className="font-bold text-neutral-900 tracking-wide">TAG</span> your finds!</p>
-                                            <p className="text-neutral-500">Enter the items you want to log from your day into the daily pile. Do this directly in the table before writing <span className="text-neutral-700">(recommended)</span> or during status entry <span className="text-neutral-700">(advanced)*</span></p>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <p><span className="font-bold text-neutral-900 tracking-wide">FILL OUT</span> your finds!</p>
-                                            <p className="text-neutral-500">Click the item in your pile to open its card. Search for your item to link it to a database (if applicable). Rate and review after linking. This allows for community ratings and repeat counts.</p>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <p><span className="font-bold text-neutral-900 tracking-wide">COUPLE</span> finds to your status!</p>
-                                            <p className="text-neutral-500">After writing your status, reference finds directly in it. Highlight the word and tap the item's row in the table to couple it. They will now be highlighted with the category color!</p>
-                                        </div>
-
-                                        <div className="border-t border-neutral-100 pt-3 space-y-2 text-neutral-400">
-                                            <p><span className="text-neutral-600">*</span> Automatically tag and couple 2 ways:</p>
-                                            <p className="pl-2">1. Type <span className="text-neutral-700 font-semibold">@</span> followed by your title, and click the top bar category to close</p>
-                                            <p className="pl-2">2. Highlight words and click the top bar</p>
-                                            <p className="pt-1"><span className="text-neutral-600">**</span> Don't forget to fill out your cards!</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                         <button
                             type="button"
                             onClick={async () => {
