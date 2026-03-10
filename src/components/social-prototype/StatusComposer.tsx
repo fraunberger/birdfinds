@@ -28,7 +28,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [showTagHelp, setShowTagHelp] = useState(false);
-    const [showLinkHelp, setShowLinkHelp] = useState(false);
+    const [showHowToPost, setShowHowToPost] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
@@ -60,13 +60,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = useMemo(() => activeStatus?.items ?? [], [activeStatus?.items]);
-    const unlinkedCount = useMemo(() => items.filter(item => {
-        const config = getCategoryConfig(item.category);
-        if (config.coupling !== 'api') return false;
-        const meta = parseItemMeta(item.image);
-        return !meta.externalSource;
-    }).length, [items]);
-
     const setContentForActive = useCallback((value: string) => {
         if (draftStatus === 'error') setDraftStatus('saved');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
@@ -589,23 +582,57 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} />
                         </div>
-                        {unlinkedCount > 0 && (
-                            <div className="relative flex items-center gap-1 text-[10px] text-neutral-400 shrink-0">
-                                <span>{unlinkedCount} unfilled</span>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowLinkHelp(v => !v)}
-                                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-neutral-300 text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 text-[9px] leading-none"
-                                    aria-label="What does unfilled mean?"
+                        <button
+                            type="button"
+                            onClick={() => setShowHowToPost(true)}
+                            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 shrink-0"
+                        >
+                            How to post?
+                        </button>
+                        {showHowToPost && (
+                            <div
+                                className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+                                onClick={() => setShowHowToPost(false)}
+                            >
+                                <div
+                                    className="bg-white border border-neutral-300 w-full max-w-sm font-mono max-h-[85vh] overflow-y-auto"
+                                    onClick={e => e.stopPropagation()}
                                 >
-                                    ?
-                                </button>
-                                {showLinkHelp && (
-                                    <div className="absolute bottom-full right-0 mb-1.5 w-56 bg-white border border-neutral-200 shadow-md p-2.5 text-[10px] text-neutral-600 leading-relaxed z-50">
-                                        <p className="font-semibold text-neutral-800 mb-1">Filling a tag</p>
-                                        <p>Click a tag in the table below, then search for the item using the search bar to connect it to a shared record. Filled tags enable ratings, history, and deduplication across posts.</p>
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+                                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">How to Post</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowHowToPost(false)}
+                                            className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-7 h-7 flex items-center justify-center"
+                                        >×</button>
                                     </div>
-                                )}
+                                    <div className="px-4 py-4 space-y-4 text-[11px] text-neutral-600 leading-relaxed">
+                                        <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">One Post, One Pile, Every Day!</p>
+                                        <p className="text-neutral-500 -mt-2">Check the calendar before starting!</p>
+
+                                        <div className="space-y-1">
+                                            <p><span className="font-bold text-neutral-900 tracking-wide">TAG</span> your finds!</p>
+                                            <p className="text-neutral-500">Enter the items you want to log from your day into the daily pile. Do this directly in the table before writing <span className="text-neutral-700">(recommended)</span> or during status entry <span className="text-neutral-700">(advanced)*</span></p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p><span className="font-bold text-neutral-900 tracking-wide">FILL OUT</span> your finds!</p>
+                                            <p className="text-neutral-500">Click the item in your pile to open its card. Search for your item to link it to a database (if applicable). Rate and review after linking. This allows for community ratings and repeat counts.</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p><span className="font-bold text-neutral-900 tracking-wide">COUPLE</span> finds to your status!</p>
+                                            <p className="text-neutral-500">After writing your status, reference finds directly in it. Highlight the word and tap the item's row in the table to couple it. They will now be highlighted with the category color!</p>
+                                        </div>
+
+                                        <div className="border-t border-neutral-100 pt-3 space-y-2 text-neutral-400">
+                                            <p><span className="text-neutral-600">*</span> Automatically tag and couple 2 ways:</p>
+                                            <p className="pl-2">1. Type <span className="text-neutral-700 font-semibold">@</span> followed by your title, and click the top bar category to close</p>
+                                            <p className="pl-2">2. Highlight words and click the top bar</p>
+                                            <p className="pt-1"><span className="text-neutral-600">**</span> Don't forget to fill out your cards!</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         <button
