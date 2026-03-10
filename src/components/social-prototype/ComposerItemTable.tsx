@@ -159,6 +159,7 @@ export function ComposerItemTable({
                         const config = getCategoryConfig(item.category);
                         const itemMeta = parseItemMeta(item.image);
                         const isLinked = config.coupling === 'none'
+                            || item.category === 'cooking'
                             || (config.coupling === 'url' && !!(itemMeta.recipeUrl || itemMeta.linkUrl))
                             || (config.coupling === 'api' && !!itemMeta.externalSource);
                         const isRemoving = removingItemIds.has(item.id);
