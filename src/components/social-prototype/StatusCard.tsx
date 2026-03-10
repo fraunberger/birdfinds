@@ -256,6 +256,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                 const config = getCategoryConfig(item.category);
                                 const itemMeta = parseItemMeta(item.image);
                                 const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
+                                const isLinked = config.coupling === 'none'
+                                    || (config.coupling === 'url' && !!(itemMeta.recipeUrl || itemMeta.linkUrl))
+                                    || (config.coupling === 'api' && !!itemMeta.externalSource);
                                 return (
                                     <div
                                         key={item.id}
@@ -265,11 +268,21 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                             borderColor: config.color || '#e5e5e5',
                                         }}
                                     >
+                                        <span
+                                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                                            style={{
+                                                backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
+                                                border: `1.5px solid ${config.color || '#d4d4d4'}`,
+                                            }}
+                                        />
                                         <button
                                             onClick={() => setSelectedItem(item)}
                                             className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
                                             title={item.title}
                                         >
+                                            {!isLinked && (
+                                                <span className="font-normal text-neutral-400 tracking-wider mr-1">UNLINKED ·</span>
+                                            )}
                                             {item.title}
                                         </button>
                                         {hasItemAggregatePage(item.category) && (
