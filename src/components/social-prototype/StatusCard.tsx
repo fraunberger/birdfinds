@@ -258,6 +258,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                 const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
                                 const isLinked = config.coupling === 'none'
                                     || item.category === 'cooking'
+                                    || (item.category === 'book' && !!itemMeta.imageUrl)
                                     || (config.coupling === 'url' && !!(itemMeta.recipeUrl || itemMeta.linkUrl))
                                     || (config.coupling === 'api' && !!itemMeta.externalSource);
                                 return (
