@@ -269,8 +269,12 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         }}
                                     >
                                         <span
-                                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                                             style={{
+                                                display: 'inline-block',
+                                                width: '8px',
+                                                height: '8px',
+                                                borderRadius: '50%',
+                                                flexShrink: 0,
                                                 backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
                                                 border: `1.5px solid ${config.color || '#d4d4d4'}`,
                                             }}
