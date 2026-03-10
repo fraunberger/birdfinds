@@ -465,9 +465,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         aria-label="How to post?">
                         How to post?
                     </button>
-                    <span className={`whitespace-nowrap ${draftBadgeTone}`}>{draftBadgeText}</span>
+                    <span className={`whitespace-nowrap text-[10px] ${draftBadgeTone}`}>{draftBadgeText}</span>
                     <div className="relative inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
-                        <span className="font-mono text-neutral-500 whitespace-nowrap select-none">{activeDate}</span>
+                        <span className="font-mono text-neutral-500 whitespace-nowrap select-none">{activeDate.slice(5).replace('-', '/')}</span>
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-neutral-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
                             <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" />
                         </svg>
