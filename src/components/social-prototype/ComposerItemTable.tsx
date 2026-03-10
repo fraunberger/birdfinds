@@ -161,28 +161,31 @@ export function ComposerItemTable({
                             <tr
                                 key={item.id}
                                 className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
-                                onPointerUp={async (e) => {
-                                    if (isInteractiveTarget(e.target)) return;
-                                    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
-                                        await handleRowAction(item);
-                                    }
-                                }}
-                                onClick={async (e) => {
-                                    if (isInteractiveTarget(e.target)) return;
-                                    await handleRowAction(item);
-                                }}
                             >
-                                <td className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold" style={{ backgroundColor: config.color || undefined }}>
+                                <td
+                                    className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                    style={{ backgroundColor: config.color || undefined }}
+                                    onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
+                                    onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
+                                >
                                     {config.shortLabel}
                                 </td>
-                                <td className="px-2 py-1 border-b border-r border-neutral-200 font-medium">
+                                <td
+                                    className="px-2 py-1 border-b border-r border-neutral-200 font-medium"
+                                    onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
+                                    onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
+                                >
                                     {item.title}
                                     {item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>}
                                     {isLinkingMode && (
                                         <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
                                     )}
                                 </td>
-                                <td className="px-2 py-1 border-b border-r border-neutral-200 text-center">
+                                <td
+                                    className="px-2 py-1 border-b border-r border-neutral-200 text-center"
+                                    onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
+                                    onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
+                                >
                                     {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                 </td>
                                 <td className="px-2 py-1 border-b border-neutral-200 text-center">
