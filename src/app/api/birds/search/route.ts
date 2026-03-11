@@ -44,7 +44,10 @@ export async function GET(request: Request) {
         if (!response.ok) {
             const text = await response.text();
             console.error('eBird search failed:', response.status, text);
-            return NextResponse.json({ error: 'Failed to fetch bird results' }, { status: response.status });
+            return NextResponse.json(
+                { error: `eBird API error ${response.status}${text ? ': ' + text.slice(0, 200) : ''}` },
+                { status: response.status }
+            );
         }
 
         const data = (await response.json()) as EBirdTaxon[];
