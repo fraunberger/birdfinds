@@ -452,7 +452,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         setIsExpanded(next);
                     }}
                     disabled={isPreparingComposer}
-                    className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity"
+                    className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity touch-manipulation"
                 >
                     <span className={`text-xs transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 whitespace-nowrap">
@@ -461,7 +461,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 </button>
                 <div className="flex items-center justify-end gap-4 text-xs uppercase tracking-widest">
                     <button type="button" onClick={() => setShowHowToPost(true)}
-                        className="text-neutral-400 hover:text-neutral-600 transition-colors whitespace-nowrap"
+                        className="text-neutral-400 hover:text-neutral-600 transition-colors whitespace-nowrap touch-manipulation"
                         aria-label="How to post?">
                         How to post?
                     </button>
@@ -549,7 +549,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                     setIsModalOpen(true);
                                                 }
                                             }}
-                                            onMouseDown={(e) => e.preventDefault()}
+                                            onPointerDown={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
                                             title={cat.label}
                                             className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
