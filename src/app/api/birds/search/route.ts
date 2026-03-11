@@ -2,11 +2,41 @@ import { NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface EBirdTaxon {
-    speciesCode?: string;
-    comName?: string;
-    sciName?: string;
+    speciesCode: string;
+    comName: string;
+    sciName: string;
+    category: string;
+    order?: string;
     familyComName?: string;
-    orderComName?: string;
+}
+
+interface TaxonomyCache {
+    data: EBirdTaxon[];
+    fetchedAt: number;
+}
+
+let taxonomyCache: TaxonomyCache | null = null;
+
+async function getTaxonomy(apiKey: string): Promise<EBirdTaxon[]> {
+    const TTL = 24 * 60 * 60 * 1000;
+    if (taxonomyCache && Date.now() - taxonomyCache.fetchedAt < TTL) {
+        return taxonomyCache.data;
+    }
+
+    const response = await fetch('https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json', {
+        headers: { 'X-eBirdApiToken': apiKey },
+        next: { revalidate: 86400 },
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`eBird taxonomy ${response.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+    }
+
+    const all = (await response.json()) as EBirdTaxon[];
+    const species = all.filter((t) => t.category === 'species' && t.speciesCode && t.comName);
+    taxonomyCache = { data: species, fetchedAt: Date.now() };
+    return species;
 }
 
 export async function GET(request: Request) {
@@ -28,42 +58,29 @@ export async function GET(request: Request) {
     }
 
     try {
-        const url = new URL('https://api.ebird.org/v2/ref/taxon/find');
-        url.searchParams.set('q', query);
-        url.searchParams.set('maxResults', '12');
-        url.searchParams.set('locale', 'en');
+        const taxonomy = await getTaxonomy(apiKey);
+        const q = query.toLowerCase();
 
-        const response = await fetch(url.toString(), {
-            headers: {
-                'X-eBirdApiToken': apiKey,
-                Accept: 'application/json',
-            },
-            next: { revalidate: 3600 },
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            console.error('eBird search failed:', response.status, text);
-            return NextResponse.json(
-                { error: `eBird API error ${response.status}${text ? ': ' + text.slice(0, 200) : ''}` },
-                { status: response.status }
-            );
-        }
-
-        const data = (await response.json()) as EBirdTaxon[];
-        const results = data
-            .filter((t) => t.speciesCode && t.comName)
+        const results = taxonomy
+            .filter((t) => t.comName.toLowerCase().includes(q) || t.sciName.toLowerCase().includes(q))
+            .sort((a, b) => {
+                const aStarts = a.comName.toLowerCase().startsWith(q) ? 0 : 1;
+                const bStarts = b.comName.toLowerCase().startsWith(q) ? 0 : 1;
+                return aStarts - bStarts;
+            })
+            .slice(0, 12)
             .map((t) => ({
-                id: t.speciesCode!,
-                comName: t.comName!,
-                sciName: t.sciName || '',
+                id: t.speciesCode,
+                comName: t.comName,
+                sciName: t.sciName,
                 familyComName: t.familyComName || '',
-                orderComName: t.orderComName || '',
+                orderComName: t.order || '',
             }));
 
         return NextResponse.json(results);
     } catch (error) {
-        console.error('Bird search proxy error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        const msg = error instanceof Error ? error.message : 'Internal server error';
+        console.error('Bird search error:', msg);
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }
