@@ -53,45 +53,14 @@ export default function FindBirdPage() {
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        let data: BirdResult[];
-
-        if (apiKey.trim()) {
-          // Call eBird directly from the browser using the provided key
-          const url = new URL("https://api.ebird.org/v2/ref/taxon/find");
-          url.searchParams.set("q", trimmed);
-          url.searchParams.set("maxResults", "12");
-          url.searchParams.set("locale", "en");
-          const res = await fetch(url.toString(), {
-            headers: { "X-eBirdApiToken": apiKey.trim() },
-            signal: controller.signal,
-          });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(`eBird ${res.status}${text ? ": " + text.slice(0, 120) : ""}`);
-          }
-          type EBirdTaxon = { speciesCode?: string; comName?: string; sciName?: string; familyComName?: string; orderComName?: string };
-          const raw: EBirdTaxon[] = await res.json();
-          data = raw
-            .filter((t) => t.speciesCode && t.comName)
-            .map((t) => ({
-              id: t.speciesCode!,
-              comName: t.comName!,
-              sciName: t.sciName ?? "",
-              familyComName: t.familyComName ?? "",
-              orderComName: t.orderComName ?? "",
-            }));
-        } else {
-          // Fall back to our server-side proxy
-          const res = await fetch(
-            `/api/birds/search?q=${encodeURIComponent(trimmed)}`,
-            { signal: controller.signal }
-          );
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json.error ?? `HTTP ${res.status}`);
-          }
-          data = await res.json();
+        const params = new URLSearchParams({ q: trimmed });
+        if (apiKey.trim()) params.set("_key", apiKey.trim());
+        const res = await fetch(`/api/birds/search?${params}`, { signal: controller.signal });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error ?? `HTTP ${res.status}`);
         }
+        const data: BirdResult[] = await res.json();
 
         setResults(data);
       } catch (err) {
@@ -162,8 +131,8 @@ export default function FindBirdPage() {
             />
             <p className="mt-1 text-[10px] text-neutral-400">
               {usingDirectKey
-                ? "Calling eBird directly · key saved in localStorage"
-                : "Using /api/birds/search proxy · get a key at ebird.org/api/keygen"}
+                ? "Sending key to proxy · key saved in localStorage"
+                : "Using server env key · get a key at ebird.org/api/keygen"}
             </p>
           </div>
 
@@ -271,7 +240,7 @@ export default function FindBirdPage() {
             <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-1">route</p>
             <code className="text-[10px] text-neutral-600 break-all">
               {usingDirectKey
-                ? "GET api.ebird.org/v2/ref/taxon/find?q={query}&maxResults=12 (direct)"
+                ? "GET /api/birds/search?q={query}&_key=*** (proxy + test key)"
                 : "GET /api/birds/search?q={query} (proxy)"}
             </code>
             <p className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 mb-1">last response</p>

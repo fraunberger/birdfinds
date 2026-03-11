@@ -42,6 +42,7 @@ async function getTaxonomy(apiKey: string): Promise<EBirdTaxon[]> {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q')?.trim();
+    const testKey = searchParams.get('_key')?.trim();
 
     if (!query) {
         return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
-    const apiKey = process.env.EBIRD_API_KEY;
+    const apiKey = testKey || process.env.EBIRD_API_KEY;
     if (!apiKey) {
         return NextResponse.json({ error: 'eBird API key not configured' }, { status: 503 });
     }
