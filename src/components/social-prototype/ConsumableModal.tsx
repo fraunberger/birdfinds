@@ -344,7 +344,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
             ? true
             : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
-    const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category);
+    const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category) && isLinkedForDisplay;
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
         ? toGoogleMapsLink(draft.image || existingItem?.image, title, subtitle)
         : null;
