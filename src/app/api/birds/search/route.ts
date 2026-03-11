@@ -15,7 +15,13 @@ interface TaxonomyCache {
     fetchedAt: number;
 }
 
+interface NACache {
+    codes: Set<string>;
+    fetchedAt: number;
+}
+
 let taxonomyCache: TaxonomyCache | null = null;
+let naCache: NACache | null = null;
 
 async function getTaxonomy(apiKey: string): Promise<EBirdTaxon[]> {
     const TTL = 24 * 60 * 60 * 1000;
@@ -39,6 +45,28 @@ async function getTaxonomy(apiKey: string): Promise<EBirdTaxon[]> {
     return species;
 }
 
+async function getNASpecies(apiKey: string): Promise<Set<string>> {
+    const TTL = 7 * 24 * 60 * 60 * 1000;
+    if (naCache && Date.now() - naCache.fetchedAt < TTL) {
+        return naCache.codes;
+    }
+
+    try {
+        const response = await fetch('https://api.ebird.org/v2/product/spplist/US', {
+            headers: { 'X-eBirdApiToken': apiKey },
+            next: { revalidate: 604800 },
+        });
+
+        if (!response.ok) return naCache?.codes ?? new Set();
+
+        const codes = (await response.json()) as string[];
+        naCache = { codes: new Set(codes), fetchedAt: Date.now() };
+        return naCache.codes;
+    } catch {
+        return naCache?.codes ?? new Set();
+    }
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q')?.trim();
@@ -59,12 +87,19 @@ export async function GET(request: Request) {
     }
 
     try {
-        const taxonomy = await getTaxonomy(apiKey);
+        const [taxonomy, naSpecies] = await Promise.all([
+            getTaxonomy(apiKey),
+            getNASpecies(apiKey),
+        ]);
+
         const q = query.toLowerCase();
 
         const results = taxonomy
             .filter((t) => t.comName.toLowerCase().includes(q) || t.sciName.toLowerCase().includes(q))
             .sort((a, b) => {
+                const aNA = naSpecies.has(a.speciesCode) ? 0 : 1;
+                const bNA = naSpecies.has(b.speciesCode) ? 0 : 1;
+                if (aNA !== bNA) return aNA - bNA;
                 const aStarts = a.comName.toLowerCase().startsWith(q) ? 0 : 1;
                 const bStarts = b.comName.toLowerCase().startsWith(q) ? 0 : 1;
                 return aStarts - bStarts;
