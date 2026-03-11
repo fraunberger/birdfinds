@@ -25,6 +25,7 @@ export function SocialLayout() {
     content: string;
     createdAt: string;
     statusDate?: string;
+    type?: "on_my_post" | "on_commented_post";
   };
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
@@ -163,25 +164,9 @@ export function SocialLayout() {
     }
 
     let cancelled = false;
-    const storageKey = `birdfinds:comment-notifs:seen:${user.id}`;
-    const readSeen = () => {
-      if (typeof window === "undefined") return new Set<string>();
-      try {
-        const raw = window.localStorage.getItem(storageKey);
-        const parsed = raw ? (JSON.parse(raw) as string[]) : [];
-        return new Set(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        return new Set<string>();
-      }
-    };
-    const writeSeen = (ids: string[]) => {
-      if (typeof window === "undefined") return;
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(ids.slice(0, 300)));
-      } catch {
-        // ignore
-      }
-    };
+    // seenBeforeRef tracks the server-side timestamp so we can detect unseen
+    // notifications without relying on localStorage (cross-device safe).
+    const seenBeforeRef = { current: null as string | null };
 
     const readCommentNotifications = async () => {
       const controller = new AbortController();
@@ -191,17 +176,26 @@ export function SocialLayout() {
         if (!response.ok) return;
         const payload = await response.json();
         const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
-        const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
-        const seen = readSeen();
+        const serverSeenBefore: string | null = payload?.seenBefore ?? null;
 
-        if (seen.size === 0 && ids.length > 0) {
-          // First load baseline: do not notify for historical comments.
-          writeSeen(ids);
+        if (serverSeenBefore === null && notifications.length > 0 && seenBeforeRef.current === null) {
+          // First load with no server-side seen record: mark all current as seen
+          // so we don't retroactively notify for historical comments.
+          void fetch("/api/social/notifications", { method: "POST", cache: "no-store" });
+          seenBeforeRef.current = new Date().toISOString();
           setCommentNotificationCount(0);
           return;
         }
 
-        const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
+        seenBeforeRef.current = serverSeenBefore;
+
+        const unseen = serverSeenBefore
+          ? notifications.filter(
+              (entry: { createdAt?: string }) =>
+                entry.createdAt && entry.createdAt > serverSeenBefore,
+            )
+          : [];
+
         const allMapped: CommentNotification[] = (notifications as Record<string, unknown>[]).map((entry) => ({
           id: String(entry.id || ""),
           statusId: String(entry.statusId || ""),
@@ -209,13 +203,21 @@ export function SocialLayout() {
           content: String(entry.content || ""),
           createdAt: String(entry.createdAt || ""),
           statusDate: entry.statusDate ? String(entry.statusDate) : undefined,
+          type: (entry.type === "on_commented_post" ? "on_commented_post" : "on_my_post") as
+            | "on_my_post"
+            | "on_commented_post",
         })).filter((entry: CommentNotification) => Boolean(entry.id && entry.statusId));
+
         if (!cancelled && unseen.length > 0) {
-          const newest = unseen[0] as { fromUsername?: string; content?: string };
+          const newest = unseen[0] as { fromUsername?: string; type?: string };
+          const isReply = newest.type === "on_commented_post";
           pushToast({
-            message: unseen.length === 1
-              ? `New comment from ${newest.fromUsername || "someone"}`
-              : `${unseen.length} new comments on your posts`,
+            message:
+              unseen.length === 1
+                ? isReply
+                  ? `New comment from ${newest.fromUsername || "someone"} on a post you commented on`
+                  : `New comment from ${newest.fromUsername || "someone"}`
+                : `${unseen.length} new comments`,
             tone: "info",
             href: "/",
           });
@@ -232,14 +234,12 @@ export function SocialLayout() {
     };
 
     const markVisibleAsSeen = async () => {
-      const response = await fetch("/api/social/notifications", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
-      const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
-      writeSeen(ids);
+      // Update server-side seen timestamp so all devices see this as cleared.
+      const res = await fetch("/api/social/notifications", { method: "POST", cache: "no-store" });
+      if (!res.ok) return;
+      const payload = await res.json();
+      seenBeforeRef.current = payload?.seenBefore ?? seenBeforeRef.current;
       if (!cancelled) {
-        // Zero the badge but preserve the notification list.
         setCommentNotificationCount(0);
       }
     };
@@ -256,19 +256,15 @@ export function SocialLayout() {
 
     const onMarkSeen = () => { void markVisibleAsSeen(); };
     window.addEventListener("birdfinds:notifications-seen", onMarkSeen);
+
     const onOpenNotification = (event: Event) => {
       const customEvent = event as CustomEvent<{ notificationId?: string; statusId?: string }>;
-      const notificationId = String(customEvent.detail?.notificationId || "");
       const statusId = String(customEvent.detail?.statusId || "");
-      if (!notificationId || !statusId) return;
+      if (!statusId) return;
 
-      const seen = readSeen();
-      if (!seen.has(notificationId)) {
-        seen.add(notificationId);
-        writeSeen(Array.from(seen));
-        // Decrement badge but keep the notification in the list.
-        setCommentNotificationCount((prev) => Math.max(0, prev - 1));
-      }
+      // Mark all seen when any notification is clicked (keeps UX simple and
+      // ensures cross-device consistency).
+      void markVisibleAsSeen();
 
       // Persist intent so SocialFeed can pick it up on mount when navigating cross-page.
       window.sessionStorage.setItem("birdfinds:pending-thread", statusId);
