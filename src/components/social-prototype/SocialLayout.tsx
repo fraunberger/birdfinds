@@ -178,21 +178,21 @@ export function SocialLayout() {
         const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
         const serverSeenBefore: string | null = payload?.seenBefore ?? null;
 
-        if (serverSeenBefore === null && notifications.length > 0 && seenBeforeRef.current === null) {
+        const isFirstLoad = serverSeenBefore === null && seenBeforeRef.current === null;
+        if (isFirstLoad && notifications.length > 0) {
           // First load with no server-side seen record: mark all current as seen
           // so we don't retroactively notify for historical comments.
           void fetch("/api/social/notifications", { method: "POST", cache: "no-store" });
           seenBeforeRef.current = new Date().toISOString();
-          setCommentNotificationCount(0);
-          return;
+        } else {
+          seenBeforeRef.current = serverSeenBefore;
         }
 
-        seenBeforeRef.current = serverSeenBefore;
-
-        const unseen = serverSeenBefore
+        const effectiveSeenBefore = seenBeforeRef.current;
+        const unseen = effectiveSeenBefore && !isFirstLoad
           ? notifications.filter(
               (entry: { createdAt?: string }) =>
-                entry.createdAt && entry.createdAt > serverSeenBefore,
+                entry.createdAt && entry.createdAt > effectiveSeenBefore,
             )
           : [];
 
