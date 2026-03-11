@@ -13,6 +13,7 @@ interface BirdResult {
 }
 
 export default function FindBirdPage() {
+  const [apiKey, setApiKey] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<BirdResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -22,6 +23,17 @@ export default function FindBirdPage() {
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Persist key in localStorage so it survives a refresh
+  useEffect(() => {
+    const saved = localStorage.getItem("ebird_test_key");
+    if (saved) setApiKey(saved);
+  }, []);
+
+  const saveKey = (k: string) => {
+    setApiKey(k);
+    localStorage.setItem("ebird_test_key", k);
+  };
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -41,15 +53,46 @@ export default function FindBirdPage() {
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        const res = await fetch(
-          `/api/birds/search?q=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal }
-        );
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json.error ?? `HTTP ${res.status}`);
+        let data: BirdResult[];
+
+        if (apiKey.trim()) {
+          // Call eBird directly from the browser using the provided key
+          const url = new URL("https://api.ebird.org/v2/ref/taxon/find");
+          url.searchParams.set("q", trimmed);
+          url.searchParams.set("maxResults", "12");
+          url.searchParams.set("locale", "en");
+          const res = await fetch(url.toString(), {
+            headers: { "X-eBirdApiToken": apiKey.trim() },
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`eBird ${res.status}${text ? ": " + text.slice(0, 120) : ""}`);
+          }
+          type EBirdTaxon = { speciesCode?: string; comName?: string; sciName?: string; familyComName?: string; orderComName?: string };
+          const raw: EBirdTaxon[] = await res.json();
+          data = raw
+            .filter((t) => t.speciesCode && t.comName)
+            .map((t) => ({
+              id: t.speciesCode!,
+              comName: t.comName!,
+              sciName: t.sciName ?? "",
+              familyComName: t.familyComName ?? "",
+              orderComName: t.orderComName ?? "",
+            }));
+        } else {
+          // Fall back to our server-side proxy
+          const res = await fetch(
+            `/api/birds/search?q=${encodeURIComponent(trimmed)}`,
+            { signal: controller.signal }
+          );
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.error ?? `HTTP ${res.status}`);
+          }
+          data = await res.json();
         }
-        const data: BirdResult[] = await res.json();
+
         setResults(data);
       } catch (err) {
         if ((err as { name?: string }).name === "AbortError") return;
@@ -59,7 +102,7 @@ export default function FindBirdPage() {
         setIsSearching(false);
       }
     }, 220);
-  }, [query]);
+  }, [query, apiKey]);
 
   const pick = (bird: BirdResult) => {
     setSpotted((prev) =>
@@ -73,6 +116,8 @@ export default function FindBirdPage() {
 
   const remove = (id: string) =>
     setSpotted((prev) => prev.filter((b) => b.id !== id));
+
+  const usingDirectKey = apiKey.trim().length > 0;
 
   return (
     <div className="min-h-screen bg-white font-mono text-neutral-900">
@@ -98,6 +143,30 @@ export default function FindBirdPage() {
 
         <main className="flex-grow space-y-6">
 
+          {/* API key override */}
+          <div className="border border-neutral-200 p-3">
+            <label className="block text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
+              eBird API Key{" "}
+              <span className="text-neutral-400 normal-case tracking-normal">
+                — paste to call eBird directly (bypasses server proxy)
+              </span>
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => saveKey(e.target.value)}
+              placeholder="Leave blank to use server proxy"
+              className="w-full border border-neutral-300 px-3 py-2 text-xs focus:outline-none focus:border-neutral-600 placeholder-neutral-400"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="mt-1 text-[10px] text-neutral-400">
+              {usingDirectKey
+                ? "Calling eBird directly · key saved in localStorage"
+                : "Using /api/birds/search proxy · get a key at ebird.org/api/keygen"}
+            </p>
+          </div>
+
           {/* Search box */}
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
@@ -121,7 +190,7 @@ export default function FindBirdPage() {
               />
 
               {/* Dropdown */}
-              {open && (query.trim().length >= 2) && (
+              {open && query.trim().length >= 2 && (
                 <div className="absolute left-0 right-0 top-full z-20 border border-neutral-300 border-t-0 bg-white shadow-sm max-h-72 overflow-y-auto">
                   {isSearching ? (
                     <div className="px-3 py-3 text-[10px] uppercase tracking-widest text-neutral-400">
@@ -157,7 +226,7 @@ export default function FindBirdPage() {
               )}
             </div>
             <p className="mt-1 text-[10px] text-neutral-400">
-              Type 2+ characters · results from eBird · click to add to list
+              Type 2+ characters · click a result to add to list
             </p>
           </div>
 
@@ -199,9 +268,11 @@ export default function FindBirdPage() {
 
           {/* Raw API info */}
           <div className="border border-neutral-200 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-1">API endpoint</p>
+            <p className="text-[10px] uppercase tracking-widest text-neutral-400 mb-1">route</p>
             <code className="text-[10px] text-neutral-600 break-all">
-              GET /api/birds/search?q=&#123;query&#125;
+              {usingDirectKey
+                ? "GET api.ebird.org/v2/ref/taxon/find?q={query}&maxResults=12 (direct)"
+                : "GET /api/birds/search?q={query} (proxy)"}
             </code>
             <p className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 mb-1">last response</p>
             <code className="text-[10px] text-neutral-600 break-all">
