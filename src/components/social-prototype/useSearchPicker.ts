@@ -91,7 +91,7 @@ export function useSearchPicker<T>({
             window.clearTimeout(timeoutId);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [category, readOnly, enabled, token]);
+    }, [category, readOnly, token]);
 
     return { results, isSearching, setResults };
 }
