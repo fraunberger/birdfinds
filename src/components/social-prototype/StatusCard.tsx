@@ -286,7 +286,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         >
                                             {item.title}
                                         </button>
-                                        {hasItemAggregatePage(item.category) && (
+                                        {isLinked && hasItemAggregatePage(item.category) && (
                                             <Link
                                                 href={buildItemPath(item)}
                                                 className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
