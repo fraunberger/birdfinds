@@ -296,7 +296,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
-        if (!draft.title.trim()) return;
+        if (!draft.title.trim() && draft.category !== 'bird') return;
         let imageToSave = draft.image;
         if (draft.category === 'book' && parseItemMeta(draft.image).finished) {
             // Transition to SSOT on finish: use a stable external identity so
@@ -340,9 +340,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
         ? isCoupled
-        : config.coupling === 'none'
-            ? true
-            : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
+        : category === 'bird'
+            ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
+            : config.coupling === 'none'
+                ? true
+                : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category) && isLinkedForDisplay;
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
@@ -424,7 +426,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </span>
                             </div>
                         )}
-                        {config.coupling !== 'none' && (
+                        {(config.coupling !== 'none' || category === 'bird') && (
                             isLinkedForDisplay ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
                                     style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
@@ -432,7 +434,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </span>
                             ) : !readOnly ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                                    {config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
+                                    {category === 'bird' ? 'search birds to fill' : config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
                                 </span>
                             ) : null
                         )}
