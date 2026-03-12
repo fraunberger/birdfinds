@@ -474,38 +474,49 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                     {Array.from(new Set([...DEFAULT_CATEGORIES, ...selectedCategories])).map(cat => {
                         const config = getCategoryConfig(cat);
                         const isActive = selectedCategories.includes(cat);
-                        const idx = selectedCategories.indexOf(cat);
                         return (
-                            <div key={cat} className="relative">
-                                <button
-                                    onClick={() => toggleCategory(cat)}
-                                    className={`w-full text-left px-2 py-1.5 border text-[10px] uppercase tracking-wider transition-all ${
-                                        isActive
-                                            ? 'text-neutral-900 pr-6'
-                                            : 'border-neutral-300 text-neutral-400 hover:border-neutral-400'
-                                    }`}
-                                    style={isActive ? {
-                                        backgroundColor: `${config.color}30`,
-                                        borderColor: config.color || '#404040',
-                                        borderLeftWidth: '3px',
-                                    } : undefined}
-                                >
-                                    {config.label}
-                                </button>
-                                {isActive && (
-                                    <div className="absolute right-0.5 top-0 bottom-0 flex flex-col justify-center">
-                                        <button type="button" disabled={idx === 0}
-                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; })}
-                                            className="text-neutral-400 hover:text-neutral-800 disabled:opacity-20 leading-none text-[10px] px-0.5">▲</button>
-                                        <button type="button" disabled={idx === selectedCategories.length - 1}
-                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx+1], n[idx]] = [n[idx], n[idx+1]]; return n; })}
-                                            className="text-neutral-400 hover:text-neutral-800 disabled:opacity-20 leading-none text-[10px] px-0.5">▼</button>
-                                    </div>
-                                )}
-                            </div>
+                            <button
+                                key={cat}
+                                onClick={() => toggleCategory(cat)}
+                                className={`text-left px-2 py-1.5 border text-[10px] uppercase tracking-wider transition-all ${
+                                    isActive
+                                        ? 'text-neutral-900'
+                                        : 'border-neutral-300 text-neutral-400 hover:border-neutral-400'
+                                }`}
+                                style={isActive ? {
+                                    backgroundColor: `${config.color}30`,
+                                    borderColor: config.color || '#404040',
+                                    borderLeftWidth: '3px',
+                                } : undefined}
+                            >
+                                {config.label}
+                            </button>
                         );
                     })}
                 </div>
+                {selectedCategories.length > 1 && (
+                    <div className="mt-3 space-y-1">
+                        {selectedCategories.map((cat, idx) => {
+                            const config = getCategoryConfig(cat);
+                            return (
+                                <div key={cat} className="flex items-center gap-2 px-2 py-1 border border-neutral-200 bg-white text-[10px] uppercase tracking-widest text-neutral-700"
+                                    style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}>
+                                    <span className="text-neutral-300 w-3 text-right flex-shrink-0">{idx + 1}</span>
+                                    <span className="flex-1 truncate">{config.label}</span>
+                                    <div className="flex flex-col leading-none">
+                                        <button type="button" disabled={idx === 0}
+                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; })}
+                                            className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▲</button>
+                                        <button type="button" disabled={idx === selectedCategories.length - 1}
+                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx+1], n[idx]] = [n[idx], n[idx+1]]; return n; })}
+                                            className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▼</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <p className="text-[9px] text-neutral-400 uppercase tracking-widest pt-0.5">First 6 show as toolbar buttons · rest in overflow</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                     <input
                         type="text"
@@ -539,9 +550,6 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                 )}
 
                 {selectedCategories.length > 1 && (
-                    <p className="mt-2 text-[9px] text-neutral-400 uppercase tracking-widest">
-                        Use ▲▼ on active categories to set toolbar order. First 6 show as buttons; rest go in overflow.
-                    </p>
                 )}
             </div>
 
