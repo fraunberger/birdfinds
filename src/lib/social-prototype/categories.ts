@@ -181,7 +181,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         titleLabel: 'Item Name', subtitleLabel: 'Category', subtitlePlaceholder: 'e.g. gear, experience, book',
         ratingLabel: 'Priority',
         notesLabel: 'Notes', notesPlaceholder: 'Why you want this...',
-        color: '#f472b6', icon: '🎁',
+        color: '#f472b6', icon: '',
     },
     bird: {
         id: 'bird',
@@ -193,7 +193,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         titleLabel: 'Species', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
         ratingLabel: 'Rating',
         notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
-        color: '#6ab4f7', icon: '🐦',
+        color: '#6ab4f7', icon: '',
     },
 };
 
