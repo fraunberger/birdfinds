@@ -137,20 +137,27 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
     // ── Book-specific view data ──────────────────────────────────────────
     const BOOK_COLORS = ['#6ab4f7', '#f472b6', '#7be08a', '#f5d142', '#b78ef5', '#f7756a', '#e8a94f', '#7be0c3'];
-    const inProgressBooks = bookCat
-        ? aggregatedItems.filter(e => !e.visits.some(v => parseItemMeta(v.image).finished))
-        : [];
+
+    // A book is "finished" if it has an explicit finished flag, OR if it has a
+    // rating but no progress data (old-style entries pre-dating progress tracking).
+    const isBookFinished = (entry: AggregatedItem): boolean => {
+        if (entry.visits.some(v => parseItemMeta(v.image).finished)) return true;
+        const hasProgress = entry.visits.some(v => parseItemMeta(v.image).progressPage != null);
+        return !hasProgress && entry.visits.some(v => v.rating);
+    };
+    // Best visit to open for a finished book: explicit finished visit first, else highest-rated
+    const getFinishedVisit = (entry: AggregatedItem) =>
+        entry.visits.find(v => parseItemMeta(v.image).finished) ??
+        [...entry.visits].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+
+    const inProgressBooks = bookCat ? aggregatedItems.filter(e => !isBookFinished(e)) : [];
     const finishedBooks = bookCat
         ? (() => {
-            const finished = aggregatedItems.filter(e => e.visits.some(v => parseItemMeta(v.image).finished));
+            const finished = aggregatedItems.filter(e => isBookFinished(e));
             if (sortMode === 'top') {
                 return finished
-                    .filter(e => !!e.visits.find(v => parseItemMeta(v.image).finished)?.rating)
-                    .sort((a, b) => {
-                        const ar = a.visits.find(v => parseItemMeta(v.image).finished)?.rating || 0;
-                        const br = b.visits.find(v => parseItemMeta(v.image).finished)?.rating || 0;
-                        return br - ar;
-                    });
+                    .filter(e => getFinishedVisit(e)?.rating)
+                    .sort((a, b) => (getFinishedVisit(b)?.rating || 0) - (getFinishedVisit(a)?.rating || 0));
             }
             return finished.sort((a, b) => b.latest.createdAt - a.latest.createdAt);
         })()
@@ -361,7 +368,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                             <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-2">Finished</div>
                             <div className="space-y-1">
                                 {finishedBooks.map((entry, idx) => {
-                                    const finishedVisit = entry.visits.find(v => parseItemMeta(v.image).finished);
+                                    const finishedVisit = getFinishedVisit(entry);
                                     const finishDate = finishedVisit ? new Date(finishedVisit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
                                     return (
                                         <button key={entry.key} type="button" onClick={() => finishedVisit && setSelectedItem(finishedVisit)} className="w-full text-left">
