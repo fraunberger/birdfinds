@@ -190,8 +190,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
             }
             setIsExpanded(true);
-            // Trigger onboarding checklist for first-time composers
-            if (user?.id && !hasCompletedComposerOnboarding(user.id)) {
+            // Trigger onboarding checklist for first-time composers (no published posts yet)
+            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !statuses.some(s => s.published)) {
                 setShowComposerOnboarding(true);
             }
             window.setTimeout(() => textareaRef.current?.focus(), 220);
@@ -469,7 +469,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         if (next) {
                             await prepareComposerForEntry();
                             // Show inline onboarding checklist for first-time composers
-                            if (user?.id && !hasCompletedComposerOnboarding(user.id)) {
+                            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !statuses.some(s => s.published)) {
                                 setShowComposerOnboarding(true);
                             }
                         }
