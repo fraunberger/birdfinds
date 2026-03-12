@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import { getCategoryConfig } from '@/lib/social-prototype/store';
 import type { ConsumableItem } from '@/lib/social-prototype/store';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 /**
  * ComposerOnboarding — Phase 2 inline guided checklist.
@@ -46,6 +48,16 @@ const STEP_HINTS: Record<OnboardingStep, string> = {
     couple: 'Highlight a word in your text, then tap the item row to link it',
 };
 
+/** Check if an item has been "filled out" — matches the isLinked logic in ComposerItemTable. */
+export function isItemFilled(item: ConsumableItem): boolean {
+    const config = getCategoryConfig(item.category);
+    const meta = parseItemMeta(item.image);
+    if (config.coupling === 'api') {
+        return item.category === 'book' ? !!meta.imageUrl : !!meta.externalSource;
+    }
+    return !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || meta.recipeUrl || meta.linkUrl);
+}
+
 interface ComposerOnboardingChecklistProps {
     userId: string;
     items: ConsumableItem[];
@@ -63,7 +75,7 @@ export function ComposerOnboardingChecklist({ userId, items, content, onComplete
 
     // Derive completion state from actual data
     const hasTag = items.length > 0;
-    const hasFilled = items.some(item => item.rating != null || (item.notes && item.notes.trim()));
+    const hasFilled = items.some(isItemFilled);
     const hasCoupled = content.includes(TAG_MARKER);
 
     const steps: Array<{ id: OnboardingStep; done: boolean }> = [
