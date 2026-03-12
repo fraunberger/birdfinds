@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
-import { parseItemMeta } from '@/lib/social-prototype/item-meta';
+import { isItemFilled } from './ComposerOnboarding';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
@@ -157,10 +157,7 @@ export function ComposerItemTable({
                 <tbody>
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
-                        const itemMeta = parseItemMeta(item.image);
-                        const isLinked = config.coupling === 'api'
-                            ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
-                            : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
+                        const isLinked = isItemFilled(item);
                         const isRemoving = removingItemIds.has(item.id);
                         return (
                             <tr
