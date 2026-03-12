@@ -1,26 +1,24 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
+import type { ConsumableItem } from '@/lib/social-prototype/store';
 
 /**
- * ComposerOnboarding — Phase 2 onboarding flow.
+ * ComposerOnboarding — Phase 2 inline guided checklist.
  *
- * Shown when the user opens the status composer for the first time.
- * Walks them through the core posting workflow step by step:
+ * Instead of a modal, this renders:
+ *   - Three checkboxes to the left of the Post button
+ *   - Visual highlight hints on specific composer regions
  *
- *   Step 1: Add a tag (explains @item flow + category buttons)
- *   Step 2: Fill out the card (explains the ConsumableModal)
- *   Step 3: Couple your tag (explains highlight + tap to link, or @)
+ * Steps:
+ *   1. "Add a tag"    → pulses the item table area
+ *   2. "Fill out card" → pulses an unfilled item row
+ *   3. "Couple to text" → pulses the status textarea
  *
- * After completion, a localStorage flag is set so it never shows again.
+ * Each step auto-checks when the user completes the action.
+ * Only shown for the very first post, then permanently dismissed.
  */
-
-interface ComposerOnboardingProps {
-    userId: string;
-    onComplete: () => void;
-}
-
-type ComposerStep = 1 | 2 | 3;
 
 const STORAGE_KEY_PREFIX = 'birdfinds:composer-onboarding-done:';
 
@@ -34,214 +32,132 @@ export function markComposerOnboardingComplete(userId: string): void {
     window.localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, '1');
 }
 
-export function ComposerOnboarding({ userId, onComplete }: ComposerOnboardingProps) {
-    const [step, setStep] = useState<ComposerStep>(1);
+type OnboardingStep = 'tag' | 'fill' | 'couple';
 
-    const handleComplete = useCallback(() => {
+const STEP_LABELS: Record<OnboardingStep, string> = {
+    tag: 'Add a tag',
+    fill: 'Fill out card',
+    couple: 'Couple to text',
+};
+
+const STEP_HINTS: Record<OnboardingStep, string> = {
+    tag: 'Tap a category button above to tag your first find',
+    fill: 'Tap the item row below to open its card and add a rating',
+    couple: 'Highlight a word in your text, then tap the item row to link it',
+};
+
+interface ComposerOnboardingChecklistProps {
+    userId: string;
+    items: ConsumableItem[];
+    content: string;
+    onComplete: () => void;
+}
+
+/**
+ * Inline checklist rendered next to the post button.
+ * Tracks step completion reactively from items/content props.
+ */
+export function ComposerOnboardingChecklist({ userId, items, content, onComplete }: ComposerOnboardingChecklistProps) {
+    const [dismissed, setDismissed] = useState(false);
+    const completedRef = useRef(false);
+
+    // Derive completion state from actual data
+    const hasTag = items.length > 0;
+    const hasFilled = items.some(item => item.rating != null || (item.notes && item.notes.trim()));
+    const hasCoupled = content.includes(TAG_MARKER);
+
+    const steps: Array<{ id: OnboardingStep; done: boolean }> = [
+        { id: 'tag', done: hasTag },
+        { id: 'fill', done: hasFilled },
+        { id: 'couple', done: hasCoupled },
+    ];
+
+    const allDone = hasTag && hasFilled && hasCoupled;
+    const activeStep = steps.find(s => !s.done)?.id ?? null;
+
+    // Auto-dismiss and persist when all three are done
+    useEffect(() => {
+        if (allDone && !completedRef.current) {
+            completedRef.current = true;
+            markComposerOnboardingComplete(userId);
+            // Brief delay so user sees all three checked before it disappears
+            const timer = setTimeout(() => onComplete(), 1200);
+            return () => clearTimeout(timer);
+        }
+    }, [allDone, userId, onComplete]);
+
+    const handleSkip = useCallback(() => {
         markComposerOnboardingComplete(userId);
+        setDismissed(true);
         onComplete();
     }, [userId, onComplete]);
 
-    const goNext = () => {
-        if (step < 3) setStep((step + 1) as ComposerStep);
-    };
-
-    const goBack = () => {
-        if (step > 1) setStep((step - 1) as ComposerStep);
-    };
+    if (dismissed) return null;
 
     return (
-        <div
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-            onClick={handleComplete}
-        >
-            <div
-                className="bg-white border border-neutral-300 w-full max-w-md font-mono max-h-[85vh] overflow-y-auto"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-800">
-                        How to Post
-                    </span>
-                    <div className="flex items-center gap-3">
-                        <span className="text-[9px] uppercase tracking-widest text-neutral-400">
-                            {step} of 3
+        <div className="flex flex-col gap-1">
+            {/* Checklist */}
+            <div className="flex items-center gap-3">
+                {steps.map(({ id, done }) => (
+                    <label key={id} className={`flex items-center gap-1 text-[9px] uppercase tracking-widest cursor-default select-none transition-colors ${done ? 'text-green-700' : id === activeStep ? 'text-neutral-800 font-bold' : 'text-neutral-400'}`}>
+                        <span className={`inline-flex items-center justify-center w-3.5 h-3.5 border text-[8px] leading-none ${done ? 'border-green-700 bg-green-700 text-white' : id === activeStep ? 'border-neutral-800' : 'border-neutral-300'}`}>
+                            {done ? '✓' : ''}
                         </span>
-                        <button
-                            type="button"
-                            onClick={handleComplete}
-                            className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-7 h-7 flex items-center justify-center"
-                        >
-                            x
-                        </button>
-                    </div>
-                </div>
-
-                {/* Progress */}
-                <div className="w-full h-0.5 bg-neutral-100">
-                    <div
-                        className="h-0.5 bg-neutral-800 transition-all duration-300"
-                        style={{ width: `${Math.round((step / 3) * 100)}%` }}
-                    />
-                </div>
-
-                {/* Content */}
-                <div className="px-4 py-5">
-                    {step === 1 && <StepTag />}
-                    {step === 2 && <StepFillCard />}
-                    {step === 3 && <StepCouple />}
-                </div>
-
-                {/* Navigation */}
-                <div className="flex items-center gap-3 px-4 py-3 border-t border-neutral-200">
-                    {step > 1 ? (
-                        <button
-                            onClick={goBack}
-                            className="px-3 py-2 border border-neutral-300 text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
-                        >
-                            Back
-                        </button>
-                    ) : (
-                        <div />
-                    )}
-                    <div className="flex-1" />
-                    {step < 3 ? (
-                        <>
-                            <button
-                                onClick={handleComplete}
-                                className="px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700"
-                            >
-                                Skip all
-                            </button>
-                            <button
-                                onClick={goNext}
-                                className="px-5 py-2 bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-700"
-                            >
-                                Next
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            onClick={handleComplete}
-                            className="px-5 py-2 bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-700"
-                        >
-                            Got it — Start posting
-                        </button>
-                    )}
-                </div>
+                        {STEP_LABELS[id]}
+                    </label>
+                ))}
+                <button
+                    type="button"
+                    onClick={handleSkip}
+                    className="text-[8px] uppercase tracking-widest text-neutral-300 hover:text-neutral-500 ml-1"
+                >
+                    skip
+                </button>
             </div>
+
+            {/* Active hint */}
+            {activeStep && !allDone && (
+                <div className="text-[9px] text-neutral-400 leading-snug">
+                    {STEP_HINTS[activeStep]}
+                </div>
+            )}
+            {allDone && (
+                <div className="text-[9px] text-green-700 leading-snug font-bold">
+                    You&apos;re ready to post!
+                </div>
+            )}
         </div>
     );
 }
 
-// ─── Step Content ─────────────────────────────────────────────────────────────
-
-function StepTag() {
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xs font-bold">1</div>
-                <h3 className="text-sm font-bold uppercase tracking-widest">Tag Your Finds</h3>
-            </div>
-            <p className="text-xs text-neutral-600 leading-relaxed">
-                Everything you do in a day — movies watched, restaurants visited, birds spotted — gets tagged as an item in your daily status.
-            </p>
-            <div className="border border-neutral-200 bg-neutral-50 p-3 space-y-3">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">How to add a tag</div>
-                <div className="space-y-2 text-xs text-neutral-600">
-                    <div className="flex gap-2">
-                        <span className="text-neutral-400 w-4 text-right flex-shrink-0">1.</span>
-                        <span>Tap one of the <span className="font-bold text-neutral-800">category buttons</span> in the toolbar above the text area (FILM, TV, MUSIC, etc.)</span>
-                    </div>
-                    <div className="flex gap-2">
-                        <span className="text-neutral-400 w-4 text-right flex-shrink-0">2.</span>
-                        <span>A card will open — type the name and search to find it</span>
-                    </div>
-                    <div className="flex gap-2">
-                        <span className="text-neutral-400 w-4 text-right flex-shrink-0">3.</span>
-                        <span>Save it and the item appears in your table below the text area</span>
-                    </div>
-                </div>
-            </div>
-            <div className="text-[10px] text-neutral-400 leading-relaxed">
-                You can also type <span className="font-mono bg-neutral-100 px-1 py-0.5 text-neutral-600">@item name</span> in your status text and then tap a category to tag it inline.
-            </div>
-        </div>
-    );
+/**
+ * Returns a CSS class name for composer regions that should pulse
+ * during onboarding. Apply to wrapper divs of the relevant areas.
+ *
+ * @param region - 'table' | 'card' | 'textarea'
+ * @param activeStep - the current incomplete step, or null
+ */
+export function getOnboardingHighlight(
+    region: 'table' | 'card' | 'textarea',
+    activeStep: OnboardingStep | null,
+): string {
+    if (!activeStep) return '';
+    if (activeStep === 'tag' && region === 'table') return 'onboarding-pulse';
+    if (activeStep === 'fill' && region === 'card') return 'onboarding-pulse';
+    if (activeStep === 'couple' && region === 'textarea') return 'onboarding-pulse';
+    return '';
 }
 
-function StepFillCard() {
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xs font-bold">2</div>
-                <h3 className="text-sm font-bold uppercase tracking-widest">Fill Out the Card</h3>
-            </div>
-            <p className="text-xs text-neutral-600 leading-relaxed">
-                Each tagged item has a card where you can add details. This is where birdfinds gets powerful — your ratings and notes build your personal pile over time.
-            </p>
-            <div className="border border-neutral-200 bg-neutral-50 p-3 space-y-3">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">What goes on a card</div>
-                <div className="space-y-2 text-xs text-neutral-600">
-                    <div className="flex items-start gap-2">
-                        <span className="font-bold text-neutral-800 w-16 flex-shrink-0">Search</span>
-                        <span>Link your tag to the shared database so others who tag the same item can compare</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <span className="font-bold text-neutral-800 w-16 flex-shrink-0">Rating</span>
-                        <span>Score the item on your own scale</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <span className="font-bold text-neutral-800 w-16 flex-shrink-0">Notes</span>
-                        <span>Add a quick review, thoughts, or context</span>
-                    </div>
-                </div>
-            </div>
-            <div className="text-[10px] text-neutral-400 leading-relaxed">
-                Tap any row in the item table to open its card. You can fill these out before or after writing your status text.
-            </div>
-        </div>
-    );
+/**
+ * CSS to inject for the onboarding pulse animation.
+ * Add this once to the composer when onboarding is active.
+ */
+export const ONBOARDING_PULSE_CSS = `
+@keyframes onboarding-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+    50% { box-shadow: 0 0 0 3px rgba(0,0,0,0.12); }
 }
-
-function StepCouple() {
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xs font-bold">3</div>
-                <h3 className="text-sm font-bold uppercase tracking-widest">Couple Finds to Text</h3>
-            </div>
-            <p className="text-xs text-neutral-600 leading-relaxed">
-                Coupling connects a word in your status text to a tagged item. The word gets colored by category — readers can see exactly which finds you're talking about.
-            </p>
-            <div className="border border-neutral-200 bg-neutral-50 p-3 space-y-3">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Two ways to couple</div>
-                <div className="space-y-3 text-xs text-neutral-600">
-                    <div>
-                        <div className="font-bold text-neutral-800 mb-1">Highlight + Tap</div>
-                        <div className="pl-3 space-y-1">
-                            <p>1. Select/highlight a word or phrase in your status text</p>
-                            <p>2. Tap the matching item's row in the table below</p>
-                            <p>3. The word turns the item's category color</p>
-                        </div>
-                    </div>
-                    <div className="border-t border-neutral-200 pt-3">
-                        <div className="font-bold text-neutral-800 mb-1">@ Mention</div>
-                        <div className="pl-3 space-y-1">
-                            <p>1. Type <span className="font-mono bg-neutral-100 px-1 py-0.5">@</span> followed by the item name</p>
-                            <p>2. Tap a category button in the toolbar</p>
-                            <p>3. The @ is replaced with a colored tag</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="border border-neutral-200 p-3 bg-white">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">Example</div>
-                <p className="text-xs text-neutral-700 leading-relaxed">
-                    Watched <span className="px-0.5" style={{ backgroundColor: '#f5d14240' }}>Dune Part Two</span> tonight — the desert scenes were incredible. Then grabbed dinner at <span className="px-0.5" style={{ backgroundColor: '#7be08a40' }}>Sushi Park</span>.
-                </p>
-            </div>
-        </div>
-    );
+.onboarding-pulse {
+    animation: onboarding-pulse 2s ease-in-out infinite;
 }
+`;
