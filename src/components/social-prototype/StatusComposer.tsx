@@ -11,6 +11,7 @@ import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
+import { ComposerOnboarding, hasCompletedComposerOnboarding } from './ComposerOnboarding';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -37,6 +38,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
+    const [showComposerOnboarding, setShowComposerOnboarding] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -448,6 +450,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         const next = !isExpanded;
                         if (next) {
                             await prepareComposerForEntry();
+                            if (user?.id && !hasCompletedComposerOnboarding(user.id)) {
+                                setShowComposerOnboarding(true);
+                            }
                         }
                         setIsExpanded(next);
                     }}
@@ -675,6 +680,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         }}
                     />
                 </div>
+            )}
+
+            {showComposerOnboarding && user?.id && (
+                <ComposerOnboarding
+                    userId={user.id}
+                    onComplete={() => setShowComposerOnboarding(false)}
+                />
             )}
 
             <ConsumableModal
