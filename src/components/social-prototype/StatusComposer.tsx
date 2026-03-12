@@ -11,7 +11,7 @@ import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
-import { ComposerOnboarding, hasCompletedComposerOnboarding } from './ComposerOnboarding';
+import { ComposerOnboardingChecklist, hasCompletedComposerOnboarding, getOnboardingHighlight, ONBOARDING_PULSE_CSS } from './ComposerOnboarding';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -39,6 +39,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
     const [showComposerOnboarding, setShowComposerOnboarding] = useState(false);
+
+    // Derive the active onboarding step for highlight hints
+    const onboardingActive = showComposerOnboarding && isExpanded;
+    const onboardingActiveStep = onboardingActive
+        ? (items.length === 0
+            ? 'tag' as const
+            : !items.some(i => i.rating != null || (i.notes && i.notes.trim()))
+                ? 'fill' as const
+                : !content.includes(TAG_MARKER)
+                    ? 'couple' as const
+                    : null)
+        : null;
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -441,6 +453,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             <style>{`
                 .composer-text, .highlight-layer { font-size: 14px; }
                 @media (min-width: 640px) { .composer-text, .highlight-layer { font-size: 12px; } }
+                ${onboardingActive ? ONBOARDING_PULSE_CSS : ''}
             `}</style>
 
             {/* Header */}
@@ -450,6 +463,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         const next = !isExpanded;
                         if (next) {
                             await prepareComposerForEntry();
+                            // Show inline onboarding checklist for first-time composers
                             if (user?.id && !hasCompletedComposerOnboarding(user.id)) {
                                 setShowComposerOnboarding(true);
                             }
@@ -581,7 +595,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
-                        <div className="relative min-h-[100px] bg-white">
+                        <div className={`relative min-h-[100px] bg-white ${getOnboardingHighlight('textarea', onboardingActiveStep)}`}>
                             {content && (
                                 <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
                                     {(segmentText(content, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
@@ -614,7 +628,16 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     </div>
 
                     {/* Post Action Row + Habits */}
-                    <div className="mt-2 mb-1 flex items-center gap-3">
+                    <div className="mt-2 mb-1 flex flex-col gap-2">
+                        {onboardingActive && user?.id && (
+                            <ComposerOnboardingChecklist
+                                userId={user.id}
+                                items={items}
+                                content={content}
+                                onComplete={() => setShowComposerOnboarding(false)}
+                            />
+                        )}
+                        <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} />
                         </div>
@@ -656,9 +679,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>
+                        </div>
                     </div>
 
                     {/* Data Table */}
+                    <div className={getOnboardingHighlight('table', onboardingActiveStep) || getOnboardingHighlight('card', onboardingActiveStep)}>
                     <ComposerItemTable
                         items={items}
                         content={content}
@@ -679,14 +704,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             setHasItemDraftChanges(true);
                         }}
                     />
+                    </div>
                 </div>
-            )}
-
-            {showComposerOnboarding && user?.id && (
-                <ComposerOnboarding
-                    userId={user.id}
-                    onComplete={() => setShowComposerOnboarding(false)}
-                />
             )}
 
             <ConsumableModal
