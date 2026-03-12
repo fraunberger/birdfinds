@@ -423,13 +423,20 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         setCommentSubmitting(false);
                                     }
                                 }}
-                                className="flex items-center gap-2"
+                                className="flex items-end gap-2"
                             >
-                                <input
+                                <textarea
                                     value={commentDraft}
                                     onChange={(event) => setCommentDraft(event.target.value)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' && !event.shiftKey) {
+                                            event.preventDefault();
+                                            event.currentTarget.form?.requestSubmit();
+                                        }
+                                    }}
                                     placeholder="Add a comment..."
-                                    className="flex-1 border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-500"
+                                    rows={1}
+                                    className="flex-1 border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-500 resize-none"
                                 />
                                 <button
                                     type="submit"

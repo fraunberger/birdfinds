@@ -24,7 +24,8 @@ export type CategoryExtra =
     | 'progressTracking'  // Per-session numeric progress (books: page/chapter)
     | 'dishList'          // Accumulating list of dishes tried (restaurants)
     | 'likedSignal'       // Binary 👍/👎 instead of star rating (recipes)
-    | 'notes';            // Freeform notes per engagement (recipes, links)
+    | 'notes'             // Freeform notes per engagement (recipes, links)
+    | 'wishlistScoring';  // Three-factor priority score: desire × impact × cost / 100
 
 export interface CategoryDefinition {
     id: string;
@@ -59,7 +60,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'single', coupling: 'api',
         hasRating: true, ratingScope: 'entity',
         childLabel: null, extras: [],
-        titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director',
+        titleLabel: 'Film Title', subtitleLabel: 'Lead Actors', subtitlePlaceholder: 'Lead Actors',
         ratingLabel: 'Score', color: '#f5d142', icon: '',
     },
     tv: {
@@ -169,6 +170,18 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ratingLabel: 'Effort',
         notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
         color: '#f7a55a', icon: '',
+    },
+    wishlist: {
+        id: 'wishlist',
+        label: 'Wishlist', shortLabel: 'WISH',
+        verb: 'wants',
+        ssotPattern: 'none', coupling: 'none',
+        hasRating: true, ratingScope: 'entity',
+        childLabel: null, extras: ['wishlistScoring', 'notes'],
+        titleLabel: 'Item Name', subtitleLabel: 'Category', subtitlePlaceholder: 'e.g. gear, experience, book',
+        ratingLabel: 'Priority',
+        notesLabel: 'Notes', notesPlaceholder: 'Why you want this...',
+        color: '#f472b6', icon: '🎁',
     },
     bird: {
         id: 'bird',

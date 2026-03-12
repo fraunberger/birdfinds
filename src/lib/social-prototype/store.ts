@@ -13,7 +13,7 @@ import type { SsotPattern, CouplingType, RatingScope, CategoryExtra } from '@/li
 export type Category = string;
 export type ProfileVisibility = 'public' | 'accounts' | 'private';
 
-export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'location', 'beer', 'cooking', 'exercise', 'podcast', 'book'];
+export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'location', 'beer', 'cooking', 'exercise', 'podcast', 'book', 'bird', 'wishlist'];
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
 export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';

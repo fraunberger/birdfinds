@@ -13,6 +13,7 @@ import {
     Category,
     ConsumableItem,
     PILE_CATEGORY_STATUS_DATE,
+    NON_PILE_CATEGORIES,
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { StatusComposer } from './StatusComposer';
@@ -20,7 +21,7 @@ import { CategorySheet } from './CategorySheet';
 import { HabitCalendar } from './HabitCalendar';
 import { ConsumableModal } from './ConsumableModal';
 import { getCanonicalItemKey } from '@/lib/social-prototype/items';
-import { getItemExternalIdentityKey } from '@/lib/social-prototype/item-meta';
+import { getItemExternalIdentityKey, parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 interface ProfilePageProps {
     userId: string;
@@ -50,6 +51,18 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const savedItems = isOwnProfile ? storeSavedItems : fetchedSavedItems;
     const userStatuses = getUserStatuses(userId);
 
+    // Merge declared categories with any categories found in actual items,
+    // so users who tagged items before setting up categories still see their piles.
+    const effectiveCategories = useMemo(() => {
+        const declared = profile?.categories || [];
+        const fromItems = userStatuses
+            .flatMap(s => s.items)
+            .map(i => i.category)
+            .filter(cat => !NON_PILE_CATEGORIES.includes(cat));
+        const merged = Array.from(new Set([...declared, ...fromItems]));
+        return merged;
+    }, [profile?.categories, userStatuses]);
+
     const sortedFilteredStatuses = useMemo(() => {
         const visibleStatuses = userStatuses.filter((status) => status.date !== PILE_CATEGORY_STATUS_DATE);
         const withCategory = visibleStatuses.filter((status) => {
@@ -74,11 +87,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     // and custom flat-list can reference the same data.
     const categoryItems = useMemo(() => {
         const result: Record<string, ConsumableItem[]> = {};
-        for (const cat of (profile?.categories || [])) {
+        for (const cat of effectiveCategories) {
             result[cat] = getUserItemsByCategory(cat, userId);
         }
         return result;
-    }, [profile?.categories, getUserItemsByCategory, userId]);
+    }, [effectiveCategories, getUserItemsByCategory, userId]);
 
     // Deduped counts for predefined category pills and header stat.
     const dedupedCategoryItems = useMemo(() => {
@@ -93,6 +106,18 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
             result[cat] = Array.from(map.values());
         }
         return result;
+    }, [categoryItems]);
+
+    // Bird life list: unique species across all sightings
+    const birdStats = useMemo(() => {
+        const sightings = categoryItems['bird'] || [];
+        const speciesSet = new Set<string>();
+        for (const item of sightings) {
+            const meta = parseItemMeta(item.image);
+            for (const b of (meta.birdList || [])) speciesSet.add(b.id);
+            for (const b of (meta.checklist || [])) speciesSet.add(b.id);
+        }
+        return { lifeList: speciesSet.size, sightings: sightings.length };
     }, [categoryItems]);
 
     // ── Early returns (must come after all hooks) ──────────────────────
@@ -154,9 +179,9 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 </h2>
 
                 {/* Category icons */}
-                {profile.categories && profile.categories.length > 0 && (
+                {effectiveCategories.length > 0 && (
                     <div className="flex items-center justify-center gap-1.5 mt-1.5">
-                        {profile.categories.map(cat => {
+                        {effectiveCategories.map(cat => {
                             const config = getCategoryConfig(cat);
                             return (
                                 <span key={cat} className="text-sm" title={config.label}>
@@ -214,7 +239,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     <span className="mx-2">•</span>
                     <span>{Object.values(dedupedCategoryItems).flat().length} tagged items</span>
                     <span className="mx-2">•</span>
-                    <span>{profile.categories?.length || 0} categories</span>
+                    <span>{effectiveCategories.length} categories</span>
                 </div>
             </div>
 
@@ -227,7 +252,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     </h3>
                     <div className="space-y-0.5">
                         {(() => {
-                            const allItems = (profile.categories || [])
+                            const allItems = effectiveCategories
                                 .flatMap(cat => (categoryItems[cat] || []).map(item => ({ ...item, cat })));
                             const sorted = allItems
                                 .sort((a, b) => b.createdAt - a.createdAt)
@@ -256,10 +281,10 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 {/* Right: Main content */}
                 <div className="flex-1 min-w-0">
                     {/* Category grid — all categories, chip opens CategorySheet */}
-                    {profile.categories && profile.categories.length > 0 && (
+                    {effectiveCategories.length > 0 && (
                         <div className="mb-6">
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                                {profile.categories.map(cat => {
+                                {effectiveCategories.map(cat => {
                                     const config = getCategoryConfig(cat);
                                     const count = dedupedCategoryItems[cat]?.length || 0;
                                     const isOpen = openCategory === cat;
@@ -277,7 +302,15 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             } : undefined}
                                         >
                                             <span>{config.label}</span>
-                                            <span className="text-neutral-400">{count}</span>
+                                            {cat === 'bird' ? (
+                                                <span className="text-right leading-tight">
+                                                    <span className={isOpen ? 'text-neutral-300' : 'text-neutral-400'} title="Life list species">{birdStats.lifeList} sp.</span>
+                                                    <span className={`mx-1 ${isOpen ? 'text-neutral-500' : 'text-neutral-300'}`}>·</span>
+                                                    <span className={isOpen ? 'text-neutral-300' : 'text-neutral-400'} title="Total sightings">{birdStats.sightings}×</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-neutral-400">{count}</span>
+                                            )}
                                         </button>
                                     );
                                 })}
@@ -418,7 +451,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         <div>
                             {isOwnProfile && (
                                 <div className="mb-4">
-                                    <StatusComposer userCategories={profile.categories || []} />
+                                    <StatusComposer userCategories={effectiveCategories} />
                                 </div>
                             )}
                             <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
@@ -443,7 +476,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
                                 >
                                     <option value="all">All Categories</option>
-                                    {(profile.categories || []).map((category) => (
+                                    {effectiveCategories.map((category) => (
                                         <option key={category} value={category}>
                                             {getCategoryConfig(category).label}
                                         </option>

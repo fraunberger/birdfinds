@@ -18,7 +18,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
 
     const [username, setUsername] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
-    const [selectedCategories, setSelectedCategories] = useState<Category[]>(['movie', 'restaurant']);
+    const [selectedCategories, setSelectedCategories] = useState<Category[]>(['movie', 'restaurant', 'bird']);
     const [visibility, setVisibility] = useState<ProfileVisibility>('public');
     const [newHabitName, setNewHabitName] = useState('');
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -42,7 +42,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
         if (profile) {
             setUsername(profile.username || '');
             setAvatarUrl(profile.avatarUrl);
-            setSelectedCategories(profile.categories?.length ? profile.categories : ['movie', 'restaurant']);
+            setSelectedCategories(profile.categories?.length ? profile.categories : ['movie', 'restaurant', 'bird']);
             setVisibility(profile.visibility || (profile.isPrivate ? 'private' : 'public'));
             setCategoryConfigs(profile.categoryConfigs || {});
         }
@@ -470,7 +470,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-3">
                     Categories to Track
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                     {Array.from(new Set([...DEFAULT_CATEGORIES, ...selectedCategories])).map(cat => {
                         const config = getCategoryConfig(cat);
                         const isActive = selectedCategories.includes(cat);
@@ -478,12 +478,18 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                             <button
                                 key={cat}
                                 onClick={() => toggleCategory(cat)}
-                                className={`text-left px-3 py-2 border text-xs uppercase tracking-wider transition-all ${isActive
-                                    ? 'border-neutral-800 bg-neutral-800 text-white'
-                                    : 'border-neutral-300 text-neutral-500 hover:border-neutral-400'
-                                    }`}
+                                className={`text-left px-2 py-1.5 border text-[10px] uppercase tracking-wider transition-all ${
+                                    isActive
+                                        ? 'text-neutral-900'
+                                        : 'border-neutral-300 text-neutral-400 hover:border-neutral-400'
+                                }`}
+                                style={isActive ? {
+                                    backgroundColor: `${config.color}30`,
+                                    borderColor: config.color || '#404040',
+                                    borderLeftWidth: '3px',
+                                } : undefined}
                             >
-                                <span className="mr-2">{config.icon}</span>
+                                <span className="mr-1">{config.icon}</span>
                                 {config.label}
                             </button>
                         );
