@@ -603,6 +603,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 rating: undefined,
                                                                 notes: '',
                                                                 image: serializeItemMeta({
+                                                                    externalSource: 'book-progress',
+                                                                    externalId: new Date().toISOString(),
                                                                     imageUrl: m.imageUrl,
                                                                     totalPages: m.totalPages,
                                                                     progressPage: m.progressPage,
@@ -964,17 +966,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 const coverUrl = isOL
                                                     ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
                                                     : `https://books.google.com/books/content?id=${book.id}&printsec=frontcover&img=1&zoom=1`;
-                                                setDraft((prev) => ({
-                                                    ...prev,
-                                                    title: book.title,
-                                                    subtitle: book.author || '',
-                                                    rating: undefined,
-                                                    notes: '',
-                                                    image: serializeItemMeta({
-                                                        imageUrl: coverUrl,
-                                                        releaseDate: book.publishedDate || undefined,
-                                                    }),
-                                                }));
+                                                setDraft((prev) => {
+                                                    const prevMeta = parseItemMeta(prev.image);
+                                                    return {
+                                                        ...prev,
+                                                        title: book.title,
+                                                        subtitle: book.author || '',
+                                                        rating: undefined,
+                                                        notes: '',
+                                                        image: serializeItemMeta({
+                                                            ...prevMeta,
+                                                            imageUrl: coverUrl,
+                                                            releaseDate: book.publishedDate || undefined,
+                                                        }),
+                                                    };
+                                                });
                                                 setPopulatedFromId(null);
                                                 setShowBookResults(false);
                                             }}
