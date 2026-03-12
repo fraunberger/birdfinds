@@ -1266,9 +1266,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             {([
                                                 { label: 'Desire', val: desire, onChange: (v: number) => updateScores(v, impact, cost) },
                                                 { label: 'Impact', val: impact, onChange: (v: number) => updateScores(desire, v, cost) },
-                                                { label: 'Cost ↓', val: cost, onChange: (v: number) => updateScores(desire, impact, v), title: '10 = free/cheap · 1 = expensive' },
-                                            ] as const).map(({ label, val, onChange, title }) => (
-                                                <div key={label} className="flex flex-col items-center gap-0.5" title={'title' in { label, val, onChange } ? undefined : title}>
+                                                { label: 'Cost ↓', val: cost, onChange: (v: number) => updateScores(desire, impact, v) },
+                                            ] as { label: string; val: number; onChange: (v: number) => void }[]).map(({ label, val, onChange }) => (
+                                                <div key={label} className="flex flex-col items-center gap-0.5">
                                                     <span className="text-[9px] uppercase tracking-widest text-neutral-400" title={(label === 'Cost ↓') ? '10=cheap · 1=expensive' : undefined}>{label}</span>
                                                     <div className="flex items-center gap-1">
                                                         <input
