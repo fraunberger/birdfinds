@@ -677,8 +677,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: r.title,
-                                                    // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
-                                                    subtitle: source === 'itunes' ? (r.subtitle || '') : '',
+                                                    subtitle: r.subtitle || '',
                                                     rating: undefined,
                                                     notes: '',
                                                     image: serializeItemMeta({
@@ -1129,13 +1128,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }));
                                 };
 
+                                const allBirdNames = [...birdList.map(b => b.comName), ...checklist.map(b => b.comName)];
                                 return (
                                     <div>
                                         {readOnly ? (
                                             <div className="flex flex-wrap gap-1.5">
-                                                {[...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].length === 0
+                                                {allBirdNames.length === 0
                                                     ? <span className="text-sm text-neutral-400">—</span>
-                                                    : [...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].map((name, i) => (
+                                                    : allBirdNames.map((name, i) => (
                                                         <span key={i} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{name}</span>
                                                     ))
                                                 }
@@ -1180,16 +1180,20 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         </div>
                                                     )}
                                                 </div>
-                                                {checklist.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1.5 mt-2">
-                                                        {checklist.map(b => (
-                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
-                                                                {b.comName}
-                                                                <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                <div className="mt-2 border border-neutral-200 bg-neutral-50 min-h-[2.5rem] p-2">
+                                                    {checklist.length === 0 ? (
+                                                        <span className="text-[10px] uppercase tracking-widest text-neutral-400">Species added here</span>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {checklist.map(b => (
+                                                                <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 bg-white px-2 py-0.5 text-neutral-700">
+                                                                    {b.comName}
+                                                                    <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </>
                                         )}
                                     </div>
@@ -1199,7 +1203,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {/* For books: only show the score box after marking finished (progress logs don't have a rating) */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1224,6 +1228,65 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <span className="text-[9px] text-neutral-400 uppercase tracking-widest">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                         </div>
                         )}
+                        {/* Wishlist priority scoring */}
+                        {config.extras.includes('wishlistScoring') && (() => {
+                            const desire = parsedMeta.wishlistDesire ?? 5;
+                            const impact = parsedMeta.wishlistImpact ?? 5;
+                            const cost = parsedMeta.wishlistCost ?? 5;
+                            const score = Math.round(desire * impact * cost) / 100;
+                            const updateScores = (d: number, i: number, c: number) => {
+                                const next = Math.round(d * i * c) / 100;
+                                setDraft(prev => ({
+                                    ...prev,
+                                    rating: next,
+                                    image: serializeItemMeta({
+                                        ...parseItemMeta(prev.image),
+                                        wishlistDesire: d,
+                                        wishlistImpact: i,
+                                        wishlistCost: c,
+                                    }),
+                                }));
+                            };
+                            return (
+                                <div className="flex-shrink-0 flex flex-col gap-2 pt-6 min-w-[5rem]">
+                                    {/* Computed score display */}
+                                    <div className="w-16 h-16 border-2 border-pink-300 bg-pink-50 flex flex-col items-center justify-center self-center">
+                                        <span className="text-2xl font-bold text-neutral-800 leading-none">{score.toFixed(1)}</span>
+                                        <span className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">Priority</span>
+                                    </div>
+                                    {/* Three factor inputs */}
+                                    {readOnly ? (
+                                        <div className="space-y-1 text-[10px] uppercase tracking-widest text-neutral-500 text-center">
+                                            <div>Desire <span className="text-neutral-800 font-bold">{desire}</span></div>
+                                            <div>Impact <span className="text-neutral-800 font-bold">{impact}</span></div>
+                                            <div>Cost <span className="text-neutral-800 font-bold">{cost}</span></div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {([
+                                                { label: 'Desire', val: desire, onChange: (v: number) => updateScores(v, impact, cost) },
+                                                { label: 'Impact', val: impact, onChange: (v: number) => updateScores(desire, v, cost) },
+                                                { label: 'Cost ↓', val: cost, onChange: (v: number) => updateScores(desire, impact, v), title: '10 = free/cheap · 1 = expensive' },
+                                            ] as const).map(({ label, val, onChange, title }) => (
+                                                <div key={label} className="flex flex-col items-center gap-0.5" title={'title' in { label, val, onChange } ? undefined : title}>
+                                                    <span className="text-[9px] uppercase tracking-widest text-neutral-400" title={(label === 'Cost ↓') ? '10=cheap · 1=expensive' : undefined}>{label}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number" min="1" max="10" step="1"
+                                                            value={val}
+                                                            onChange={e => onChange(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                                                            className="w-10 text-center text-sm font-bold border border-neutral-300 outline-none focus:border-pink-400 py-0.5 bg-white"
+                                                        />
+                                                        <span className="text-[9px] text-neutral-300">/10</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="text-[8px] text-neutral-300 uppercase tracking-widest text-center leading-tight">D×I×C<br/>÷100</div>
+                                </div>
+                            );
+                        })()}
                         {/* Liked/disliked signal for recipes */}
                         {config.extras.includes('likedSignal') && (
                         <div className="flex-shrink-0 pt-6 flex flex-col gap-1">
@@ -1245,9 +1308,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                     </div>
 
-                    {category === 'link' && (
+                    {(category === 'link' || category === 'wishlist') && (
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">URL</label>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">{category === 'wishlist' ? 'Link' : 'URL'}</label>
                             {readOnly ? (
                                 linkUrl ? (
                                     <a href={linkUrl} target="_blank" rel="noreferrer" className="text-xs text-neutral-700 underline hover:text-neutral-900 break-all">{linkUrl}</a>
