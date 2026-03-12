@@ -429,7 +429,7 @@ export function SocialLayout() {
           {showOnboardingChecklist && (
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest">Finish Setting Up</p>
                 <button
                   onClick={handleDismissOnboardingChecklist}
                   className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
@@ -437,9 +437,12 @@ export function SocialLayout() {
                   Hide
                 </button>
               </div>
+              <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
+                Complete your profile setup so you can start posting. It only takes a minute.
+              </p>
               <ol className="mt-2 space-y-1 text-xs">
                 <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepOneComplete ? "✓" : "□"} 1. Username ready
+                  {stepOneComplete ? "✓" : "□"} 1. Confirm username
                 </li>
                 <li className={stepTwoComplete ? "text-green-700" : "text-neutral-800"}>
                   {stepTwoComplete ? "✓" : "□"} 2. Add avatar
@@ -449,8 +452,8 @@ export function SocialLayout() {
                 </li>
               </ol>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
-                <Link href="/settings/profile-setup" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
-                  Get Started
+                <Link href="/settings/profile-setup" className="border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 font-bold">
+                  Continue Setup
                 </Link>
               </div>
             </div>
@@ -463,10 +466,8 @@ export function SocialLayout() {
                   <p className="text-[10px] font-bold uppercase tracking-widest">Your First Post</p>
                   <div className="mt-2 space-y-1.5 text-xs text-neutral-600">
                     <p>
-                      Add an item to your status by typing <span className="font-mono bg-neutral-200 px-0.5">@item</span> and
-                      then clicking the category. Click the table to open its card and add a rating or notes.
+                      Open the composer below to write your first daily status. A quick walkthrough will explain how to tag your finds, fill out cards, and link items to your text.
                     </p>
-                    <p>You can also add items without linking them to your status.</p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
                     <button
@@ -481,7 +482,7 @@ export function SocialLayout() {
                           window.dispatchEvent(new CustomEvent("birdpile:edit-entry", { detail: {} }));
                         }, 120);
                       }}
-                      className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+                      className="border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 font-bold"
                     >
                       Write First Post
                     </button>
