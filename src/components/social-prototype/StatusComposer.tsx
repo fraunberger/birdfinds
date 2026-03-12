@@ -638,16 +638,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 onComplete={() => setShowComposerOnboarding(false)}
                             />
                         )}
-                        {/* Unfilled items warning — always visible when items need attention */}
-                        {items.length > 0 && items.some(i => !isItemFilled(i)) && (
-                            <div className="text-[9px] uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1">
-                                {items.filter(i => !isItemFilled(i)).length} unfilled {items.filter(i => !isItemFilled(i)).length === 1 ? 'item' : 'items'} — tap a row to fill out its card
-                            </div>
-                        )}
                         <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} />
                         </div>
+                        {items.length > 0 && items.some(i => !isItemFilled(i)) && (
+                            <span className="text-[9px] uppercase tracking-widest text-amber-700 whitespace-nowrap">
+                                {items.filter(i => !isItemFilled(i)).length} unfilled
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={async () => {
