@@ -11,7 +11,7 @@ import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
-import { ComposerOnboardingChecklist, hasCompletedComposerOnboarding, getOnboardingHighlight, ONBOARDING_PULSE_CSS } from './ComposerOnboarding';
+import { ComposerOnboardingChecklist, hasCompletedComposerOnboarding, getOnboardingHighlight, ONBOARDING_PULSE_CSS, isItemFilled } from './ComposerOnboarding';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -67,7 +67,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const onboardingActiveStep = onboardingActive
         ? (items.length === 0
             ? 'tag' as const
-            : !items.some(i => i.rating != null || (i.notes && i.notes.trim()))
+            : !items.some(isItemFilled)
                 ? 'fill' as const
                 : !content.includes(TAG_MARKER)
                     ? 'couple' as const
@@ -637,6 +637,12 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 content={content}
                                 onComplete={() => setShowComposerOnboarding(false)}
                             />
+                        )}
+                        {/* Unfilled items warning — always visible when items need attention */}
+                        {items.length > 0 && items.some(i => !isItemFilled(i)) && (
+                            <div className="text-[9px] uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1">
+                                {items.filter(i => !isItemFilled(i)).length} unfilled {items.filter(i => !isItemFilled(i)).length === 1 ? 'item' : 'items'} — tap a row to fill out its card
+                            </div>
                         )}
                         <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
