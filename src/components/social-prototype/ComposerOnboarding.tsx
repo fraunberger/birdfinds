@@ -55,6 +55,10 @@ export function isItemFilled(item: ConsumableItem): boolean {
     if (config.coupling === 'api') {
         return item.category === 'book' ? !!meta.imageUrl : !!meta.externalSource;
     }
+    // Bird items are filled when they have species in birdList or checklist
+    if (item.category === 'bird') {
+        return !!((meta.birdList && meta.birdList.length > 0) || (meta.checklist && meta.checklist.length > 0));
+    }
     return !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || meta.recipeUrl || meta.linkUrl);
 }
 

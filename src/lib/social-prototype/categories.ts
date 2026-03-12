@@ -190,7 +190,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'none', coupling: 'none',
         hasRating: false, ratingScope: null,
         childLabel: null, extras: ['notes'],
-        titleLabel: 'Species', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
+        titleLabel: 'Session', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
         ratingLabel: 'Rating',
         notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
         color: '#6ab4f7', icon: '',
