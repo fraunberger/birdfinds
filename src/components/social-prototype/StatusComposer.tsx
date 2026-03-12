@@ -40,18 +40,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
     const [showComposerOnboarding, setShowComposerOnboarding] = useState(false);
 
-    // Derive the active onboarding step for highlight hints
-    const onboardingActive = showComposerOnboarding && isExpanded;
-    const onboardingActiveStep = onboardingActive
-        ? (items.length === 0
-            ? 'tag' as const
-            : !items.some(i => i.rating != null || (i.notes && i.notes.trim()))
-                ? 'fill' as const
-                : !content.includes(TAG_MARKER)
-                    ? 'couple' as const
-                    : null)
-        : null;
-
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
@@ -73,6 +61,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = useMemo(() => activeStatus?.items ?? [], [activeStatus?.items]);
+
+    // Derive the active onboarding step for highlight hints
+    const onboardingActive = showComposerOnboarding && isExpanded;
+    const onboardingActiveStep = onboardingActive
+        ? (items.length === 0
+            ? 'tag' as const
+            : !items.some(i => i.rating != null || (i.notes && i.notes.trim()))
+                ? 'fill' as const
+                : !content.includes(TAG_MARKER)
+                    ? 'couple' as const
+                    : null)
+        : null;
+
     const setContentForActive = useCallback((value: string) => {
         if (draftStatus === 'error') setDraftStatus('saved');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
