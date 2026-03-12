@@ -24,6 +24,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
     const [newCategoryName, setNewCategoryName] = useState('');
     const [categoryConfigs, setCategoryConfigs] = useState<Record<string, CategoryConfigOverride>>({});
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+    const [showReorder, setShowReorder] = useState(false);
     const [saving, setSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -495,26 +496,34 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                     })}
                 </div>
                 {selectedCategories.length > 1 && (
-                    <div className="mt-3 space-y-1">
-                        {selectedCategories.map((cat, idx) => {
-                            const config = getCategoryConfig(cat);
-                            return (
-                                <div key={cat} className="flex items-center gap-2 px-2 py-1 border border-neutral-200 bg-white text-[10px] uppercase tracking-widest text-neutral-700"
-                                    style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}>
-                                    <span className="text-neutral-300 w-3 text-right flex-shrink-0">{idx + 1}</span>
-                                    <span className="flex-1 truncate">{config.label}</span>
-                                    <div className="flex flex-col leading-none">
-                                        <button type="button" disabled={idx === 0}
-                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; })}
-                                            className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▲</button>
-                                        <button type="button" disabled={idx === selectedCategories.length - 1}
-                                            onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx+1], n[idx]] = [n[idx], n[idx+1]]; return n; })}
-                                            className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▼</button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        <p className="text-[9px] text-neutral-400 uppercase tracking-widest pt-0.5">First 6 show as toolbar buttons · rest in overflow</p>
+                    <div className="mt-2">
+                        <button type="button" onClick={() => setShowReorder(r => !r)}
+                            className="text-[9px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 border border-neutral-200 px-2 py-0.5">
+                            {showReorder ? 'Hide Order' : 'Reorder'}
+                        </button>
+                        {showReorder && (
+                            <div className="mt-2 space-y-1">
+                                {selectedCategories.map((cat, idx) => {
+                                    const config = getCategoryConfig(cat);
+                                    return (
+                                        <div key={cat} className="flex items-center gap-2 px-2 py-1 border border-neutral-200 bg-white text-[10px] uppercase tracking-widest text-neutral-700"
+                                            style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}>
+                                            <span className="text-neutral-300 w-3 text-right flex-shrink-0">{idx + 1}</span>
+                                            <span className="flex-1 truncate">{config.label}</span>
+                                            <div className="flex flex-col leading-none">
+                                                <button type="button" disabled={idx === 0}
+                                                    onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; })}
+                                                    className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▲</button>
+                                                <button type="button" disabled={idx === selectedCategories.length - 1}
+                                                    onClick={() => setSelectedCategories(prev => { const n = [...prev]; [n[idx+1], n[idx]] = [n[idx], n[idx+1]]; return n; })}
+                                                    className="text-neutral-300 hover:text-neutral-700 disabled:opacity-20 py-0.5">▼</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <p className="text-[9px] text-neutral-400 uppercase tracking-widest pt-0.5">First 6 show as toolbar buttons · rest in overflow</p>
+                            </div>
+                        )}
                     </div>
                 )}
                 <div className="grid grid-cols-2 gap-2 mt-3">
