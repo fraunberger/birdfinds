@@ -190,11 +190,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
             }
             setIsExpanded(true);
+            // Trigger onboarding checklist for first-time composers
+            if (user?.id && !hasCompletedComposerOnboarding(user.id)) {
+                setShowComposerOnboarding(true);
+            }
             window.setTimeout(() => textareaRef.current?.focus(), 220);
         };
         window.addEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
-    }, [setActiveDate, setActiveStatusForEdit]);
+    }, [setActiveDate, setActiveStatusForEdit, user?.id]);
 
     // If a stale local draft lost tag markers, prefer canonical server content for this status.
     useEffect(() => {
