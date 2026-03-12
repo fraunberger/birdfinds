@@ -549,8 +549,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                     </div>
                 )}
 
-                {selectedCategories.length > 1 && (
-                )}
+
             </div>
 
             {/* Habits */}
