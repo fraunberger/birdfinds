@@ -224,7 +224,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     {showPostReportButton && !isOwn && user && (
                                         <button
                                             onClick={handleReportPost}
-                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-500 border-t border-neutral-200 mt-1"
+                                            className="block w-full text-left px-2.5 py-1.5 text-[9px] uppercase tracking-widest text-neutral-300 hover:text-red-400 border-t border-dashed border-neutral-100 mt-2"
                                         >
                                             Report
                                         </button>
