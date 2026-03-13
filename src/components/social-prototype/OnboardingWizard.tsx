@@ -145,7 +145,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         if (selectedCategories.includes(normalized)) { setError('That category already exists.'); setNewCategoryName(''); return; }
         setError(null);
         const baseLabel = newCategoryName.trim();
-        const shortLabel = normalized.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase() || 'CAT';
+        const shortLabel = normalized.replace(/[^a-z0-9]/g, '').toUpperCase() || 'CAT';
         setSelectedCategories(prev => prev.includes(normalized) ? prev : [...prev, normalized]);
         setCategoryConfigs(prev => ({
             ...prev,

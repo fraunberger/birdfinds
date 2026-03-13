@@ -334,7 +334,7 @@ const toLabel = (value: string) => {
 const toShortLabel = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     if (!cleaned) return 'CAT';
-    return cleaned.slice(0, 8);
+    return cleaned;
 };
 
 export function getCategoryConfig(category: Category): CategoryConfig {
