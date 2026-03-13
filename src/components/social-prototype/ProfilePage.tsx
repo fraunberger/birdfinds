@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { Ban, UserCheck, UserPlus } from 'lucide-react';
+import { UserCheck, UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
     usePublicProfile,
@@ -203,28 +203,16 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         </button>
                     )}
                     {!isOwnProfile && (
-                        <>
-                            <button
-                                onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
-                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${isFollowing(userId)
-                                    ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
-                                    : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
-                                    }`}
-                                title={isFollowing(userId) ? "Following" : "Follow"}
-                            >
-                                {isFollowing(userId) ? <UserCheck size={13} /> : <UserPlus size={13} />}
-                            </button>
-                            <button
-                                onClick={() => toggleMute(userId)}
-                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${mutedUsers?.includes(userId)
-                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                    : 'text-neutral-500 border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700'
-                                    }`}
-                                title={mutedUsers?.includes(userId) ? "Unblock user" : "Block user"}
-                            >
-                                <Ban size={13} />
-                            </button>
-                        </>
+                        <button
+                            onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
+                            className={`h-7 inline-flex items-center gap-1.5 px-2.5 border transition-colors text-[10px] uppercase tracking-widest ${isFollowing(userId)
+                                ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
+                                : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
+                                }`}
+                        >
+                            {isFollowing(userId) ? <UserCheck size={12} /> : <UserPlus size={12} />}
+                            {isFollowing(userId) ? 'Following' : 'Follow'}
+                        </button>
                     )}
                     <button
                         onClick={() => setShowHabitCalendar(true)}
@@ -547,6 +535,18 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     onClose={() => setSelectedSavedItem(null)}
                     onSave={() => { }}
                 />
+            )}
+
+            {/* Block — intentionally buried at the bottom */}
+            {!isOwnProfile && (
+                <div className="mt-8 mb-4 text-center">
+                    <button
+                        onClick={() => toggleMute(userId)}
+                        className="text-[9px] uppercase tracking-widest text-neutral-300 hover:text-red-400 transition-colors"
+                    >
+                        {mutedUsers?.includes(userId) ? 'Unblock user' : 'Block user'}
+                    </button>
+                </div>
             )}
         </div>
     );
