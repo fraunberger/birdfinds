@@ -334,7 +334,7 @@ const toLabel = (value: string) => {
 const toShortLabel = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     if (!cleaned) return 'CAT';
-    return cleaned.slice(0, 8);
+    return cleaned;
 };
 
 export function getCategoryConfig(category: Category): CategoryConfig {
@@ -367,11 +367,20 @@ export function getCategoryConfig(category: Category): CategoryConfig {
     const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
     if (!override) return base;
 
-    return {
+    const merged = {
         ...base,
         ...override,
         id: category,
     };
+
+    // Fix retroactive truncation: if the stored shortLabel is a prefix of the
+    // full derived label (i.e. it was previously .slice(0,8)'d), replace it.
+    const full = toShortLabel(category);
+    if (merged.shortLabel && merged.shortLabel.length < full.length && full.startsWith(merged.shortLabel)) {
+        merged.shortLabel = full;
+    }
+
+    return merged;
 }
 
 // ============================================================
