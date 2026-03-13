@@ -164,13 +164,26 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
         : [];
     interface BookGraphEntry extends AggregatedItem { points: { date: number; pct: number }[]; color: string; }
     const graphEntries: BookGraphEntry[] = inProgressBooks.map((entry, i) => {
+        // Check if this book has any visit with explicit progress data
+        const hasProgressData = entry.visits.some(v => {
+            const vm = parseItemMeta(v.image);
+            return vm.progressPage != null;
+        });
         const points = entry.visits
             .map(v => {
                 const vm = parseItemMeta(v.image);
                 let pct: number | null = null;
                 if (vm.progressMode === 'percent' && vm.progressPage != null) pct = vm.progressPage;
                 else if (vm.progressPage != null && vm.totalPages) pct = (vm.progressPage / vm.totalPages) * 100;
-                return pct != null ? { date: v.createdAt, pct: Math.min(100, pct) } : null;
+                // Use the status (post) date for the graph x-axis, falling back to createdAt
+                const dateTs = v.statusDate
+                    ? new Date(v.statusDate + 'T12:00:00').getTime()
+                    : v.createdAt;
+                // Visits without progress (e.g. the initial "started reading" tag)
+                // appear as 0% so the graph timeline starts from the first log date,
+                // but only if the book has at least one visit with real progress.
+                if (pct == null && hasProgressData) pct = 0;
+                return pct != null ? { date: dateTs, pct: Math.min(100, pct) } : null;
             })
             .filter((p): p is { date: number; pct: number } => p != null)
             .sort((a, b) => a.date - b.date);
@@ -369,7 +382,9 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                             <div className="space-y-1">
                                 {finishedBooks.map((entry, idx) => {
                                     const finishedVisit = getFinishedVisit(entry);
-                                    const finishDate = finishedVisit ? new Date(finishedVisit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                                    const finishDate = finishedVisit
+                                        ? new Date(finishedVisit.statusDate ? finishedVisit.statusDate + 'T12:00:00' : finishedVisit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                        : null;
                                     return (
                                         <button key={entry.key} type="button" onClick={() => finishedVisit && setSelectedItem(finishedVisit)} className="w-full text-left">
                                             <div className="flex items-center gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
@@ -569,7 +584,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                 <button key={visit.id} type="button" onClick={() => setSelectedItem(visit)}
                                                     className="w-full flex items-center justify-between gap-2 text-[11px] hover:bg-neutral-100 px-1 py-0.5 rounded">
                                                     <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
-                                                        {new Date(visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                        {new Date(visit.statusDate ? visit.statusDate + 'T12:00:00' : visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                     </div>
                                                     <div className="text-neutral-700 text-right">
                                                         {vm.progressPage != null ? `p. ${vm.progressPage}` : '—'}

@@ -29,6 +29,7 @@ export interface ConsumableItem {
     notes?: string;
     image?: string;
     createdAt: number;
+    statusDate?: string; // YYYY-MM-DD date of the parent daily post
     consumedDates?: number[]; // epoch ms for each time consumed; length = total times tagged
 }
 
@@ -600,6 +601,7 @@ class SocialStore {
                             notes: (i.notes as string | null) || undefined,
                             image: (i.image as string | null) || undefined,
                             createdAt: new Date(i.created_at as string).getTime(),
+                            statusDate: s.date,
                             consumedDates: Array.isArray(i.consumed_dates)
                                 ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
                                 : undefined,
@@ -868,6 +870,7 @@ class SocialStore {
         const optimisticItem: ConsumableItem = {
             id: `temp-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             createdAt: Date.now(),
+            statusDate: this.state.activeDate,
             category: item.category,
             title: item.title,
             subtitle: item.subtitle,
