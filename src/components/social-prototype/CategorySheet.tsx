@@ -164,6 +164,11 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
         : [];
     interface BookGraphEntry extends AggregatedItem { points: { date: number; pct: number }[]; color: string; }
     const graphEntries: BookGraphEntry[] = inProgressBooks.map((entry, i) => {
+        // Check if this book has any visit with explicit progress data
+        const hasProgressData = entry.visits.some(v => {
+            const vm = parseItemMeta(v.image);
+            return vm.progressPage != null;
+        });
         const points = entry.visits
             .map(v => {
                 const vm = parseItemMeta(v.image);
@@ -174,6 +179,10 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 const dateTs = v.statusDate
                     ? new Date(v.statusDate + 'T12:00:00').getTime()
                     : v.createdAt;
+                // Visits without progress (e.g. the initial "started reading" tag)
+                // appear as 0% so the graph timeline starts from the first log date,
+                // but only if the book has at least one visit with real progress.
+                if (pct == null && hasProgressData) pct = 0;
                 return pct != null ? { date: dateTs, pct: Math.min(100, pct) } : null;
             })
             .filter((p): p is { date: number; pct: number } => p != null)
