@@ -512,6 +512,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         image: undefined,
                                                     }));
                                                     setPopulatedFromId(null);
+                                                    setGateClicked(false);
                                                     setShowBreweryResults(false);
                                                 }}
                                                 className="ml-1 px-1.5 text-neutral-400 hover:text-neutral-700 text-sm"
