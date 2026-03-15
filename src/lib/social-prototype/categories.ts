@@ -100,7 +100,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'parent-child', coupling: 'api',
         hasRating: true, ratingScope: 'child',
         childLabel: 'beer', extras: [],
-        titleLabel: 'Brewery', subtitleLabel: 'Beer Name', subtitlePlaceholder: 'Beer name',
+        titleLabel: 'Drink Name', subtitleLabel: 'Brewery/Type', subtitlePlaceholder: 'Brewery',
         ratingLabel: 'Beer Rating', color: '#e8a94f', icon: '',
     },
     cooking: {
