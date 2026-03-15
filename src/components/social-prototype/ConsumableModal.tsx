@@ -487,7 +487,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         <div className="flex-1 min-w-0 space-y-4">
                             {/* Beer: Brewery first (API-gated like other coupled cards) */}
                             {category === 'beer' && (() => {
-                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb';
+                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb' || gateClicked;
                                 return (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
@@ -571,13 +571,19 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 </button>
                                             )}
                                         />
+                                        {subtitle.trim() && (
+                                            <button type="button" onClick={() => setGateClicked(true)}
+                                                className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-2 hover:text-neutral-700 hover:border-neutral-500">
+                                                Continue without linking
+                                            </button>
+                                        )}
                                         </>
                                     )}
                                 </div>
                                 );
                             })()}
-                            {/* Title — for beer, gated behind brewery API link */}
-                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || readOnly) && <div>
+                            {/* Title — for beer, gated behind brewery API link or manual bypass */}
+                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || gateClicked || readOnly) && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
@@ -1381,7 +1387,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {/* For books: only show after marking finished. For beer: only show after brewery linked. */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb') && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1678,7 +1684,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </button>
                     ) : category === 'book' && !parsedMeta.finished ? (
                         null
-                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' ? (
+                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked ? (
                         null
                     ) : (
                         <div>
