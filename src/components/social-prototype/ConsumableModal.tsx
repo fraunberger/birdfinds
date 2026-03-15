@@ -485,8 +485,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 min-w-0 space-y-4">
-                            {/* Beer: Brewery first */}
-                            {category === 'beer' && (
+                            {/* Beer: Brewery first (API-gated like other coupled cards) */}
+                            {category === 'beer' && (() => {
+                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb';
+                                return (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         Brewery
@@ -495,27 +497,47 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         <div className="text-sm font-mono text-neutral-700 py-1">
                                             {subtitle || '—'}
                                         </div>
+                                    ) : breweryLinked ? (
+                                        <div className="flex items-center border-b border-neutral-200">
+                                            <span className="flex-1 text-base font-mono py-1 text-neutral-800 truncate">{subtitle}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft(prev => ({
+                                                        ...prev,
+                                                        subtitle: '',
+                                                        title: '',
+                                                        rating: undefined,
+                                                        notes: '',
+                                                        image: undefined,
+                                                    }));
+                                                    setPopulatedFromId(null);
+                                                    setShowBreweryResults(false);
+                                                }}
+                                                className="ml-1 px-1.5 text-neutral-400 hover:text-neutral-700 text-sm"
+                                                title="Clear brewery"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <textarea
+                                        <>
+                                        <input
                                             autoFocus
-                                            rows={2}
+                                            type="text"
                                             value={subtitle}
                                             onChange={(e) => {
                                                 setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                             }}
                                             placeholder="Brewery name"
-                                            className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                            className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
                                         />
-                                    )}
-                                    {!readOnly && (
                                         <div className="mt-2 flex justify-end">
                                             <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
                                                 className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                 Search Breweries
                                             </button>
                                         </div>
-                                    )}
-                                    {!readOnly && (
                                         <SearchResultsPanel
                                             visible={showBreweryResults}
                                             isSearching={breweries.isSearching}
@@ -549,16 +571,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 </button>
                                             )}
                                         />
+                                        </>
                                     )}
                                 </div>
-                            )}
-                            {/* Title */}
-                            {<div>
+                                );
+                            })()}
+                            {/* Title — for beer, gated behind brewery API link */}
+                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || readOnly) && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
                                 {category === 'beer' && !readOnly ? (() => {
-                                    const allBeerNames = Array.from(new Set(
+                                    const allBeerNames: string[] = Array.from(new Set<string>(
                                         getAllItemsByCategory('beer').filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
                                     // Count occurrences for top-5 chips
@@ -571,7 +595,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         .sort((a, b) => b[1] - a[1])
                                         .slice(0, 5)
                                         .map(([name]) => name);
-                                    const filtered = title.trim()
+                                    const filtered: string[] = title.trim()
                                         ? allBeerNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
                                         : allBeerNames;
                                     return (
@@ -638,10 +662,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         </>
                                     );
                                 })() : (config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
-                                    const allExerciseNames = Array.from(new Set(
+                                    const allExerciseNames: string[] = Array.from(new Set<string>(
                                         getAllItemsByCategory(category).filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
-                                    const filtered = title.trim()
+                                    const filtered: string[] = title.trim()
                                         ? allExerciseNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
                                         : allExerciseNames;
                                     return (
@@ -1353,8 +1377,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {/* For books: only show the score box after marking finished (progress logs don't have a rating) */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
+                        {/* For books: only show after marking finished. For beer: only show after brewery linked. */}
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb') && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1650,6 +1674,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             Review without linking
                         </button>
                     ) : category === 'book' && !parsedMeta.finished ? (
+                        null
+                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' ? (
                         null
                     ) : (
                         <div>
