@@ -100,13 +100,11 @@ export function ComposerItemTable({
         if (!quickAddTitle.trim() || isQuickAdding) return;
         try {
             setIsQuickAdding(true);
-            // Beer: quick-add text is the brewery (subtitle), not the beer name
-            const isBeer = effectiveQuickAddCategory === 'beer';
             await onAddItem({
                 category: effectiveQuickAddCategory,
-                title: isBeer ? '' : quickAddTitle,
+                title: quickAddTitle,
                 rating: undefined,
-                subtitle: isBeer ? quickAddTitle : '',
+                subtitle: '',
                 notes: '',
             });
             setQuickAddTitle('');
@@ -192,12 +190,9 @@ export function ComposerItemTable({
                                         {!isLinked && (
                                             <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNFILLED ·</span>
                                         )}
-                                        {item.category === 'beer' && !item.title.trim() ? (item.subtitle || 'Untitled') : item.title}
+                                        {item.title}
                                     </span>
-                                    {item.category === 'beer' && !item.title.trim()
-                                        ? null
-                                        : item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
-                                    }
+                                    {item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>}
                                     {isLinkingMode && (
                                         <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
                                     )}
@@ -257,7 +252,7 @@ export function ComposerItemTable({
                                 value={quickAddTitle}
                                 onChange={(e) => setQuickAddTitle(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
-                                placeholder={effectiveQuickAddCategory === 'beer' ? 'Add brewery...' : 'Add new entry...'}
+                                placeholder="Add new entry..."
                                 className="w-full bg-transparent outline-none text-[14px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
                             />
                         </td>

@@ -93,7 +93,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const restaurants = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'restaurant', readOnly, enabled: showRestaurantResults, query: title, endpoint: '/api/places/search', token: restaurantSearchToken });
     const locationPlaces = useSearchPicker<RestaurantSearchResult>({ category, targetCategory: 'location', readOnly, enabled: showLocationResults, query: title, endpoint: '/api/places/search', token: locationSearchToken });
     const books = useSearchPicker<BookSearchResult>({ category, targetCategory: 'book', readOnly, enabled: showBookResults, query: title, endpoint: '/api/books/search', token: bookSearchToken });
-    const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: subtitle, endpoint: '/api/breweries/search', token: brewerySearchToken });
+    const breweries = useSearchPicker<BrewerySearchResult>({ category, targetCategory: 'beer', readOnly, enabled: showBreweryResults, query: title, endpoint: '/api/breweries/search', token: brewerySearchToken });
     const birds = useSearchPicker<BirdSearchResult>({ category, targetCategory: 'bird', readOnly, enabled: showBirdResults, query: birdQuery, endpoint: '/api/birds/search', token: birdSearchToken });
 
     // Podcast show search (only when no show selected)
@@ -485,7 +485,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 min-w-0 space-y-4">
-                            {/* Beer: Brewery first (API-gated like other coupled cards) */}
+                            {/* Beer: Brewery (title) first, API-gated like other coupled cards */}
                             {category === 'beer' && (() => {
                                 const breweryLinked = parsedMeta.externalSource === 'openbrewerydb';
                                 return (
@@ -495,18 +495,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     </label>
                                     {readOnly ? (
                                         <div className="text-sm font-mono text-neutral-700 py-1">
-                                            {subtitle || '—'}
+                                            {title || '—'}
                                         </div>
                                     ) : breweryLinked ? (
                                         <div className="flex items-center border-b border-neutral-200">
-                                            <span className="flex-1 text-base font-mono py-1 text-neutral-800 truncate">{subtitle}</span>
+                                            <span className="flex-1 text-base font-mono py-1 text-neutral-800 truncate">{title}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     setDraft(prev => ({
                                                         ...prev,
-                                                        subtitle: '',
                                                         title: '',
+                                                        subtitle: '',
                                                         rating: undefined,
                                                         notes: '',
                                                         image: undefined,
@@ -525,9 +525,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         <input
                                             autoFocus
                                             type="text"
-                                            value={subtitle}
+                                            value={title}
                                             onChange={(e) => {
-                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                                setDraft((prev) => ({ ...prev, title: e.target.value }));
                                             }}
                                             placeholder="Brewery name"
                                             className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
@@ -542,7 +542,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             visible={showBreweryResults}
                                             isSearching={breweries.isSearching}
                                             results={breweries.results}
-                                            query={subtitle}
+                                            query={title}
                                             searchingLabel="Searching breweries..."
                                             emptyLabel="No breweries"
                                             maxHeightClass="max-h-56"
@@ -550,12 +550,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             renderResult={(brewery) => (
                                                 <button type="button" onClick={() => {
                                                     setDraft((prev) => {
-                                                        const beerTitle = prev.title.trim();
+                                                        const beerName = prev.subtitle?.trim() || '';
                                                         const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                                                        const childId = beerTitle ? `${brewery.id}:${norm(beerTitle)}` : brewery.id;
+                                                        const childId = beerName ? `${brewery.id}:${norm(beerName)}` : brewery.id;
                                                         return {
                                                             ...prev,
-                                                            subtitle: brewery.name,
+                                                            title: brewery.name,
                                                             image: serializeItemMeta({
                                                                 externalSource: 'openbrewerydb',
                                                                 externalId: childId,
@@ -576,27 +576,32 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </div>
                                 );
                             })()}
-                            {/* Title — for beer, gated behind brewery API link */}
-                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || readOnly) && <div>
-                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                    {category === 'beer' ? 'Beer Name' : config.titleLabel}
-                                </label>
-                                {category === 'beer' && !readOnly ? (() => {
+                            {/* Beer: beer name (subtitle) gated behind brewery API link */}
+                            {category === 'beer' && (parsedMeta.externalSource === 'openbrewerydb' || readOnly) && (
+                                <div>
+                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                        Beer Name
+                                    </label>
+                                    {readOnly ? (
+                                        <div className="text-sm font-mono text-neutral-700 py-1">
+                                            {subtitle || '—'}
+                                        </div>
+                                    ) : (() => {
                                     const allBeerNames: string[] = Array.from(new Set<string>(
-                                        getAllItemsByCategory('beer').filter(i => i.title.trim()).map(i => i.title.trim())
+                                        getAllItemsByCategory('beer').filter(i => (i.subtitle || '').trim()).map(i => (i.subtitle || '').trim())
                                     )).sort();
                                     // Count occurrences for top-5 chips
                                     const beerCounts = new Map<string, number>();
-                                    getAllItemsByCategory('beer').filter(i => i.title.trim()).forEach(i => {
-                                        const name = i.title.trim();
+                                    getAllItemsByCategory('beer').filter(i => (i.subtitle || '').trim()).forEach(i => {
+                                        const name = (i.subtitle || '').trim();
                                         beerCounts.set(name, (beerCounts.get(name) || 0) + 1);
                                     });
                                     const topBeers = [...beerCounts.entries()]
                                         .sort((a, b) => b[1] - a[1])
                                         .slice(0, 5)
                                         .map(([name]) => name);
-                                    const filtered: string[] = title.trim()
-                                        ? allBeerNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
+                                    const filtered: string[] = subtitle.trim()
+                                        ? allBeerNames.filter(n => n.toLowerCase().includes(subtitle.toLowerCase()))
                                         : allBeerNames;
                                     return (
                                         <>
@@ -604,9 +609,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             <div className="flex items-center border-b border-neutral-200 focus-within:border-neutral-400">
                                                 <input
                                                     type="text"
-                                                    value={title}
+                                                    value={subtitle}
                                                     onChange={(e) => {
-                                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                                        setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                                         setShowBeerDropdown(true);
                                                     }}
                                                     onFocus={() => setShowBeerDropdown(true)}
@@ -632,10 +637,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             type="button"
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
-                                                                setDraft(prev => ({ ...prev, title: name }));
+                                                                setDraft(prev => ({ ...prev, subtitle: name }));
                                                                 setShowBeerDropdown(false);
                                                             }}
-                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${title.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
+                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${subtitle.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
                                                         >
                                                             {name}
                                                         </button>
@@ -650,10 +655,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                     <button key={name} type="button"
                                                         onMouseDown={(e) => {
                                                             e.preventDefault();
-                                                            setDraft(prev => ({ ...prev, title: name }));
+                                                            setDraft(prev => ({ ...prev, subtitle: name }));
                                                             setShowBeerDropdown(false);
                                                         }}
-                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${title.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
+                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${subtitle.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
                                                         {name}
                                                     </button>
                                                 ))}
@@ -661,7 +666,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         )}
                                         </>
                                     );
-                                })() : (config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
+                                    })()}
+                                </div>
+                            )}
+                            {/* Title — non-beer categories */}
+                            {category !== 'beer' && <div>
+                                <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                    {config.titleLabel}
+                                </label>
+                                { (config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
                                     const allExerciseNames: string[] = Array.from(new Set<string>(
                                         getAllItemsByCategory(category).filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
@@ -1167,7 +1180,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     />
                                 )}
                             </div>}
-                            {/* Subtitle (skip for beer — brewery is rendered above title) */}
+                            {/* Subtitle (skip for beer — beer name is rendered in its own gated section) */}
                             {category !== 'cooking' && category !== 'link' && category !== 'beer' && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">

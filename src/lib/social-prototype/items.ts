@@ -55,7 +55,7 @@ export const getCanonicalItemSlug = (
   }
 
   if (category === "beer" || category === "brewery") {
-    // Include beer name (title) + brewery (subtitle) for proper matching
+    // Include brewery (title) + beer name (subtitle) for proper matching
     return [normalizedTitle, normalizedSubtitle]
       .filter(Boolean)
       .join("-") || normalizedTitle || "item";
@@ -80,8 +80,8 @@ export const getItemPageSlug = (
     return normalizePart(title) || "item";
   }
   if (category === "beer") {
-    // Brewery-level page: slug is the brewery name (subtitle) only
-    return normalizePart(subtitle || title) || "item";
+    // Brewery-level page: slug is the brewery name (title) only
+    return normalizePart(title) || "item";
   }
   return getCanonicalItemSlug(category, title, subtitle);
 };

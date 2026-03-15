@@ -196,9 +196,12 @@ export default function ItemPage({
 
   const title = useMemo(() => {
     if (reviews.length === 0) return requestedSlug.replace(/-/g, " ");
-    if (isPodcastPage || isBreweryPage) {
+    if (isPodcastPage) {
       const parent = reviews.find((review) => review.item.subtitle?.trim())?.item.subtitle;
       return parent || reviews[0].item.title;
+    }
+    if (isBreweryPage) {
+      return reviews[0].item.title;
     }
     if (isBookPage) {
       return reviews[0].item.title;
@@ -226,8 +229,8 @@ export default function ItemPage({
       s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
     const episodeName = (review: (typeof reviews)[number]) =>
-      isTvPage
-        ? (review.item.subtitle?.trim() || "Unknown Episode")
+      (isTvPage || isBreweryPage)
+        ? (review.item.subtitle?.trim() || "Unknown Beer")
         : (review.item.title?.trim() || "Unknown Episode");
 
     // Pass 1: for each normalized episode title, pick a canonical bucket key.
@@ -295,8 +298,8 @@ export default function ItemPage({
     }>();
 
     reviews.forEach((review) => {
-      const episodeTitle = isTvPage
-        ? (review.item.subtitle?.trim() || "Unknown Episode")
+      const episodeTitle = (isTvPage || isBreweryPage)
+        ? (review.item.subtitle?.trim() || "Unknown Beer")
         : (review.item.title?.trim() || "Unknown Episode");
 
       const entry = {
