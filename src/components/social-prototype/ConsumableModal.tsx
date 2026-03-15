@@ -570,7 +570,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {category === 'book' && !readOnly && !existingItem && (() => {
+                                {category === 'book' && !readOnly && !isCoupled && (() => {
                                     const seen = new Set<string>();
                                     const inProgressBooks = (allUserItems || [])
                                         .filter(i => {
@@ -1035,16 +1035,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             keyExtractor={(r) => r.id}
                                             renderResult={(brewery) => (
                                                 <button type="button" onClick={() => {
-                                                    setDraft((prev) => ({
-                                                        ...prev,
-                                                        subtitle: brewery.name,
-                                                        rating: undefined,
-                                                        notes: '',
-                                                        image: serializeItemMeta({
-                                                            externalSource: 'openbrewerydb',
-                                                            externalId: brewery.id,
-                                                        }),
-                                                    }));
+                                                    setDraft((prev) => {
+                                                        const beerTitle = prev.title.trim();
+                                                        const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                                                        const childId = beerTitle ? `${brewery.id}:${norm(beerTitle)}` : brewery.id;
+                                                        return {
+                                                            ...prev,
+                                                            subtitle: brewery.name,
+                                                            rating: undefined,
+                                                            notes: '',
+                                                            image: serializeItemMeta({
+                                                                externalSource: 'openbrewerydb',
+                                                                externalId: childId,
+                                                            }),
+                                                        };
+                                                    });
                                                     setPopulatedFromId(null);
                                                     setShowBreweryResults(false);
                                                 }}
@@ -1538,6 +1543,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
                             Review without linking
                         </button>
+                    ) : category === 'book' && !parsedMeta.finished ? (
+                        null
                     ) : (
                         <div>
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ConsumableItem, Status, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, Status, useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
@@ -24,6 +24,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
     const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
+    const { hasPublishedPost } = useUserProfile();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -191,7 +192,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             }
             setIsExpanded(true);
             // Trigger onboarding checklist for first-time composers (no published posts yet)
-            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !statuses.some(s => s.published)) {
+            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
                 setShowComposerOnboarding(true);
             }
             window.setTimeout(() => textareaRef.current?.focus(), 220);
@@ -469,7 +470,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         if (next) {
                             await prepareComposerForEntry();
                             // Show inline onboarding checklist for first-time composers
-                            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !statuses.some(s => s.published)) {
+                            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
                                 setShowComposerOnboarding(true);
                             }
                         }
