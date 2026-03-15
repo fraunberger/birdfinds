@@ -582,12 +582,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
                                 {category === 'beer' && !readOnly ? (() => {
+                                    const currentBrewery = subtitle.trim().toLowerCase();
+                                    const breweryBeers = getAllItemsByCategory('beer')
+                                        .filter(i => i.title.trim() && (i.subtitle || '').trim().toLowerCase() === currentBrewery);
                                     const allBeerNames: string[] = Array.from(new Set<string>(
-                                        getAllItemsByCategory('beer').filter(i => i.title.trim()).map(i => i.title.trim())
+                                        breweryBeers.map(i => i.title.trim())
                                     )).sort();
                                     // Count occurrences for top-5 chips
                                     const beerCounts = new Map<string, number>();
-                                    getAllItemsByCategory('beer').filter(i => i.title.trim()).forEach(i => {
+                                    breweryBeers.forEach(i => {
                                         const name = i.title.trim();
                                         beerCounts.set(name, (beerCounts.get(name) || 0) + 1);
                                     });
