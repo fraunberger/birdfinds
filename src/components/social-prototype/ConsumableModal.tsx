@@ -75,6 +75,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Exercise combobox
     const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
 
+    // Beer combobox
+    const [showBeerDropdown, setShowBeerDropdown] = useState(false);
+
     // Bird multi-select
     const [birdQuery, setBirdQuery] = useState('');
 
@@ -482,12 +485,159 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 min-w-0 space-y-4">
+                            {/* Beer: Brewery first */}
+                            {category === 'beer' && (
+                                <div>
+                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                        Brewery
+                                    </label>
+                                    {readOnly ? (
+                                        <div className="text-sm font-mono text-neutral-700 py-1">
+                                            {subtitle || '—'}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            autoFocus
+                                            rows={2}
+                                            value={subtitle}
+                                            onChange={(e) => {
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                            }}
+                                            placeholder="Brewery name"
+                                            className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
+                                        />
+                                    )}
+                                    {!readOnly && (
+                                        <div className="mt-2 flex justify-end">
+                                            <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
+                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
+                                                Search Breweries
+                                            </button>
+                                        </div>
+                                    )}
+                                    {!readOnly && (
+                                        <SearchResultsPanel
+                                            visible={showBreweryResults}
+                                            isSearching={breweries.isSearching}
+                                            results={breweries.results}
+                                            query={subtitle}
+                                            searchingLabel="Searching breweries..."
+                                            emptyLabel="No breweries"
+                                            maxHeightClass="max-h-56"
+                                            keyExtractor={(r) => r.id}
+                                            renderResult={(brewery) => (
+                                                <button type="button" onClick={() => {
+                                                    setDraft((prev) => {
+                                                        const beerTitle = prev.title.trim();
+                                                        const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                                                        const childId = beerTitle ? `${brewery.id}:${norm(beerTitle)}` : brewery.id;
+                                                        return {
+                                                            ...prev,
+                                                            subtitle: brewery.name,
+                                                            image: serializeItemMeta({
+                                                                externalSource: 'openbrewerydb',
+                                                                externalId: childId,
+                                                            }),
+                                                        };
+                                                    });
+                                                    setPopulatedFromId(null);
+                                                    setShowBreweryResults(false);
+                                                }}
+                                                    className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                    <div className="text-sm text-neutral-900">{brewery.name}</div>
+                                                    <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
+                                                </button>
+                                            )}
+                                        />
+                                    )}
+                                </div>
+                            )}
                             {/* Title */}
                             {<div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                    {config.titleLabel}
+                                    {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
-                                {(config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
+                                {category === 'beer' && !readOnly ? (() => {
+                                    const allBeerNames = Array.from(new Set(
+                                        getAllItemsByCategory('beer').filter(i => i.title.trim()).map(i => i.title.trim())
+                                    )).sort();
+                                    // Count occurrences for top-5 chips
+                                    const beerCounts = new Map<string, number>();
+                                    getAllItemsByCategory('beer').filter(i => i.title.trim()).forEach(i => {
+                                        const name = i.title.trim();
+                                        beerCounts.set(name, (beerCounts.get(name) || 0) + 1);
+                                    });
+                                    const topBeers = [...beerCounts.entries()]
+                                        .sort((a, b) => b[1] - a[1])
+                                        .slice(0, 5)
+                                        .map(([name]) => name);
+                                    const filtered = title.trim()
+                                        ? allBeerNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
+                                        : allBeerNames;
+                                    return (
+                                        <>
+                                        <div className="relative">
+                                            <div className="flex items-center border-b border-neutral-200 focus-within:border-neutral-400">
+                                                <input
+                                                    type="text"
+                                                    value={title}
+                                                    onChange={(e) => {
+                                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                                        setShowBeerDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowBeerDropdown(true)}
+                                                    onBlur={() => setShowBeerDropdown(false)}
+                                                    placeholder="Type or pick…"
+                                                    className="flex-1 text-base font-mono outline-none py-1 bg-transparent"
+                                                />
+                                                {allBeerNames.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => { e.preventDefault(); setShowBeerDropdown(v => !v); }}
+                                                        className="px-1 text-neutral-400 hover:text-neutral-700"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L1 3h10z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showBeerDropdown && filtered.length > 0 && (
+                                                <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-48 overflow-y-auto">
+                                                    {filtered.map(name => (
+                                                        <button
+                                                            key={name}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setDraft(prev => ({ ...prev, title: name }));
+                                                                setShowBeerDropdown(false);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${title.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
+                                                        >
+                                                            {name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {topBeers.length > 0 && (
+                                            <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                                <span className="text-[9px] uppercase tracking-wider text-neutral-400">Common:</span>
+                                                {topBeers.map(name => (
+                                                    <button key={name} type="button"
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            setDraft(prev => ({ ...prev, title: name }));
+                                                            setShowBeerDropdown(false);
+                                                        }}
+                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${title.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        </>
+                                    );
+                                })() : (config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
                                     const allExerciseNames = Array.from(new Set(
                                         getAllItemsByCategory(category).filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
@@ -568,7 +718,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                                 {repeatInfo && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
-                                        {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird'].includes(category) ? ' • previous review loaded' : ''}
+                                        {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
                                 {category === 'book' && !readOnly && !isLinked && (() => {
@@ -993,8 +1143,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     />
                                 )}
                             </div>}
-                            {/* Subtitle */}
-                            {category !== 'cooking' && category !== 'link' && (
+                            {/* Subtitle (skip for beer — brewery is rendered above title) */}
+                            {category !== 'cooking' && category !== 'link' && category !== 'beer' && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         {config.subtitleLabel}
@@ -1014,51 +1164,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                        />
-                                    )}
-                                    {category === 'beer' && !readOnly && (
-                                        <div className="mt-2 flex justify-end">
-                                            <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
-                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
-                                                Search Breweries
-                                            </button>
-                                        </div>
-                                    )}
-                                    {category === 'beer' && !readOnly && (
-                                        <SearchResultsPanel
-                                            visible={showBreweryResults}
-                                            isSearching={breweries.isSearching}
-                                            results={breweries.results}
-                                            query={subtitle}
-                                            searchingLabel="Searching breweries..."
-                                            emptyLabel="No breweries"
-                                            maxHeightClass="max-h-56"
-                                            keyExtractor={(r) => r.id}
-                                            renderResult={(brewery) => (
-                                                <button type="button" onClick={() => {
-                                                    setDraft((prev) => {
-                                                        const beerTitle = prev.title.trim();
-                                                        const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                                                        const childId = beerTitle ? `${brewery.id}:${norm(beerTitle)}` : brewery.id;
-                                                        return {
-                                                            ...prev,
-                                                            subtitle: brewery.name,
-                                                            rating: undefined,
-                                                            notes: '',
-                                                            image: serializeItemMeta({
-                                                                externalSource: 'openbrewerydb',
-                                                                externalId: childId,
-                                                            }),
-                                                        };
-                                                    });
-                                                    setPopulatedFromId(null);
-                                                    setShowBreweryResults(false);
-                                                }}
-                                                    className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                    <div className="text-sm text-neutral-900">{brewery.name}</div>
-                                                    <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
-                                                </button>
-                                            )}
                                         />
                                     )}
                                     {(category === 'restaurant' || category === 'location') && (
