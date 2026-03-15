@@ -41,10 +41,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // Parent/child categories (podcast, tv) require an episode-level external key before
     // showing notes, rating, or repeat-tag info. Without one the entry is a bare "dead card".
-    const isParentChildCategory = category === 'podcast' || category === 'tv';
+    const isParentChildCategory = category === 'podcast' || category === 'tv' || category === 'beer';
     const isEpisodeLinked = !isParentChildCategory ||
         parsedMeta.externalSource === 'itunes-podcast-episode' ||
-        parsedMeta.externalSource === 'tvmaze-episode';
+        parsedMeta.externalSource === 'tvmaze-episode' ||
+        category === 'beer';
 
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
@@ -570,7 +571,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {category === 'book' && !readOnly && !isCoupled && (() => {
+                                {category === 'book' && !readOnly && !isLinked && (() => {
                                     const seen = new Set<string>();
                                     const inProgressBooks = (allUserItems || [])
                                         .filter(i => {
