@@ -167,7 +167,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     // Only compute after linkage.
     const repeatInfo = useMemo(() => {
-        if (!allUserItems || !title.trim() || category === 'book') return null;
+        if (!allUserItems || !title.trim() || category === 'book' || category === 'exercise' || category === 'bird') return null;
         if (!isLinked) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });

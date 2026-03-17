@@ -565,8 +565,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             key={cat.id}
                                             onClick={() => {
                                                 setSelectedPlainText('');
+                                                const hasRecentFallback = !!recentSelectionRef.current
+                                                    && (Date.now() - recentSelectionRef.current.at) < 2500
+                                                    && recentSelectionRef.current.text.trim().length > 0;
                                                 recentSelectionRef.current = null;
-                                                if (hasContext) {
+                                                if (hasContext || hasRecentFallback) {
                                                     tagging.handleCategoryTap(cat.id);
                                                 } else {
                                                     setActiveCategory(cat.id);
