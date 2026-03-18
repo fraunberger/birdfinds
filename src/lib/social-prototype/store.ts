@@ -84,6 +84,7 @@ export interface CategoryConfigOverride {
     ratingLabel?: string;
     notesLabel?: string;
     notesPlaceholder?: string;
+    color?: string;
 }
 
 export interface UserProfile {

@@ -406,6 +406,28 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                             </div>
                         </div>
 
+                        <div className="px-4 pb-4">
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">Color</div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {['#d4d4d4', '#f5d142', '#62d9f7', '#f78be0', '#7be08a', '#e8a94f', '#f7756a', '#b78ef5', '#6ab4f7', '#94a3b8', '#7be0c3', '#f7a55a', '#f472b6'].map((c) => (
+                                    <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => updateCategoryConfig(editingCategory, { color: c })}
+                                        className="w-7 h-7 border-2 flex items-center justify-center"
+                                        style={{
+                                            backgroundColor: c,
+                                            borderColor: (editingConfig.color || '#d4d4d4') === c ? '#000' : 'transparent',
+                                        }}
+                                    >
+                                        {(editingConfig.color || '#d4d4d4') === c && (
+                                            <span className="text-xs font-bold" style={{ color: ['#f5d142', '#62d9f7', '#7be08a', '#7be0c3', '#f7a55a', '#d4d4d4'].includes(c) ? '#000' : '#fff' }}>✓</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div className="flex items-center justify-end px-4 py-3 border-t border-neutral-300 bg-neutral-50">
                             <button
                                 onClick={() => setEditingCategory(null)}
