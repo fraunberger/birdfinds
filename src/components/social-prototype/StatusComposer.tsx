@@ -239,6 +239,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
     const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
+
+    // Mirror the server-side timezone boundary logic in the UI.
+    // UTC+14 (Line Islands) — earliest timezone — post unlocks when date arrives there.
+    // UTC-12 (Baker Island) — latest timezone — edit window closes 30 days after date ends there.
+    const todayInEarliestTZ = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const cutoffInLatestTZ = (() => {
+      const d = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      d.setUTCDate(d.getUTCDate() - 30);
+      return d.toISOString().slice(0, 10);
+    })();
+    const isFuturePost = activeDate > todayInEarliestTZ;
+    const isEditExpired = activeDate < cutoffInLatestTZ;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
@@ -688,7 +700,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     setIsPosting(false);
                                 }
                             }}
-                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges)}
+                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges) || isFuturePost || isEditExpired}
+                            title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
                             className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
