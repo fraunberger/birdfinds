@@ -240,17 +240,17 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
     const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
 
-    // Mirror the server-side timezone boundary logic in the UI.
-    // UTC+14 (Line Islands) — earliest timezone — post unlocks when date arrives there.
-    // UTC-12 (Baker Island) — latest timezone — edit window closes 30 days after date ends there.
-    const todayInEarliestTZ = new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const cutoffInLatestTZ = (() => {
-      const d = new Date(Date.now() - 12 * 60 * 60 * 1000);
-      d.setUTCDate(d.getUTCDate() - 30);
-      return d.toISOString().slice(0, 10);
+    // Use the user's local date so the button state matches their clock.
+    // The server uses UTC+14/UTC-12 as a permissive safety net, so anything
+    // the client allows will always be accepted server-side.
+    const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+    const localCutoff = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return d.toLocaleDateString('en-CA');
     })();
-    const isFuturePost = activeDate > todayInEarliestTZ;
-    const isEditExpired = activeDate < cutoffInLatestTZ;
+    const isFuturePost = activeDate > localToday;
+    const isEditExpired = activeDate < localCutoff;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
