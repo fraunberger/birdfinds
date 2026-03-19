@@ -25,17 +25,28 @@ const truncate = (value: string, max: number) =>
   value.length > max ? value.slice(0, max) : value;
 
 // ── Date validation helpers ──────────────────────────────────────────
-/** Returns today's date as YYYY-MM-DD in UTC. */
-const getTodayUTC = () => new Date().toISOString().slice(0, 10);
+/** Returns the current date as YYYY-MM-DD shifted by the given UTC offset (hours). */
+const getDateInOffset = (offsetHours: number) => {
+  const adjusted = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
+  return adjusted.toISOString().slice(0, 10);
+};
 
-/** Returns true if the given YYYY-MM-DD date is strictly after today. */
-const isFutureDate = (date: string) => date > getTodayUTC();
+/**
+ * Returns true if the given YYYY-MM-DD date is still in the future.
+ * Uses UTC+14 (Line Islands) — the world's earliest timezone — so a post
+ * unlocks the moment that date has arrived anywhere on Earth.
+ */
+const isFutureDate = (date: string) => date > getDateInOffset(14);
 
-/** Returns true if the given YYYY-MM-DD date is more than 30 days ago. */
+/**
+ * Returns true if the given YYYY-MM-DD date is more than 30 days ago.
+ * Uses UTC-12 (Baker Island) — the world's latest timezone — so the full
+ * 30-day edit window stays open until the day has ended everywhere on Earth.
+ */
 const isOlderThan30Days = (date: string) => {
-  const cutoff = new Date();
-  cutoff.setUTCDate(cutoff.getUTCDate() - 30);
-  return date < cutoff.toISOString().slice(0, 10);
+  const nowInUTC12 = new Date(Date.now() - 12 * 60 * 60 * 1000);
+  nowInUTC12.setUTCDate(nowInUTC12.getUTCDate() - 30);
+  return date < nowInUTC12.toISOString().slice(0, 10);
 };
 
 /** Fetch a status's date field. Returns null if not found. */
