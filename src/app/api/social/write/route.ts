@@ -24,6 +24,30 @@ const MAX_AVATAR_URL = 2_000;
 const truncate = (value: string, max: number) =>
   value.length > max ? value.slice(0, max) : value;
 
+// ── Date validation helpers ──────────────────────────────────────────
+/** Returns today's date as YYYY-MM-DD in UTC. */
+const getTodayUTC = () => new Date().toISOString().slice(0, 10);
+
+/** Returns true if the given YYYY-MM-DD date is strictly after today. */
+const isFutureDate = (date: string) => date > getTodayUTC();
+
+/** Returns true if the given YYYY-MM-DD date is more than 30 days ago. */
+const isOlderThan30Days = (date: string) => {
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - 30);
+  return date < cutoff.toISOString().slice(0, 10);
+};
+
+/** Fetch a status's date field. Returns null if not found. */
+const getStatusDate = async (supabaseAdmin: SupabaseClient, statusId: string): Promise<string | null> => {
+  const { data } = await supabaseAdmin
+    .from("social_statuses")
+    .select("date")
+    .eq("id", statusId)
+    .maybeSingle();
+  return data?.date ?? null;
+};
+
 // ── Rate limit: 60 writes per minute per user ───────────────────────
 const WRITE_RATE_LIMIT = 60;
 const WRITE_RATE_WINDOW_MS = 60_000;
@@ -151,6 +175,12 @@ export async function POST(req: NextRequest) {
       const date = String(payload.date || "");
       const content = truncate(String(payload.content || ""), MAX_STATUS_CONTENT);
       if (!date) return NextResponse.json({ error: "Missing date" }, { status: 400 });
+      if (isOlderThan30Days(date)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
 
       const { data, error } = await supabaseAdmin
         .from("social_statuses")
@@ -168,6 +198,18 @@ export async function POST(req: NextRequest) {
       const statusId = String(payload.statusId || "");
       const published = Boolean(payload.published);
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Block publishing posts whose date is in the future.
+      if (published) {
+        const statusDate = await getStatusDate(supabaseAdmin, statusId);
+        if (statusDate && isFutureDate(statusDate)) {
+          return NextResponse.json(
+            { error: "Cannot publish a post before its date arrives" },
+            { status: 403 }
+          );
+        }
+      }
+
       const updates: Record<string, unknown> = { published };
       if (published) {
         // Only set created_at on first publish — subsequent edits keep the
@@ -203,6 +245,13 @@ export async function POST(req: NextRequest) {
     if (action === "social.item.add") {
       const statusId = String(payload.statusId || "");
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const itemAddDate = await getStatusDate(supabaseAdmin, statusId);
+      if (itemAddDate && isOlderThan30Days(itemAddDate)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
       const item = (payload.item || {}) as Record<string, unknown>;
       const category = truncate(String(item.category || "movie"), MAX_ITEM_TITLE);
       const rawImage = item.image ? String(item.image) : undefined;
@@ -278,7 +327,14 @@ export async function POST(req: NextRequest) {
       if (!itemId) {
         return NextResponse.json({ error: "Missing itemId" }, { status: 400 });
       }
-      await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      const itemUpdateStatusId = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      const itemUpdateDate = await getStatusDate(supabaseAdmin, itemUpdateStatusId);
+      if (itemUpdateDate && isOlderThan30Days(itemUpdateDate)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
 
       const item = (payload.item || {}) as Record<string, unknown>;
       const updates: Record<string, unknown> = {};
@@ -301,7 +357,14 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.item.delete") {
       const itemId = String(payload.itemId || "");
-      await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      const itemDeleteStatusId = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      const itemDeleteDate = await getStatusDate(supabaseAdmin, itemDeleteStatusId);
+      if (itemDeleteDate && isOlderThan30Days(itemDeleteDate)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
       const { error } = await supabaseAdmin.from("social_items").delete().eq("id", itemId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
