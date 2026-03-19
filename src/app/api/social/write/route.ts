@@ -25,6 +25,11 @@ const truncate = (value: string, max: number) =>
   value.length > max ? value.slice(0, max) : value;
 
 // ── Date validation helpers ──────────────────────────────────────────
+// UTC+14 (Line Islands) — world's earliest timezone — unlocks posts
+const EARLIEST_TZ_OFFSET = 14;
+// UTC-12 (Baker Island) — world's latest timezone — closes the edit window
+const LATEST_TZ_OFFSET = -12;
+
 /** Returns the current date as YYYY-MM-DD shifted by the given UTC offset (hours). */
 const getDateInOffset = (offsetHours: number) => {
   const adjusted = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
@@ -36,7 +41,7 @@ const getDateInOffset = (offsetHours: number) => {
  * Uses UTC+14 (Line Islands) — the world's earliest timezone — so a post
  * unlocks the moment that date has arrived anywhere on Earth.
  */
-const isFutureDate = (date: string) => date > getDateInOffset(14);
+const isFutureDate = (date: string) => date > getDateInOffset(EARLIEST_TZ_OFFSET);
 
 /**
  * Returns true if the given YYYY-MM-DD date is more than 30 days ago.
@@ -44,19 +49,9 @@ const isFutureDate = (date: string) => date > getDateInOffset(14);
  * 30-day edit window stays open until the day has ended everywhere on Earth.
  */
 const isOlderThan30Days = (date: string) => {
-  const nowInUTC12 = new Date(Date.now() - 12 * 60 * 60 * 1000);
-  nowInUTC12.setUTCDate(nowInUTC12.getUTCDate() - 30);
-  return date < nowInUTC12.toISOString().slice(0, 10);
-};
-
-/** Fetch a status's date field. Returns null if not found. */
-const getStatusDate = async (supabaseAdmin: SupabaseClient, statusId: string): Promise<string | null> => {
-  const { data } = await supabaseAdmin
-    .from("social_statuses")
-    .select("date")
-    .eq("id", statusId)
-    .maybeSingle();
-  return data?.date ?? null;
+  const nowInLatestTZ = new Date(Date.now() + LATEST_TZ_OFFSET * 60 * 60 * 1000);
+  nowInLatestTZ.setUTCDate(nowInLatestTZ.getUTCDate() - 30);
+  return date < nowInLatestTZ.toISOString().slice(0, 10);
 };
 
 // ── Rate limit: 60 writes per minute per user ───────────────────────
@@ -92,12 +87,13 @@ interface WriteBody {
 const ensureOwnStatus = async (supabaseAdmin: SupabaseClient, statusId: string, userId: string) => {
   const { data } = await supabaseAdmin
     .from("social_statuses")
-    .select("id,user_id")
+    .select("id,user_id,date,published")
     .eq("id", statusId)
     .maybeSingle();
   if (!data || data.user_id !== userId) {
     throw new Error("Not authorized for status");
   }
+  return data as { id: string; user_id: string; date: string; published: boolean };
 };
 
 const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, userId: string) => {
@@ -107,8 +103,7 @@ const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, user
     .eq("id", itemId)
     .maybeSingle();
   if (!data) throw new Error("Item not found");
-  await ensureOwnStatus(supabaseAdmin, data.status_id, userId);
-  return data.status_id;
+  return ensureOwnStatus(supabaseAdmin, data.status_id, userId);
 };
 
 const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string, userId: string) => {
@@ -208,31 +203,21 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.publish") {
       const statusId = String(payload.statusId || "");
       const published = Boolean(payload.published);
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
 
       // Block publishing posts whose date is in the future.
-      if (published) {
-        const statusDate = await getStatusDate(supabaseAdmin, statusId);
-        if (statusDate && isFutureDate(statusDate)) {
-          return NextResponse.json(
-            { error: "Cannot publish a post before its date arrives" },
-            { status: 403 }
-          );
-        }
+      if (published && isFutureDate(current.date)) {
+        return NextResponse.json(
+          { error: "Cannot publish a post before its date arrives" },
+          { status: 403 }
+        );
       }
 
       const updates: Record<string, unknown> = { published };
-      if (published) {
-        // Only set created_at on first publish — subsequent edits keep the
-        // original timestamp so the post's feed position doesn't change.
-        const { data: current } = await supabaseAdmin
-          .from("social_statuses")
-          .select("published")
-          .eq("id", statusId)
-          .maybeSingle();
-        if (!current?.published) {
-          updates.created_at = new Date().toISOString();
-        }
+      // Only set created_at on first publish — subsequent edits keep the
+      // original timestamp so the post's feed position doesn't change.
+      if (published && !current.published) {
+        updates.created_at = new Date().toISOString();
       }
       const { error } = await supabaseAdmin
         .from("social_statuses")
@@ -255,9 +240,8 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.item.add") {
       const statusId = String(payload.statusId || "");
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
-      const itemAddDate = await getStatusDate(supabaseAdmin, statusId);
-      if (itemAddDate && isOlderThan30Days(itemAddDate)) {
+      const status = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
         return NextResponse.json(
           { error: "Cannot edit posts older than 30 days" },
           { status: 403 }
@@ -338,9 +322,8 @@ export async function POST(req: NextRequest) {
       if (!itemId) {
         return NextResponse.json({ error: "Missing itemId" }, { status: 400 });
       }
-      const itemUpdateStatusId = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
-      const itemUpdateDate = await getStatusDate(supabaseAdmin, itemUpdateStatusId);
-      if (itemUpdateDate && isOlderThan30Days(itemUpdateDate)) {
+      const status = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
         return NextResponse.json(
           { error: "Cannot edit posts older than 30 days" },
           { status: 403 }
@@ -368,9 +351,8 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.item.delete") {
       const itemId = String(payload.itemId || "");
-      const itemDeleteStatusId = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
-      const itemDeleteDate = await getStatusDate(supabaseAdmin, itemDeleteStatusId);
-      if (itemDeleteDate && isOlderThan30Days(itemDeleteDate)) {
+      const status = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
         return NextResponse.json(
           { error: "Cannot edit posts older than 30 days" },
           { status: 403 }
