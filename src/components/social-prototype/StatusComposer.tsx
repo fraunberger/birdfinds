@@ -702,7 +702,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             }}
                             disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges) || isFuturePost || isEditExpired}
                             title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
-                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>
