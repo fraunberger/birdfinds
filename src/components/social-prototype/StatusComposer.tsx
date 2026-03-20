@@ -239,6 +239,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
     const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
+
+    // Use the user's local date so the button state matches their clock.
+    // The server uses UTC+14/UTC-12 as a permissive safety net, so anything
+    // the client allows will always be accepted server-side.
+    const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+    const localCutoff = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return d.toLocaleDateString('en-CA');
+    })();
+    const isFuturePost = activeDate > localToday;
+    const isEditExpired = activeDate < localCutoff;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
@@ -688,8 +700,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     setIsPosting(false);
                                 }
                             }}
-                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges)}
-                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges) || isFuturePost || isEditExpired}
+                            title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
+                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>
