@@ -77,7 +77,9 @@ type WriteAction =
   | "social.mute.toggle"
   | "social.habit.add"
   | "social.habit.remove"
-  | "social.habit.log.toggle";
+  | "social.habit.log.toggle"
+  | "social.status.changeDate"
+  | "social.status.setBundledDates";
 
 interface WriteBody {
   action: WriteAction;
@@ -234,6 +236,97 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
       await supabaseAdmin.from("social_items").delete().eq("status_id", statusId);
       const { error } = await supabaseAdmin.from("social_statuses").delete().eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.changeDate") {
+      const statusId = String(payload.statusId || "");
+      const newDate = String(payload.newDate || "");
+      if (!statusId || !newDate) return NextResponse.json({ error: "Missing statusId or newDate" }, { status: 400 });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Check if target date already has a post
+      const { data: conflict } = await supabaseAdmin
+        .from("social_statuses")
+        .select("id,content")
+        .eq("user_id", linkedUserId)
+        .eq("date", newDate)
+        .neq("id", statusId)
+        .maybeSingle();
+
+      if (conflict) {
+        // Merge: move items from source to target, append content, delete source
+        await supabaseAdmin
+          .from("social_items")
+          .update({ status_id: conflict.id })
+          .eq("status_id", statusId);
+
+        // Append source content to target
+        const { data: source } = await supabaseAdmin
+          .from("social_statuses")
+          .select("content")
+          .eq("id", statusId)
+          .single();
+        const sourceContent = (source?.content || "").trim();
+        const targetContent = (conflict.content || "").trim();
+        if (sourceContent) {
+          const merged = targetContent ? `${targetContent}\n${sourceContent}` : sourceContent;
+          await supabaseAdmin
+            .from("social_statuses")
+            .update({ content: truncate(merged, MAX_STATUS_CONTENT) })
+            .eq("id", conflict.id);
+        }
+
+        // Delete source (comments + status)
+        await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
+        await supabaseAdmin.from("social_statuses").delete().eq("id", statusId);
+        return NextResponse.json({ ok: true, mergedInto: conflict.id });
+      }
+
+      // No conflict — just update date
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ date: newDate })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.setBundledDates") {
+      const statusId = String(payload.statusId || "");
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      const rawDates = Array.isArray(payload.bundledDates) ? payload.bundledDates : null;
+      const bundledDates = rawDates
+        ? rawDates.map(d => String(d)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        : null;
+
+      // Max 3 bundled dates (4 total including the primary date)
+      if (bundledDates && bundledDates.length > 3) {
+        return NextResponse.json({ error: "Maximum 4 days per bundle" }, { status: 400 });
+      }
+
+      // Check that no bundled date already has its own separate status
+      if (bundledDates && bundledDates.length > 0) {
+        const { data: conflicts } = await supabaseAdmin
+          .from("social_statuses")
+          .select("id,date")
+          .eq("user_id", linkedUserId)
+          .in("date", bundledDates)
+          .neq("id", statusId);
+        if (conflicts && conflicts.length > 0) {
+          const conflictDates = conflicts.map((c: { date: string }) => c.date).join(", ");
+          return NextResponse.json({ error: `Posts already exist for: ${conflictDates}. Delete them first.` }, { status: 409 });
+        }
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ bundled_dates: bundledDates })
+        .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }

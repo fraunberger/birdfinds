@@ -141,7 +141,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // coupling:'none' categories are always linked (no linkage step).
     const isLinked = config.coupling === 'none'
         || (config.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
-        || (config.coupling === 'api' && !!parsedMeta.externalSource);
+        || (config.coupling === 'api' && (!!parsedMeta.externalSource || (category === 'beer' && !!draft.subtitle?.trim())));
 
     // Clear the card back to dead state (reset everything).
     const clearLinkage = useCallback(() => {
@@ -343,7 +343,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
-        ? isCoupled
+        ? (isCoupled || (category === 'beer' && !!draft.subtitle?.trim()))
         : category === 'bird'
             ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
             : config.coupling === 'none'
@@ -866,7 +866,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: r.title,
-                                                    subtitle: r.subtitle || '',
+                                                    // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
+                                                    subtitle: source === 'itunes' ? (r.subtitle || '') : '',
                                                     rating: undefined,
                                                     notes: '',
                                                     image: serializeItemMeta({
@@ -1231,38 +1232,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     )}
                                 </div>
                             )}
-                            {/* Wishlist scoring inputs — compact horizontal row in main column */}
-                            {category === 'wishlist' && (() => {
-                                const desire = parsedMeta.wishlistDesire ?? 5;
-                                const impact = parsedMeta.wishlistImpact ?? 5;
-                                const cost = parsedMeta.wishlistCost ?? 5;
-                                const updateScores = (d: number, i: number, c: number) => {
-                                    setDraft(prev => ({
-                                        ...prev,
-                                        rating: Math.round(d * i * c) / 100,
-                                        image: serializeItemMeta({ ...parseItemMeta(prev.image), wishlistDesire: d, wishlistImpact: i, wishlistCost: c }),
-                                    }));
-                                };
-                                return (
-                                    <div className="mt-2 flex gap-3">
-                                        {([
-                                            { label: 'Desire', val: desire, onChange: (v: number) => updateScores(v, impact, cost) },
-                                            { label: 'Impact', val: impact, onChange: (v: number) => updateScores(desire, v, cost) },
-                                            { label: 'Cost ↓', val: cost, title: '10=cheap · 1=expensive', onChange: (v: number) => updateScores(desire, impact, v) },
-                                        ] as { label: string; val: number; title?: string; onChange: (v: number) => void }[]).map(({ label, val, title, onChange }) => (
-                                            <div key={label} className="flex flex-col items-center gap-0.5">
-                                                <span className="text-[9px] uppercase tracking-widest text-neutral-400" title={title}>{label}</span>
-                                                {readOnly
-                                                    ? <span className="text-sm font-bold text-neutral-800">{val}</span>
-                                                    : <input type="number" min="1" max="10" step="1" value={val}
-                                                        onChange={e => onChange(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                                                        className="w-10 text-center text-sm font-bold border border-neutral-300 outline-none focus:border-pink-400 py-0.5 bg-white" />
-                                                }
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            })()}
                             {/* Bird spotted + checklist — single shared search bar */}
                             {category === 'bird' && (() => {
                                 const birdList = parsedMeta.birdList || [];
@@ -1313,14 +1282,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     }));
                                 };
 
-                                const allBirdNames = [...birdList.map(b => b.comName), ...checklist.map(b => b.comName)];
                                 return (
                                     <div>
                                         {readOnly ? (
                                             <div className="flex flex-wrap gap-1.5">
-                                                {allBirdNames.length === 0
+                                                {[...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].length === 0
                                                     ? <span className="text-sm text-neutral-400">—</span>
-                                                    : allBirdNames.map((name, i) => (
+                                                    : [...birdList.map(b => b.comName), ...checklist.map(b => b.comName)].map((name, i) => (
                                                         <span key={i} className="text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">{name}</span>
                                                     ))
                                                 }
@@ -1365,20 +1333,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="mt-2 border border-neutral-200 bg-neutral-50 min-h-[2.5rem] p-2">
-                                                    {checklist.length === 0 ? (
-                                                        <span className="text-[10px] uppercase tracking-widest text-neutral-400">Species added here</span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {checklist.map(b => (
-                                                                <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 bg-white px-2 py-0.5 text-neutral-700">
-                                                                    {b.comName}
-                                                                    <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {checklist.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {checklist.map(b => (
+                                                            <span key={b.id} className="flex items-center gap-1 text-xs border border-neutral-300 px-2 py-0.5 text-neutral-700">
+                                                                {b.comName}
+                                                                <button type="button" onClick={() => removeFromChecklist(b.id)} className="text-neutral-400 hover:text-neutral-800 leading-none">×</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </div>
@@ -1413,18 +1377,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             <span className="text-[9px] text-neutral-400 uppercase tracking-widest">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                         </div>
                         )}
-                        {/* Wishlist — score box only in right column */}
-                        {config.extras.includes('wishlistScoring') && (() => {
-                            const score = Math.round((parsedMeta.wishlistDesire ?? 5) * (parsedMeta.wishlistImpact ?? 5) * (parsedMeta.wishlistCost ?? 5)) / 100;
-                            return (
-                                <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-6">
-                                    <div className="w-16 h-16 border-2 border-pink-300 bg-pink-50 flex flex-col items-center justify-center">
-                                        <span className="text-2xl font-bold text-neutral-800 leading-none">{score.toFixed(1)}</span>
-                                    </div>
-                                    <span className="text-[9px] text-neutral-400 uppercase tracking-widest">Priority</span>
-                                </div>
-                            );
-                        })()}
                         {/* Liked/disliked signal for recipes */}
                         {config.extras.includes('likedSignal') && (
                         <div className="flex-shrink-0 pt-6 flex flex-col gap-1">
@@ -1446,9 +1398,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         )}
                     </div>
 
-                    {(category === 'link' || category === 'wishlist') && (
+                    {category === 'link' && (
                         <div>
-                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">{category === 'wishlist' ? 'Link' : 'URL'}</label>
+                            <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">URL</label>
                             {readOnly ? (
                                 linkUrl ? (
                                     <a href={linkUrl} target="_blank" rel="noreferrer" className="text-xs text-neutral-700 underline hover:text-neutral-900 break-all">{linkUrl}</a>
