@@ -22,7 +22,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, statuses, isLoaded, refresh } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, statuses, isLoaded, refresh } = useSocialStore();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,6 +31,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
+    const [showBundlePicker, setShowBundlePicker] = useState(false);
+
+    // Close bundle picker on outside click
+    useEffect(() => {
+        if (!showBundlePicker) return;
+        const handler = (e: MouseEvent) => {
+            if (bundlePickerRef.current && !bundlePickerRef.current.contains(e.target as Node)) {
+                setShowBundlePicker(false);
+            }
+        };
+        window.addEventListener('mousedown', handler);
+        return () => window.removeEventListener('mousedown', handler);
+    }, [showBundlePicker]);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -40,6 +53,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
+    const moveDateInputRef = useRef<HTMLInputElement>(null);
+    const bundlePickerRef = useRef<HTMLDivElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
@@ -467,13 +482,105 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     </button>
                     <span className={`whitespace-nowrap text-[10px] ${draftBadgeTone}`}>{draftBadgeText}</span>
                     <div className="relative inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
-                        <span className="font-mono text-neutral-500 whitespace-nowrap select-none">{activeDate.slice(5).replace('-', '/')}</span>
+                        <span className="font-mono text-neutral-500 whitespace-nowrap select-none">
+                            {activeStatus?.bundledDates?.length
+                                ? `${[...activeStatus.bundledDates].sort()[0].slice(5).replace('-', '/')} - ${activeDate.slice(5).replace('-', '/')}`
+                                : activeDate.slice(5).replace('-', '/')}
+                        </span>
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-neutral-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
                             <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 9h18" />
                         </svg>
                         <input ref={dateInputRef} type="date" value={activeDate} onChange={(e) => setActiveDate(e.target.value)}
                             onClick={(e) => { try { const t = e.target as HTMLInputElement; if (typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
                             aria-label="Select date" className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                    {activeStatus && activeStatus.id !== 'temp-optimistic' && (
+                        <div className="relative inline-flex items-center">
+                            <button type="button"
+                                onClick={() => { try { const t = moveDateInputRef.current; if (t && typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
+                                className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation"
+                                title="Move post to different date"
+                                aria-label="Move post to different date">
+                                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M5 12h14M12 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                            <input ref={moveDateInputRef} type="date"
+                                onChange={async (e) => {
+                                    const newDate = e.target.value;
+                                    if (!newDate || newDate === activeDate) return;
+                                    if (!confirm(`Move this post to ${newDate}? If that date already has a post, items and content will be merged.`)) return;
+                                    try {
+                                        await moveStatusToDate(activeStatus.id, newDate);
+                                        pushToast({ message: `Post moved to ${newDate}`, tone: 'success' });
+                                    } catch (err) {
+                                        pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
+                                    }
+                                }}
+                                aria-label="Move to date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                        </div>
+                    )}
+                    {/* Bundle days toggle */}
+                    <div className="relative" ref={bundlePickerRef}>
+                        <button type="button"
+                            onClick={() => setShowBundlePicker(p => !p)}
+                            className={`text-[10px] uppercase tracking-widest transition-colors touch-manipulation px-1 ${
+                                activeStatus?.bundledDates?.length ? 'text-neutral-700 font-bold' : 'text-neutral-400 hover:text-neutral-600'
+                            }`}
+                            title="Bundle multiple days"
+                            aria-label="Bundle days">
+                            {activeStatus?.bundledDates?.length ? `${activeStatus.bundledDates.length + 1}d` : 'bundle'}
+                        </button>
+                        {showBundlePicker && (() => {
+                            const currentBundle = activeStatus?.bundledDates || [];
+                            const options = [1, 2, 3, 4]; // total days
+                            return (
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-2 min-w-[120px]">
+                                    <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Days to cover</div>
+                                    {options.map(n => {
+                                        const isSelected = n === 1 ? !currentBundle.length : currentBundle.length === n - 1;
+                                        return (
+                                            <button key={n} type="button"
+                                                className={`block w-full text-left px-2 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                                onClick={async () => {
+                                                    setShowBundlePicker(false);
+                                                    if (n === 1) {
+                                                        // Unbundle
+                                                        if (!activeStatus || activeStatus.id === 'temp-optimistic') return;
+                                                        try {
+                                                            await setBundledDates(activeStatus.id, null);
+                                                            pushToast({ message: 'Bundle removed', tone: 'success' });
+                                                        } catch (err) {
+                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to unbundle', tone: 'error' });
+                                                        }
+                                                    } else {
+                                                        // Bundle n-1 preceding days
+                                                        const dates: string[] = [];
+                                                        for (let i = n - 1; i >= 1; i--) {
+                                                            const d = new Date(activeDate + 'T12:00:00');
+                                                            d.setDate(d.getDate() - i);
+                                                            dates.push(d.toISOString().slice(0, 10));
+                                                        }
+                                                        try {
+                                                            const statusId = activeStatus?.id === 'temp-optimistic'
+                                                                ? await ensureActiveStatus()
+                                                                : activeStatus?.id;
+                                                            if (!statusId) return;
+                                                            await setBundledDates(statusId, dates);
+                                                            pushToast({ message: `Bundled ${n} days`, tone: 'success' });
+                                                        } catch (err) {
+                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to bundle', tone: 'error' });
+                                                        }
+                                                    }
+                                                }}>
+                                                {n === 1 ? '1 day (no bundle)' : `${n} days`}
+                                                {isSelected && ' *'}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             </header>
@@ -611,7 +718,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     {/* Post Action Row + Habits */}
                     <div className="mt-2 mb-1 flex items-center gap-3">
                         <div className="min-w-0 flex-1">
-                            <HabitChecklist date={activeDate} />
+                            <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
                         </div>
                         <button
                             type="button"

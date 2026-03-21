@@ -13,7 +13,7 @@ import type { SsotPattern, CouplingType, RatingScope, CategoryExtra } from '@/li
 export type Category = string;
 export type ProfileVisibility = 'public' | 'accounts' | 'private';
 
-export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'location', 'beer', 'cooking', 'exercise', 'podcast', 'book', 'bird', 'wishlist'];
+export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'location', 'beer', 'cooking', 'exercise', 'podcast', 'book'];
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
 export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';
@@ -41,6 +41,7 @@ export interface Status {
     userId?: string;
     published: boolean;
     createdAt: number;
+    bundledDates?: string[]; // other dates this status covers (YYYY-MM-DD), excluding the primary date
 }
 
 export interface StatusComment {
@@ -160,6 +161,7 @@ interface StatusRow {
     published?: boolean;
     created_at: string;
     deleted_at?: string | null;
+    bundled_dates?: unknown[] | null;
 }
 
 interface MeResponse {
@@ -477,16 +479,33 @@ class SocialStore {
         if (existing) {
             this.state.activeStatus = existing;
         } else {
-            this.state.activeStatus = {
-                id: 'temp-optimistic',
-                content: '',
-                date: activeDate,
-                items: [],
-                comments: [],
-                published: false,
-                createdAt: Date.now()
-            };
+            // Check if this date is bundled into another status
+            const bundleParent = statuses.find(s => s.bundledDates?.includes(activeDate));
+            if (bundleParent) {
+                this.state.activeDate = bundleParent.date;
+                this.state.activeStatus = bundleParent;
+            } else {
+                this.state.activeStatus = {
+                    id: 'temp-optimistic',
+                    content: '',
+                    date: activeDate,
+                    items: [],
+                    comments: [],
+                    published: false,
+                    createdAt: Date.now()
+                };
+            }
         }
+    }
+
+    /** Check if a date is bundled into another status. */
+    isDateBundled(date: string): { statusId: string; primaryDate: string } | null {
+        for (const s of this.state.statuses) {
+            if (s.bundledDates?.includes(date)) {
+                return { statusId: s.id, primaryDate: s.date };
+            }
+        }
+        return null;
     }
 
     async fetchStatuses(options?: { force?: boolean }) {
@@ -503,7 +522,7 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates';
 
                 const [journalResp, feedResp] = await Promise.all([
                     linkedUserId
@@ -590,6 +609,7 @@ class SocialStore {
                     userId: s.user_id,
                     published: s.published ?? false,
                     createdAt: new Date(s.created_at).getTime(),
+                    bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -716,7 +736,7 @@ class SocialStore {
 
         const me = await getLinkedMe();
         const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates';
 
         const { data: nextPage, error } = await supabase
             .from('social_statuses')
@@ -787,6 +807,7 @@ class SocialStore {
                 userId: s.user_id,
                 published: s.published ?? false,
                 createdAt: new Date(s.created_at).getTime(),
+                bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
                 items: (itemsByStatus.get(s.id) || []).map(i => ({
                     id: i.id as string,
                     category: i.category as Category,
@@ -1056,6 +1077,36 @@ class SocialStore {
         }
     }
 
+    async setBundledDates(statusId: string, bundledDates: string[] | null) {
+        await socialWrite('social.status.setBundledDates', { statusId, bundledDates });
+        const update = (s: Status) =>
+            s.id === statusId ? { ...s, bundledDates: bundledDates?.length ? bundledDates : undefined } : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = { ...this.state.activeStatus, bundledDates: bundledDates?.length ? bundledDates : undefined };
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
+    async moveStatusToDate(statusId: string, newDate: string) {
+        await socialWrite('social.status.changeDate', { statusId, newDate });
+        // Remove old status from local state and refresh
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.filter(s => s.id !== statusId),
+            allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+            activeDate: newDate,
+        };
+        this.syncActiveStatus();
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
     async removeItemFromActive(itemId: string) {
         try {
             // Optimistic removal
@@ -1248,6 +1299,8 @@ export function useSocialStore() {
         softDeleteComment: (commentId: string, reason?: string) => socialStore.softDeleteComment(commentId, reason),
         togglePublished: (id: string, published: boolean) => socialStore.togglePublished(id, published),
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
+        moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
+        setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),

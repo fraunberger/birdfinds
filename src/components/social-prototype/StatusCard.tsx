@@ -234,11 +234,10 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         </div>
                     )}
                     <span className="text-[10px] text-neutral-400">
-                        {new Date(status.date).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            timeZone: 'UTC'
-                        })}
+                        {status.bundledDates && status.bundledDates.length > 0
+                            ? `${new Date([...status.bundledDates].sort()[0]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })} - ${new Date(status.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+                            : new Date(status.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
+                        }
                     </span>
                 </div>
             </div>
@@ -257,7 +256,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                 const itemMeta = parseItemMeta(item.image);
                                 const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
                                 const isLinked = config.coupling === 'api'
-                                    ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
+                                    ? (item.category === 'book' ? !!itemMeta.imageUrl : (!!itemMeta.externalSource || (item.category === 'beer' && !!item.subtitle?.trim())))
                                     : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
                                 return (
                                     <div
@@ -336,7 +335,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                             date={status.date}
                             readOnly={!isOwn}
                             userId={isOwn ? undefined : status.userId}
-                            vertical
+                            vertical={!status.bundledDates?.length}
+                            bundledDates={status.bundledDates}
                         />
                     </div>
                 )}
@@ -423,20 +423,13 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         setCommentSubmitting(false);
                                     }
                                 }}
-                                className="flex items-end gap-2"
+                                className="flex items-center gap-2"
                             >
-                                <textarea
+                                <input
                                     value={commentDraft}
                                     onChange={(event) => setCommentDraft(event.target.value)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' && !event.shiftKey) {
-                                            event.preventDefault();
-                                            event.currentTarget.form?.requestSubmit();
-                                        }
-                                    }}
                                     placeholder="Add a comment..."
-                                    rows={1}
-                                    className="flex-1 border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-500 resize-none"
+                                    className="flex-1 border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-500"
                                 />
                                 <button
                                     type="submit"
