@@ -209,13 +209,12 @@ export function useTaggingState({
         // Priority 1: Has text selected (Flow A)
         const recentSelection = lastSelectionRef.current;
         const selectionSnapshot = selectionRangeRef.current;
-        const hasRecentMobileSelection = isMobileTagging
-            && !!recentSelection
+        const hasRecentSelection = !!recentSelection
             && (Date.now() - recentSelection.at) < 2500
             && recentSelection.text.trim().length > 0;
         const effectiveSelectionText = selectionSnapshot.text.trim()
             || selectedText.trim()
-            || (hasRecentMobileSelection ? recentSelection?.text.trim() || '' : '');
+            || (hasRecentSelection ? recentSelection?.text.trim() || '' : '');
         const hasSelection = effectiveSelectionText.length > 0;
         if (hasSelection) {
             const title = stripLeadingAtSymbol(effectiveSelectionText);
@@ -314,7 +313,7 @@ export function useTaggingState({
         setQuickAddCategory(category);
         setQuickAddTitle('');
         setTimeout(() => quickAddInputRef.current?.focus(), 50);
-    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus, isMobileTagging]);
+    }, [selectedText, atPrefixPos, atPrefixText, content, items, clearSelection, clearAtPrefix, addItemToActive, setContentForActive, updateActiveStatus]);
 
     // ── Quick-add submit ───────────────────────────────────────────────
     const submitQuickAdd = useCallback(async () => {

@@ -24,6 +24,7 @@ export type CategoryExtra =
     | 'progressTracking'  // Per-session numeric progress (books: page/chapter)
     | 'dishList'          // Accumulating list of dishes tried (restaurants)
     | 'likedSignal'       // Binary 👍/👎 instead of star rating (recipes)
+    | 'wishlistScoring'   // Wishlist-style scoring
     | 'notes';            // Freeform notes per engagement (recipes, links)
 
 export interface CategoryDefinition {
@@ -177,10 +178,10 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'none', coupling: 'none',
         hasRating: false, ratingScope: null,
         childLabel: null, extras: ['notes'],
-        titleLabel: 'Species', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
+        titleLabel: 'Session', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
         ratingLabel: 'Rating',
         notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
-        color: '#6ab4f7', icon: '🐦',
+        color: '#34d399', icon: '',
     },
 };
 

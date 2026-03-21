@@ -135,6 +135,62 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
             .sort((a, b) => (b.latest.rating || 0) - (a.latest.rating || 0))
         : [...filteredItems].sort((a, b) => b.latest.createdAt - a.latest.createdAt);
 
+    // ── Book-specific view data ──────────────────────────────────────────
+    const BOOK_COLORS = ['#6ab4f7', '#f472b6', '#7be08a', '#f5d142', '#b78ef5', '#f7756a', '#e8a94f', '#7be0c3'];
+
+    // A book is "finished" if it has an explicit finished flag, OR if it has a
+    // rating but no progress data (old-style entries pre-dating progress tracking).
+    const isBookFinished = (entry: AggregatedItem): boolean => {
+        if (entry.visits.some(v => parseItemMeta(v.image).finished)) return true;
+        const hasProgress = entry.visits.some(v => parseItemMeta(v.image).progressPage != null);
+        return !hasProgress && entry.visits.some(v => v.rating);
+    };
+    // Best visit to open for a finished book: explicit finished visit first, else highest-rated
+    const getFinishedVisit = (entry: AggregatedItem) =>
+        entry.visits.find(v => parseItemMeta(v.image).finished) ??
+        [...entry.visits].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+
+    const inProgressBooks = bookCat ? aggregatedItems.filter(e => !isBookFinished(e)) : [];
+    const finishedBooks = bookCat
+        ? (() => {
+            const finished = aggregatedItems.filter(e => isBookFinished(e));
+            if (sortMode === 'top') {
+                return finished
+                    .filter(e => getFinishedVisit(e)?.rating)
+                    .sort((a, b) => (getFinishedVisit(b)?.rating || 0) - (getFinishedVisit(a)?.rating || 0));
+            }
+            return finished.sort((a, b) => b.latest.createdAt - a.latest.createdAt);
+        })()
+        : [];
+    interface BookGraphEntry extends AggregatedItem { points: { date: number; pct: number }[]; color: string; }
+    const graphEntries: BookGraphEntry[] = inProgressBooks.map((entry, i) => {
+        // Check if this book has any visit with explicit progress data
+        const hasProgressData = entry.visits.some(v => {
+            const vm = parseItemMeta(v.image);
+            return vm.progressPage != null;
+        });
+        const points = entry.visits
+            .map(v => {
+                const vm = parseItemMeta(v.image);
+                let pct: number | null = null;
+                if (vm.progressMode === 'percent' && vm.progressPage != null) pct = vm.progressPage;
+                else if (vm.progressPage != null && vm.totalPages) pct = (vm.progressPage / vm.totalPages) * 100;
+                // Use the status (post) date for the graph x-axis, falling back to createdAt
+                const dateTs = v.statusDate
+                    ? new Date(v.statusDate + 'T12:00:00').getTime()
+                    : v.createdAt;
+                // Visits without progress (e.g. the initial "started reading" tag)
+                // appear as 0% so the graph timeline starts from the first log date,
+                // but only if the book has at least one visit with real progress.
+                if (pct == null && hasProgressData) pct = 0;
+                return pct != null ? { date: dateTs, pct: Math.min(100, pct) } : null;
+            })
+            .filter((p): p is { date: number; pct: number } => p != null)
+            .sort((a, b) => a.date - b.date);
+        return { ...entry, points, color: BOOK_COLORS[i % BOOK_COLORS.length] };
+    });
+    const hasGraph = graphEntries.some(e => e.points.length > 0);
+
     return (
         <div className="font-mono animate-in slide-in-from-right duration-200">
             {/* Header */}
@@ -223,8 +279,147 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 </div>
             )}
 
-            {/* Items */}
-            {sortedItems.length === 0 ? (
+            {/* ── Book-specific layout ─────────────────────────────────────────── */}
+            {bookCat && (
+                <div>
+                    {/* In-progress section */}
+                    {inProgressBooks.length > 0 && (
+                        <div className="mb-6">
+                            <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-2">In Progress</div>
+
+                            {/* SVG line graph */}
+                            {hasGraph && (() => {
+                                const allPts = graphEntries.flatMap(e => e.points);
+                                const minTs = Math.min(...allPts.map(p => p.date));
+                                const maxTs = Math.max(...allPts.map(p => p.date));
+                                const W = 400, H = 90;
+                                const pad = { t: 6, r: 8, b: 18, l: 28 };
+                                const cW = W - pad.l - pad.r;
+                                const cH = H - pad.t - pad.b;
+                                const xf = (ts: number) => pad.l + ((ts - minTs) / Math.max(maxTs - minTs, 1)) * cW;
+                                const yf = (pct: number) => pad.t + (1 - pct / 100) * cH;
+                                return (
+                                    <svg viewBox={`0 0 ${W} ${H}`} className="w-full border border-neutral-100 bg-neutral-50 mb-3" style={{ height: 90 }}>
+                                        {/* Grid lines */}
+                                        {[0, 25, 50, 75, 100].map(pct => (
+                                            <line key={pct} x1={pad.l} x2={W - pad.r} y1={yf(pct)} y2={yf(pct)} stroke={pct % 50 === 0 ? '#d4d4d4' : '#e5e5e5'} strokeWidth="0.5" />
+                                        ))}
+                                        {/* Y-axis labels */}
+                                        {[0, 50, 100].map(pct => (
+                                            <text key={pct} x={pad.l - 3} y={yf(pct) + 3} textAnchor="end" fontSize="6.5" fill="#a3a3a3">{pct}%</text>
+                                        ))}
+                                        {/* X-axis date labels */}
+                                        <text x={pad.l} y={H - 3} textAnchor="start" fontSize="6.5" fill="#a3a3a3">
+                                            {new Date(minTs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </text>
+                                        {minTs !== maxTs && (
+                                            <text x={W - pad.r} y={H - 3} textAnchor="end" fontSize="6.5" fill="#a3a3a3">
+                                                {new Date(maxTs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </text>
+                                        )}
+                                        {/* Book lines */}
+                                        {graphEntries.map(entry => {
+                                            if (entry.points.length === 0) return null;
+                                            if (entry.points.length === 1) {
+                                                return <circle key={entry.key} cx={xf(entry.points[0].date)} cy={yf(entry.points[0].pct)} r={3} fill={entry.color} />;
+                                            }
+                                            const d = entry.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xf(p.date).toFixed(1)},${yf(p.pct).toFixed(1)}`).join(' ');
+                                            return (
+                                                <g key={entry.key}>
+                                                    <path d={d} stroke={entry.color} strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+                                                    {entry.points.map((p, i) => (
+                                                        <circle key={i} cx={xf(p.date)} cy={yf(p.pct)} r={2} fill={entry.color} />
+                                                    ))}
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+                                );
+                            })()}
+
+                            {/* In-progress book list */}
+                            <div className="space-y-1">
+                                {inProgressBooks.map((entry, i) => {
+                                    const color = BOOK_COLORS[i % BOOK_COLORS.length];
+                                    const latestMeta = parseItemMeta(entry.latest.image);
+                                    const isPercent = latestMeta.progressMode === 'percent';
+                                    const pct = isPercent
+                                        ? latestMeta.progressPage
+                                        : (latestMeta.progressPage != null && latestMeta.totalPages
+                                            ? (latestMeta.progressPage / latestMeta.totalPages) * 100
+                                            : null);
+                                    const progressLabel = isPercent
+                                        ? (latestMeta.progressPage != null ? `${latestMeta.progressPage}%` : '—')
+                                        : (latestMeta.progressPage != null
+                                            ? `p. ${latestMeta.progressPage}${latestMeta.totalPages ? ` / ${latestMeta.totalPages}` : ''}`
+                                            : '—');
+                                    return (
+                                        <button key={entry.key} type="button" onClick={() => setSelectedItem(entry.latest)} className="w-full text-left">
+                                            <div className="flex items-center gap-2.5 px-3 py-2 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
+                                                <div className="w-2 h-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: color }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-bold truncate">{entry.latest.title}</div>
+                                                    {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
+                                                    {pct != null && (
+                                                        <div className="mt-1 h-0.5 bg-neutral-100">
+                                                            <div className="h-full" style={{ width: `${Math.min(100, pct).toFixed(1)}%`, backgroundColor: color }} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-neutral-400 flex-shrink-0">{progressLabel}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Finished books */}
+                    {finishedBooks.length > 0 && (
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-2">Finished</div>
+                            <div className="space-y-1">
+                                {finishedBooks.map((entry, idx) => {
+                                    const finishedVisit = getFinishedVisit(entry);
+                                    const finishDate = finishedVisit
+                                        ? new Date(finishedVisit.statusDate ? finishedVisit.statusDate + 'T12:00:00' : finishedVisit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                        : null;
+                                    return (
+                                        <button key={entry.key} type="button" onClick={() => finishedVisit && setSelectedItem(finishedVisit)} className="w-full text-left">
+                                            <div className="flex items-center gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
+                                                {sortMode === 'top' && (
+                                                    <span className="text-[10px] text-neutral-400 font-bold w-4 flex-shrink-0">{idx + 1}</span>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-bold truncate">{entry.latest.title}</div>
+                                                    {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
+                                                    {finishDate && <div className="text-[10px] text-neutral-300 mt-0.5 uppercase tracking-widest">{finishDate}</div>}
+                                                </div>
+                                                {finishedVisit?.rating ? (
+                                                    <div className="flex-shrink-0 text-right">
+                                                        <span className="text-sm font-bold text-neutral-800">{finishedVisit.rating}</span>
+                                                        <span className="text-[9px] text-neutral-400">/10</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[9px] text-neutral-300 uppercase tracking-widest flex-shrink-0">✓</span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {inProgressBooks.length === 0 && finishedBooks.length === 0 && (
+                        <div className="text-xs text-neutral-400 py-6 text-center uppercase tracking-widest">No entries yet.</div>
+                    )}
+                </div>
+            )}
+
+            {/* ── Non-book items ────────────────────────────────────────────────── */}
+            {!bookCat && (sortedItems.length === 0 ? (
                 <div className="text-xs text-neutral-400 py-6 text-center uppercase tracking-widest">
                     {sortMode === 'top' ? 'No rated entries yet.' : 'No entries yet.'}
                 </div>
@@ -389,7 +584,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                 <button key={visit.id} type="button" onClick={() => setSelectedItem(visit)}
                                                     className="w-full flex items-center justify-between gap-2 text-[11px] hover:bg-neutral-100 px-1 py-0.5 rounded">
                                                     <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
-                                                        {new Date(visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                        {new Date(visit.statusDate ? visit.statusDate + 'T12:00:00' : visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                     </div>
                                                     <div className="text-neutral-700 text-right">
                                                         {vm.progressPage != null ? `p. ${vm.progressPage}` : '—'}
@@ -405,7 +600,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         </div>
                     ))}
                 </div>
-            )}
+            ))}
 
             {/* Item detail modal */}
             {selectedItem && (

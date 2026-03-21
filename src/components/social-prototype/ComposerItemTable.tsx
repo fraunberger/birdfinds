@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/lib/social-prototype/store';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
-import { parseItemMeta } from '@/lib/social-prototype/item-meta';
+import { isItemFilled } from './ComposerOnboarding';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
@@ -100,11 +100,13 @@ export function ComposerItemTable({
         if (!quickAddTitle.trim() || isQuickAdding) return;
         try {
             setIsQuickAdding(true);
+            // Beer: quick-add text is the brewery (subtitle), not the beer name
+            const isBeer = effectiveQuickAddCategory === 'beer';
             await onAddItem({
                 category: effectiveQuickAddCategory,
-                title: quickAddTitle,
+                title: isBeer ? '' : quickAddTitle,
                 rating: undefined,
-                subtitle: '',
+                subtitle: isBeer ? quickAddTitle : '',
                 notes: '',
             });
             setQuickAddTitle('');
@@ -157,10 +159,7 @@ export function ComposerItemTable({
                 <tbody>
                     {sortedItems.map((item) => {
                         const config = getCategoryConfig(item.category);
-                        const itemMeta = parseItemMeta(item.image);
-                        const isLinked = config.coupling === 'api'
-                            ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
-                            : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
+                        const isLinked = isItemFilled(item);
                         const isRemoving = removingItemIds.has(item.id);
                         return (
                             <tr
@@ -193,9 +192,12 @@ export function ComposerItemTable({
                                         {!isLinked && (
                                             <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNFILLED ·</span>
                                         )}
-                                        {item.title}
+                                        {item.category === 'beer' && !item.title.trim() ? (item.subtitle || 'Untitled') : item.title}
                                     </span>
-                                    {item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>}
+                                    {item.category === 'beer' && !item.title.trim()
+                                        ? null
+                                        : item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
+                                    }
                                     {isLinkingMode && (
                                         <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
                                     )}
@@ -255,7 +257,7 @@ export function ComposerItemTable({
                                 value={quickAddTitle}
                                 onChange={(e) => setQuickAddTitle(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
-                                placeholder="Add new entry..."
+                                placeholder={effectiveQuickAddCategory === 'beer' ? 'Add brewery...' : 'Add new entry...'}
                                 className="w-full bg-transparent outline-none text-[14px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
                             />
                         </td>

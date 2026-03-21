@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ConsumableItem, Status, useSocialStore, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
+import { ConsumableItem, Status, useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
@@ -11,6 +11,7 @@ import { getCanonicalItemKey } from '@/lib/social-prototype/items';
 import { useAuth } from '@/lib/auth';
 import { useTaggingState, getItemHighlightTerms } from './useTaggingState';
 import { HabitChecklist } from './HabitChecklist';
+import { ComposerOnboardingChecklist, hasCompletedComposerOnboarding, getOnboardingHighlight, ONBOARDING_PULSE_CSS, isItemFilled } from './ComposerOnboarding';
 
 interface StatusComposerProps {
     userCategories?: Category[];
@@ -23,6 +24,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
     const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, statuses, isLoaded, refresh } = useSocialStore();
+    const { hasPublishedPost } = useUserProfile();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,6 +52,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
+    const [showComposerOnboarding, setShowComposerOnboarding] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +77,19 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeContentKey = `draft:${activeDate}`;
     const content = contentDrafts[activeContentKey] ?? activeStatus?.content ?? '';
     const items = useMemo(() => activeStatus?.items ?? [], [activeStatus?.items]);
+
+    // Derive the active onboarding step for highlight hints
+    const onboardingActive = showComposerOnboarding && isExpanded;
+    const onboardingActiveStep = onboardingActive
+        ? (items.length === 0
+            ? 'tag' as const
+            : !items.some(isItemFilled)
+                ? 'fill' as const
+                : !content.includes(TAG_MARKER)
+                    ? 'couple' as const
+                    : null)
+        : null;
+
     const setContentForActive = useCallback((value: string) => {
         if (draftStatus === 'error') setDraftStatus('saved');
         setContentDrafts((prev) => ({ ...prev, [activeContentKey]: value }));
@@ -190,11 +206,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 }
             }
             setIsExpanded(true);
+            // Trigger onboarding checklist for first-time composers (no published posts yet)
+            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
+                setShowComposerOnboarding(true);
+            }
             window.setTimeout(() => textareaRef.current?.focus(), 220);
         };
         window.addEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
         return () => window.removeEventListener('birdpile:edit-entry', handleEditEntry as EventListener);
-    }, [setActiveDate, setActiveStatusForEdit]);
+    }, [setActiveDate, setActiveStatusForEdit, user?.id]);
 
     // If a stale local draft lost tag markers, prefer canonical server content for this status.
     useEffect(() => {
@@ -234,6 +254,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const hasUnsavedChanges = content !== (activeStatus?.content || '') && !activeStatus?.published;
     const hasDraftChanges = content !== (activeStatus?.content || '') || hasItemDraftChanges;
+
+    // Use the user's local date so the button state matches their clock.
+    // The server uses UTC+14/UTC-12 as a permissive safety net, so anything
+    // the client allows will always be accepted server-side.
+    const localToday = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+    const localCutoff = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return d.toLocaleDateString('en-CA');
+    })();
+    const isFuturePost = activeDate > localToday;
+    const isEditExpired = activeDate < localCutoff;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
@@ -454,6 +486,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             <style>{`
                 .composer-text, .highlight-layer { font-size: 14px; }
                 @media (min-width: 640px) { .composer-text, .highlight-layer { font-size: 12px; } }
+                ${onboardingActive ? ONBOARDING_PULSE_CSS : ''}
             `}</style>
 
             {/* Header */}
@@ -463,6 +496,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         const next = !isExpanded;
                         if (next) {
                             await prepareComposerForEntry();
+                            // Show inline onboarding checklist for first-time composers
+                            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
+                                setShowComposerOnboarding(true);
+                            }
                         }
                         setIsExpanded(next);
                     }}
@@ -647,8 +684,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             key={cat.id}
                                             onClick={() => {
                                                 setSelectedPlainText('');
+                                                const hasRecentFallback = !!recentSelectionRef.current
+                                                    && (Date.now() - recentSelectionRef.current.at) < 2500
+                                                    && recentSelectionRef.current.text.trim().length > 0;
                                                 recentSelectionRef.current = null;
-                                                if (hasContext) {
+                                                if (hasContext || hasRecentFallback) {
                                                     tagging.handleCategoryTap(cat.id);
                                                 } else {
                                                     setActiveCategory(cat.id);
@@ -683,7 +723,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         </div>
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
-                        <div className="relative min-h-[100px] bg-white">
+                        <div className={`relative min-h-[100px] bg-white ${getOnboardingHighlight('textarea', onboardingActiveStep)}`}>
                             {content && (
                                 <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
                                     {(segmentText(content, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
@@ -716,10 +756,24 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     </div>
 
                     {/* Post Action Row + Habits */}
-                    <div className="mt-2 mb-1 flex items-center gap-3">
+                    <div className="mt-2 mb-1 flex flex-col gap-2">
+                        {onboardingActive && user?.id && (
+                            <ComposerOnboardingChecklist
+                                userId={user.id}
+                                items={items}
+                                content={content}
+                                onComplete={() => setShowComposerOnboarding(false)}
+                            />
+                        )}
+                        <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                             <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
                         </div>
+                        {items.length > 0 && items.some(i => !isItemFilled(i)) && (
+                            <span className="text-[9px] uppercase tracking-widest text-amber-700 whitespace-nowrap">
+                                {items.filter(i => !isItemFilled(i)).length} unfilled
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={async () => {
@@ -753,14 +807,17 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     setIsPosting(false);
                                 }
                             }}
-                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges)}
-                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges) || isFuturePost || isEditExpired}
+                            title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
+                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>
+                        </div>
                     </div>
 
                     {/* Data Table */}
+                    <div className={getOnboardingHighlight('table', onboardingActiveStep) || getOnboardingHighlight('card', onboardingActiveStep)}>
                     <ComposerItemTable
                         items={items}
                         content={content}
@@ -781,6 +838,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             setHasItemDraftChanges(true);
                         }}
                     />
+                    </div>
                 </div>
             )}
 

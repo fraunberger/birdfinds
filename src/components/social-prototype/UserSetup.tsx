@@ -155,7 +155,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
 
         setError(null);
         const baseLabel = newCategoryName.trim();
-        const shortLabel = normalized.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase() || 'CAT';
+        const shortLabel = normalized.replace(/[^a-z0-9]/g, '').toUpperCase() || 'CAT';
 
         setSelectedCategories((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
         setCategoryConfigs((prev) => ({
@@ -402,6 +402,65 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                                         Short annotation
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="px-4 pb-4">
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">Color</div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {[
+                                    // Reds
+                                    '#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c',
+                                    // Oranges
+                                    '#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c',
+                                    // Ambers
+                                    '#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309',
+                                    // Yellows
+                                    '#fef08a', '#fde047', '#facc15', '#eab308', '#ca8a04',
+                                    // Limes
+                                    '#bef264', '#a3e635', '#84cc16', '#65a30d', '#4d7c0f',
+                                    // Greens
+                                    '#86efac', '#4ade80', '#22c55e', '#16a34a', '#15803d',
+                                    // Emeralds
+                                    '#6ee7b7', '#34d399', '#10b981', '#059669', '#047857',
+                                    // Teals
+                                    '#5eead4', '#2dd4bf', '#14b8a6', '#0d9488', '#0f766e',
+                                    // Cyans
+                                    '#67e8f9', '#22d3ee', '#06b6d4', '#0891b2', '#0e7490',
+                                    // Sky blues
+                                    '#7dd3fc', '#38bdf8', '#0ea5e9', '#0284c7', '#0369a1',
+                                    // Blues
+                                    '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8',
+                                    // Indigos
+                                    '#a5b4fc', '#818cf8', '#6366f1', '#4f46e5', '#4338ca',
+                                    // Violets
+                                    '#c4b5fd', '#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9',
+                                    // Purples
+                                    '#d8b4fe', '#c084fc', '#a855f7', '#9333ea', '#7e22ce',
+                                    // Fuchsias
+                                    '#f0abfc', '#e879f9', '#d946ef', '#c026d3', '#a21caf',
+                                    // Pinks
+                                    '#f9a8d4', '#f472b6', '#ec4899', '#db2777', '#be185d',
+                                    // Roses
+                                    '#fda4af', '#fb7185', '#f43f5e', '#e11d48', '#be123c',
+                                    // Neutrals
+                                    '#e5e5e5', '#d4d4d4', '#a3a3a3', '#737373', '#525252',
+                                ].map((c) => (
+                                    <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => updateCategoryConfig(editingCategory, { color: c })}
+                                        className="w-6 h-6 border-2 flex items-center justify-center"
+                                        style={{
+                                            backgroundColor: c,
+                                            borderColor: (editingConfig.color || '#d4d4d4') === c ? '#000' : 'transparent',
+                                        }}
+                                    >
+                                        {(editingConfig.color || '#d4d4d4') === c && (
+                                            <span className="text-[10px] font-bold" style={{ color: parseInt(c.slice(1), 16) > 0xaaaaaa ? '#000' : '#fff' }}>✓</span>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 

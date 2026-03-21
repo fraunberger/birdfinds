@@ -29,6 +29,7 @@ export interface ConsumableItem {
     notes?: string;
     image?: string;
     createdAt: number;
+    statusDate?: string; // YYYY-MM-DD date of the parent daily post
     consumedDates?: number[]; // epoch ms for each time consumed; length = total times tagged
 }
 
@@ -84,6 +85,7 @@ export interface CategoryConfigOverride {
     ratingLabel?: string;
     notesLabel?: string;
     notesPlaceholder?: string;
+    color?: string;
 }
 
 export interface UserProfile {
@@ -335,7 +337,7 @@ const toLabel = (value: string) => {
 const toShortLabel = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     if (!cleaned) return 'CAT';
-    return cleaned.slice(0, 8);
+    return cleaned;
 };
 
 export function getCategoryConfig(category: Category): CategoryConfig {
@@ -368,11 +370,20 @@ export function getCategoryConfig(category: Category): CategoryConfig {
     const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
     if (!override) return base;
 
-    return {
+    const merged = {
         ...base,
         ...override,
         id: category,
     };
+
+    // Fix retroactive truncation: if the stored shortLabel is a prefix of the
+    // full derived label (i.e. it was previously .slice(0,8)'d), replace it.
+    const full = toShortLabel(category);
+    if (merged.shortLabel && merged.shortLabel.length < full.length && full.startsWith(merged.shortLabel)) {
+        merged.shortLabel = full;
+    }
+
+    return merged;
 }
 
 // ============================================================
@@ -620,6 +631,7 @@ class SocialStore {
                             notes: (i.notes as string | null) || undefined,
                             image: (i.image as string | null) || undefined,
                             createdAt: new Date(i.created_at as string).getTime(),
+                            statusDate: s.date,
                             consumedDates: Array.isArray(i.consumed_dates)
                                 ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
                                 : undefined,
@@ -889,6 +901,7 @@ class SocialStore {
         const optimisticItem: ConsumableItem = {
             id: `temp-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             createdAt: Date.now(),
+            statusDate: this.state.activeDate,
             category: item.category,
             title: item.title,
             subtitle: item.subtitle,

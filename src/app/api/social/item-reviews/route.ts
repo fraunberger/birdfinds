@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { matchesItemRoute } from "@/lib/social-prototype/items";
 import { getItemExternalIdentityKey } from "@/lib/social-prototype/item-meta";
+import { getCategoryDef } from "@/lib/social-prototype/categories";
 import { getOrCreateLinkedSupabaseUser } from "@/lib/social-prototype/server-auth";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
@@ -69,6 +70,8 @@ export async function GET(req: NextRequest) {
 
   // Step 2: Filter to items matching the slug (title-based), then expand
   // to any item that shares the same API externalId as a slug-matched item.
+  // For parent-child categories (beer, tv, podcast) skip externalId expansion
+  // since each child (beer, episode) is a distinct entity under the parent.
   const slugMatched = allItems.filter((item) =>
     matchesItemRoute(category, slug, {
       category: item.category,
@@ -77,7 +80,10 @@ export async function GET(req: NextRequest) {
     })
   );
 
-  const matchedExternalIds = new Set(
+  const categoryDef = getCategoryDef(category);
+  const isParentChild = categoryDef?.ssotPattern === 'parent-child';
+
+  const matchedExternalIds = isParentChild ? new Set<string>() : new Set(
     slugMatched
       .map((item) => getItemExternalIdentityKey(category, item.image || undefined))
       .filter((k): k is string => k !== null)

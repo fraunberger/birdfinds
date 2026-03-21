@@ -41,10 +41,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // Parent/child categories (podcast, tv) require an episode-level external key before
     // showing notes, rating, or repeat-tag info. Without one the entry is a bare "dead card".
-    const isParentChildCategory = category === 'podcast' || category === 'tv';
+    const isParentChildCategory = category === 'podcast' || category === 'tv' || category === 'beer';
     const isEpisodeLinked = !isParentChildCategory ||
         parsedMeta.externalSource === 'itunes-podcast-episode' ||
-        parsedMeta.externalSource === 'tvmaze-episode';
+        parsedMeta.externalSource === 'tvmaze-episode' ||
+        category === 'beer';
 
     // ── Search visibility & token state ────────────────────────────────
     const [showMusicResults, setShowMusicResults] = useState(false);
@@ -73,6 +74,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // Exercise combobox
     const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+
+    // Beer combobox
+    const [showBeerDropdown, setShowBeerDropdown] = useState(false);
 
     // Bird multi-select
     const [birdQuery, setBirdQuery] = useState('');
@@ -163,7 +167,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // ── Repeat-tag detection (client-side, canonical key) ─────────────
     // Only compute after linkage.
     const repeatInfo = useMemo(() => {
-        if (!allUserItems || !title.trim() || category === 'book') return null;
+        if (!allUserItems || !title.trim() || category === 'book' || category === 'exercise' || category === 'bird') return null;
         if (!isLinked) return null;
         const draftExternalKey = getItemExternalIdentityKey(category, draft.image);
         const draftKey = getCanonicalItemKey({ category, title, subtitle });
@@ -296,7 +300,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback(() => {
-        if (!draft.title.trim()) return;
+        if (!draft.title.trim() && draft.category !== 'bird') return;
         let imageToSave = draft.image;
         if (draft.category === 'book' && parseItemMeta(draft.image).finished) {
             // Transition to SSOT on finish: use a stable external identity so
@@ -340,9 +344,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
         ? (isCoupled || (category === 'beer' && !!draft.subtitle?.trim()))
-        : config.coupling === 'none'
-            ? true
-            : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
+        : category === 'bird'
+            ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
+            : config.coupling === 'none'
+                ? true
+                : !!(draft.rating || draft.notes?.trim() || draft.subtitle?.trim() || parsedMeta.recipeUrl || parsedMeta.linkUrl);
     const itemPageHref = existingItem ? buildItemPath(existingItem) : null;
     const showItemPageLink = !!existingItem && hasItemAggregatePage(existingItem.category) && isLinkedForDisplay;
     const restaurantMapHref = (existingItem?.category === 'restaurant' || category === 'restaurant' || existingItem?.category === 'location' || category === 'location')
@@ -424,7 +430,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </span>
                             </div>
                         )}
-                        {config.coupling !== 'none' && (
+                        {(config.coupling !== 'none' || category === 'bird') && (
                             isLinkedForDisplay ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
                                     style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
@@ -432,7 +438,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 </span>
                             ) : !readOnly ? (
                                 <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                                    {config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
+                                    {category === 'bird' ? 'search birds to fill' : config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
                                 </span>
                             ) : null
                         )}
@@ -479,16 +485,197 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                     {/* Top Section: Title/Subtitle + Score Box */}
                     <div className="flex gap-4">
                         <div className="flex-1 min-w-0 space-y-4">
-                            {/* Title */}
-                            {<div>
+                            {/* Beer: Brewery first (API-gated like other coupled cards) */}
+                            {category === 'beer' && (() => {
+                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb' || gateClicked;
+                                return (
+                                <div>
+                                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                                        Brewery
+                                    </label>
+                                    {readOnly ? (
+                                        <div className="text-sm font-mono text-neutral-700 py-1">
+                                            {subtitle || '—'}
+                                        </div>
+                                    ) : breweryLinked ? (
+                                        <div className="flex items-center border-b border-neutral-200">
+                                            <span className="flex-1 text-base font-mono py-1 text-neutral-800 truncate">{subtitle}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDraft(prev => ({
+                                                        ...prev,
+                                                        subtitle: '',
+                                                        title: '',
+                                                        rating: undefined,
+                                                        notes: '',
+                                                        image: undefined,
+                                                    }));
+                                                    setPopulatedFromId(null);
+                                                    setGateClicked(false);
+                                                    setShowBreweryResults(false);
+                                                }}
+                                                className="ml-1 px-1.5 text-neutral-400 hover:text-neutral-700 text-sm"
+                                                title="Clear brewery"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={subtitle}
+                                            onChange={(e) => {
+                                                setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
+                                            }}
+                                            placeholder="Brewery name"
+                                            className="w-full text-base font-mono outline-none border-b border-neutral-200 focus:border-neutral-400 py-1 bg-transparent"
+                                        />
+                                        <div className="mt-2 flex justify-end">
+                                            <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
+                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
+                                                Search Breweries
+                                            </button>
+                                        </div>
+                                        <SearchResultsPanel
+                                            visible={showBreweryResults}
+                                            isSearching={breweries.isSearching}
+                                            results={breweries.results}
+                                            query={subtitle}
+                                            searchingLabel="Searching breweries..."
+                                            emptyLabel="No breweries"
+                                            maxHeightClass="max-h-56"
+                                            keyExtractor={(r) => r.id}
+                                            renderResult={(brewery) => (
+                                                <button type="button" onClick={() => {
+                                                    setDraft((prev) => {
+                                                        const beerTitle = prev.title.trim();
+                                                        const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                                                        const childId = beerTitle ? `${brewery.id}:${norm(beerTitle)}` : brewery.id;
+                                                        return {
+                                                            ...prev,
+                                                            subtitle: brewery.name,
+                                                            image: serializeItemMeta({
+                                                                externalSource: 'openbrewerydb',
+                                                                externalId: childId,
+                                                            }),
+                                                        };
+                                                    });
+                                                    setPopulatedFromId(null);
+                                                    setShowBreweryResults(false);
+                                                }}
+                                                    className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                    <div className="text-sm text-neutral-900">{brewery.name}</div>
+                                                    <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
+                                                </button>
+                                            )}
+                                        />
+                                        {subtitle.trim() && (
+                                            <button type="button" onClick={() => setGateClicked(true)}
+                                                className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-2 hover:text-neutral-700 hover:border-neutral-500">
+                                                Continue without linking
+                                            </button>
+                                        )}
+                                        </>
+                                    )}
+                                </div>
+                                );
+                            })()}
+                            {/* Title — for beer, gated behind brewery API link or manual bypass */}
+                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || gateClicked || readOnly) && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
-                                    {config.titleLabel}
+                                    {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
-                                {(config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
-                                    const allExerciseNames = Array.from(new Set(
+                                {category === 'beer' && !readOnly ? (() => {
+                                    const currentBrewery = subtitle.trim().toLowerCase();
+                                    const breweryBeers = getAllItemsByCategory('beer')
+                                        .filter(i => i.title.trim() && (i.subtitle || '').trim().toLowerCase() === currentBrewery);
+                                    const allBeerNames: string[] = Array.from(new Set<string>(
+                                        breweryBeers.map(i => i.title.trim())
+                                    )).sort();
+                                    // Count occurrences for top-5 chips
+                                    const beerCounts = new Map<string, number>();
+                                    breweryBeers.forEach(i => {
+                                        const name = i.title.trim();
+                                        beerCounts.set(name, (beerCounts.get(name) || 0) + 1);
+                                    });
+                                    const topBeers = [...beerCounts.entries()]
+                                        .sort((a, b) => b[1] - a[1])
+                                        .slice(0, 5)
+                                        .map(([name]) => name);
+                                    const filtered: string[] = title.trim()
+                                        ? allBeerNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
+                                        : allBeerNames;
+                                    return (
+                                        <>
+                                        <div className="relative">
+                                            <div className="flex items-center border-b border-neutral-200 focus-within:border-neutral-400">
+                                                <input
+                                                    type="text"
+                                                    value={title}
+                                                    onChange={(e) => {
+                                                        setDraft((prev) => ({ ...prev, title: e.target.value }));
+                                                        setShowBeerDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowBeerDropdown(true)}
+                                                    onBlur={() => setShowBeerDropdown(false)}
+                                                    placeholder="Type or pick…"
+                                                    className="flex-1 text-base font-mono outline-none py-1 bg-transparent"
+                                                />
+                                                {allBeerNames.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onMouseDown={(e) => { e.preventDefault(); setShowBeerDropdown(v => !v); }}
+                                                        className="px-1 text-neutral-400 hover:text-neutral-700"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L1 3h10z"/></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showBeerDropdown && filtered.length > 0 && (
+                                                <div className="absolute z-50 top-full left-0 right-0 bg-white border border-neutral-200 shadow-md max-h-48 overflow-y-auto">
+                                                    {filtered.map(name => (
+                                                        <button
+                                                            key={name}
+                                                            type="button"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                setDraft(prev => ({ ...prev, title: name }));
+                                                                setShowBeerDropdown(false);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-1.5 text-sm font-mono hover:bg-neutral-50 ${title.trim() === name ? 'bg-neutral-100 font-semibold' : ''}`}
+                                                        >
+                                                            {name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {topBeers.length > 0 && (
+                                            <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                                <span className="text-[9px] uppercase tracking-wider text-neutral-400">Common:</span>
+                                                {topBeers.map(name => (
+                                                    <button key={name} type="button"
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            setDraft(prev => ({ ...prev, title: name }));
+                                                            setShowBeerDropdown(false);
+                                                        }}
+                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${title.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        </>
+                                    );
+                                })() : (config.coupling === 'none' && category !== 'bird' || category === 'cooking') && !readOnly ? (() => {
+                                    const allExerciseNames: string[] = Array.from(new Set<string>(
                                         getAllItemsByCategory(category).filter(i => i.title.trim()).map(i => i.title.trim())
                                     )).sort();
-                                    const filtered = title.trim()
+                                    const filtered: string[] = title.trim()
                                         ? allExerciseNames.filter(n => n.toLowerCase().includes(title.toLowerCase()))
                                         : allExerciseNames;
                                     return (
@@ -565,10 +752,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 )}
                                 {repeatInfo && title.trim() && (
                                     <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
-                                        {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird'].includes(category) ? ' • previous review loaded' : ''}
+                                        {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {category === 'book' && !readOnly && !existingItem && (() => {
+                                {category === 'book' && !readOnly && !isLinked && (() => {
                                     const seen = new Set<string>();
                                     const inProgressBooks = (allUserItems || [])
                                         .filter(i => {
@@ -601,6 +788,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                                 rating: undefined,
                                                                 notes: '',
                                                                 image: serializeItemMeta({
+                                                                    externalSource: 'book-progress',
+                                                                    externalId: new Date().toISOString(),
                                                                     imageUrl: m.imageUrl,
                                                                     totalPages: m.totalPages,
                                                                     progressPage: m.progressPage,
@@ -963,17 +1152,21 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 const coverUrl = isOL
                                                     ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
                                                     : `https://books.google.com/books/content?id=${book.id}&printsec=frontcover&img=1&zoom=1`;
-                                                setDraft((prev) => ({
-                                                    ...prev,
-                                                    title: book.title,
-                                                    subtitle: book.author || '',
-                                                    rating: undefined,
-                                                    notes: '',
-                                                    image: serializeItemMeta({
-                                                        imageUrl: coverUrl,
-                                                        releaseDate: book.publishedDate || undefined,
-                                                    }),
-                                                }));
+                                                setDraft((prev) => {
+                                                    const prevMeta = parseItemMeta(prev.image);
+                                                    return {
+                                                        ...prev,
+                                                        title: book.title,
+                                                        subtitle: book.author || '',
+                                                        rating: undefined,
+                                                        notes: '',
+                                                        image: serializeItemMeta({
+                                                            ...prevMeta,
+                                                            imageUrl: coverUrl,
+                                                            releaseDate: book.publishedDate || undefined,
+                                                        }),
+                                                    };
+                                                });
                                                 setPopulatedFromId(null);
                                                 setShowBookResults(false);
                                             }}
@@ -985,8 +1178,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                     />
                                 )}
                             </div>}
-                            {/* Subtitle */}
-                            {category !== 'cooking' && category !== 'link' && (
+                            {/* Subtitle (skip for beer — brewery is rendered above title) */}
+                            {category !== 'cooking' && category !== 'link' && category !== 'beer' && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         {config.subtitleLabel}
@@ -1006,46 +1199,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
-                                        />
-                                    )}
-                                    {category === 'beer' && !readOnly && (
-                                        <div className="mt-2 flex justify-end">
-                                            <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
-                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
-                                                Search Breweries
-                                            </button>
-                                        </div>
-                                    )}
-                                    {category === 'beer' && !readOnly && (
-                                        <SearchResultsPanel
-                                            visible={showBreweryResults}
-                                            isSearching={breweries.isSearching}
-                                            results={breweries.results}
-                                            query={subtitle}
-                                            searchingLabel="Searching breweries..."
-                                            emptyLabel="No breweries"
-                                            maxHeightClass="max-h-56"
-                                            keyExtractor={(r) => r.id}
-                                            renderResult={(brewery) => (
-                                                <button type="button" onClick={() => {
-                                                    setDraft((prev) => ({
-                                                        ...prev,
-                                                        subtitle: brewery.name,
-                                                        rating: undefined,
-                                                        notes: '',
-                                                        image: serializeItemMeta({
-                                                            externalSource: 'openbrewerydb',
-                                                            externalId: brewery.id,
-                                                        }),
-                                                    }));
-                                                    setPopulatedFromId(null);
-                                                    setShowBreweryResults(false);
-                                                }}
-                                                    className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                    <div className="text-sm text-neutral-900">{brewery.name}</div>
-                                                    <div className="text-xs text-neutral-500">{brewery.location || 'Unknown location'}</div>
-                                                </button>
-                                            )}
                                         />
                                     )}
                                     {(category === 'restaurant' || category === 'location') && (
@@ -1198,8 +1351,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </div>
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
-                        {/* For books: only show the score box after marking finished (progress logs don't have a rating) */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && (
+                        {/* For books: only show after marking finished. For beer: only show after brewery linked. */}
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1482,6 +1635,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                             className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
                             Review without linking
                         </button>
+                    ) : category === 'book' && !parsedMeta.finished ? (
+                        null
+                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked ? (
+                        null
                     ) : (
                         <div>
                             <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
