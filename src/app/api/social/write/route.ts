@@ -304,9 +304,9 @@ export async function POST(req: NextRequest) {
         ? rawDates.map(d => String(d)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
         : null;
 
-      // Max 3 bundled dates (4 total including the primary date)
-      if (bundledDates && bundledDates.length > 3) {
-        return NextResponse.json({ error: "Maximum 4 days per bundle" }, { status: 400 });
+      // Max 2 bundled dates (3 total including the primary date)
+      if (bundledDates && bundledDates.length > 2) {
+        return NextResponse.json({ error: "Maximum 3 days per bundle" }, { status: 400 });
       }
 
       // Check that no bundled date already has its own separate status
