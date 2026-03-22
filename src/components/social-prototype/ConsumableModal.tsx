@@ -230,7 +230,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (!isOpen) return;
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
-        setGateClicked(false);
+        // For existing beer items that were manually filled (subtitle present but no API link),
+        // start with gate bypassed so the user isn't forced through "continue without linking" again.
+        const beerMeta = existingItem?.image ? parseItemMeta(existingItem.image) : null;
+        setGateClicked(
+            !!(existingItem && existingItem.category === 'beer' && existingItem.subtitle?.trim() && beerMeta && !beerMeta.externalSource)
+        );
         setShowBookResults(false);
         books.setResults([]);
         setShowMusicResults(false);
@@ -487,7 +492,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         <div className="flex-1 min-w-0 space-y-4">
                             {/* Beer: Brewery first (API-gated like other coupled cards) */}
                             {category === 'beer' && (() => {
-                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb' || !!draft.subtitle?.trim() || gateClicked;
+                                const breweryLinked = parsedMeta.externalSource === 'openbrewerydb' || gateClicked;
                                 return (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
@@ -584,7 +589,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                 );
                             })()}
                             {/* Title — for beer, gated behind brewery API link or manual bypass */}
-                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || !!draft.subtitle?.trim() || gateClicked || readOnly) && <div>
+                            {(category !== 'beer' || parsedMeta.externalSource === 'openbrewerydb' || gateClicked || readOnly) && <div>
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                     {category === 'beer' ? 'Beer Name' : config.titleLabel}
                                 </label>
@@ -1352,7 +1357,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {/* For books: only show after marking finished. For beer: only show after brewery linked. */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !draft.subtitle?.trim() && !gateClicked) && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1637,7 +1642,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                         </button>
                     ) : category === 'book' && !parsedMeta.finished ? (
                         null
-                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !draft.subtitle?.trim() && !gateClicked ? (
+                    ) : category === 'beer' && parsedMeta.externalSource !== 'openbrewerydb' && !gateClicked ? (
                         null
                     ) : (
                         <div>
