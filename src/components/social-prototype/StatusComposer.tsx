@@ -56,7 +56,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
-    const moveDateInputRef = useRef<HTMLInputElement>(null);
     const bundlePickerRef = useRef<HTMLDivElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
@@ -539,18 +538,49 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 const hasConflict = dates.some(dt => statuses.some(s => s.date === dt && s.id !== activeStatus?.id));
                                 return { n, dates, hasConflict };
                             });
+                            // Build move-to date options: last 7 days, excluding current date and dates with published posts
+                            const moveDateOptions: { date: string; label: string; hasUnposted: boolean }[] = [];
+                            if (hasRealStatus) {
+                                for (let i = 1; i <= 7; i++) {
+                                    const d = new Date(activeDate + 'T12:00:00');
+                                    d.setDate(d.getDate() - i);
+                                    const dateStr = d.toISOString().slice(0, 10);
+                                    const existing = statuses.find(s => s.date === dateStr && s.id !== activeStatus?.id);
+                                    if (existing?.published) continue; // skip dates with published posts
+                                    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                                    const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    moveDateOptions.push({ date: dateStr, label: `${dayName} ${monthDay}`, hasUnposted: !!existing });
+                                }
+                            }
                             return (
                                 <div className="absolute left-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-1 min-w-[140px]">
-                                    {/* Move post */}
-                                    {hasRealStatus && (
-                                        <button type="button"
-                                            onClick={() => { setShowBundlePicker(false); try { const t = moveDateInputRef.current; if (t && typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
-                                            className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
-                                            Move post
-                                        </button>
+                                    {/* Move post date picker */}
+                                    {hasRealStatus && moveDateOptions.length > 0 && (
+                                        <>
+                                            <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Move to</div>
+                                            {moveDateOptions.map(({ date, label, hasUnposted }) => (
+                                                <button key={date} type="button"
+                                                    className="block w-full text-left px-3 py-1.5 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50"
+                                                    onClick={async () => {
+                                                        setShowBundlePicker(false);
+                                                        const warning = hasUnposted
+                                                            ? `Move this post to ${label}? The existing draft on that date will be replaced.`
+                                                            : `Move this post to ${label}?`;
+                                                        if (!confirm(warning)) return;
+                                                        try {
+                                                            await moveStatusToDate(activeStatus.id, date);
+                                                            pushToast({ message: `Post moved to ${label}`, tone: 'success' });
+                                                        } catch (err) {
+                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
+                                                        }
+                                                    }}>
+                                                    {label}{hasUnposted && <span className="text-neutral-400 ml-1">(has draft)</span>}
+                                                </button>
+                                            ))}
+                                            <div className="border-t border-neutral-100 my-1" />
+                                        </>
                                     )}
                                     {/* Multi-day separator */}
-                                    <div className="border-t border-neutral-100 my-1" />
                                     <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Multi-day</div>
                                     {/* 1 day = unbundle */}
                                     <button type="button"
@@ -593,20 +623,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 </div>
                             );
                         })()}
-                        {/* Hidden date input for "Move post" — lives outside the dropdown so it persists in the DOM */}
-                        <input ref={moveDateInputRef} type="date"
-                            onChange={async (e) => {
-                                const newDate = e.target.value;
-                                if (!newDate || newDate === activeDate || !activeStatus) return;
-                                if (!confirm(`Move this post to ${newDate}? If that date already has a post, items and content will be merged.`)) return;
-                                try {
-                                    await moveStatusToDate(activeStatus.id, newDate);
-                                    pushToast({ message: `Post moved to ${newDate}`, tone: 'success' });
-                                } catch (err) {
-                                    pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
-                                }
-                            }}
-                            aria-label="Move to date" className="absolute w-0 h-0 opacity-0 overflow-hidden pointer-events-none" />
                     </div>
                     <button type="button" onClick={() => setShowHowToPost(true)}
                         className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation w-6 h-6 flex items-center justify-center"

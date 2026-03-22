@@ -247,42 +247,23 @@ export async function POST(req: NextRequest) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
       await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
 
-      // Check if target date already has a post
+      // Check if target date already has an unpublished post
       const { data: conflict } = await supabaseAdmin
         .from("social_statuses")
-        .select("id,content")
+        .select("id,published")
         .eq("user_id", linkedUserId)
         .eq("date", newDate)
         .neq("id", statusId)
         .maybeSingle();
 
       if (conflict) {
-        // Merge: move items from source to target, append content, delete source
-        await supabaseAdmin
-          .from("social_items")
-          .update({ status_id: conflict.id })
-          .eq("status_id", statusId);
-
-        // Append source content to target
-        const { data: source } = await supabaseAdmin
-          .from("social_statuses")
-          .select("content")
-          .eq("id", statusId)
-          .single();
-        const sourceContent = (source?.content || "").trim();
-        const targetContent = (conflict.content || "").trim();
-        if (sourceContent) {
-          const merged = targetContent ? `${targetContent}\n${sourceContent}` : sourceContent;
-          await supabaseAdmin
-            .from("social_statuses")
-            .update({ content: truncate(merged, MAX_STATUS_CONTENT) })
-            .eq("id", conflict.id);
+        if (conflict.published) {
+          return NextResponse.json({ error: "Target date already has a published post" }, { status: 400 });
         }
-
-        // Delete source (comments + status)
-        await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
-        await supabaseAdmin.from("social_statuses").delete().eq("id", statusId);
-        return NextResponse.json({ ok: true, mergedInto: conflict.id });
+        // Replace: delete the unpublished target's items/comments/status, then move source to that date
+        await supabaseAdmin.from("social_items").delete().eq("status_id", conflict.id);
+        await supabaseAdmin.from("social_comments").delete().eq("status_id", conflict.id);
+        await supabaseAdmin.from("social_statuses").delete().eq("id", conflict.id);
       }
 
       // No conflict — just update date
