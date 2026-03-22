@@ -234,7 +234,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         // start with gate bypassed so the user isn't forced through "continue without linking" again.
         const beerMeta = existingItem?.image ? parseItemMeta(existingItem.image) : null;
         setGateClicked(
-            !!(existingItem && existingItem.category === 'beer' && existingItem.subtitle?.trim() && beerMeta && !beerMeta.externalSource)
+            !!(existingItem && existingItem.category === 'beer' && existingItem.subtitle?.trim() && (!beerMeta || !beerMeta.externalSource))
         );
         setShowBookResults(false);
         books.setResults([]);
