@@ -141,7 +141,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     // coupling:'none' categories are always linked (no linkage step).
     const isLinked = config.coupling === 'none'
         || (config.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
-        || (config.coupling === 'api' && (!!parsedMeta.externalSource || (category === 'beer' && !!draft.subtitle?.trim())));
+        || (config.coupling === 'api' && !!parsedMeta.externalSource);
 
     // Clear the card back to dead state (reset everything).
     const clearLinkage = useCallback(() => {
@@ -230,12 +230,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
         if (!isOpen) return;
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
-        // For existing beer items that were manually filled (subtitle present but no API link),
-        // start with gate bypassed so the user isn't forced through "continue without linking" again.
-        const beerMeta = existingItem?.image ? parseItemMeta(existingItem.image) : null;
-        setGateClicked(
-            !!(existingItem && existingItem.category === 'beer' && existingItem.subtitle?.trim() && (!beerMeta || !beerMeta.externalSource))
-        );
+        setGateClicked(false);
         setShowBookResults(false);
         books.setResults([]);
         setShowMusicResults(false);
@@ -348,7 +343,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
-        ? (isCoupled || (category === 'beer' && !!draft.subtitle?.trim()))
+        ? (isCoupled || !!parsedMeta.externalSource)
         : category === 'bird'
             ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
             : config.coupling === 'none'
@@ -578,7 +573,14 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                             )}
                                         />
                                         {subtitle.trim() && (
-                                            <button type="button" onClick={() => setGateClicked(true)}
+                                            <button type="button" onClick={() => {
+                                                setGateClicked(true);
+                                                // Persist manual brewery flag so reopening doesn't re-gate
+                                                setDraft(prev => ({
+                                                    ...prev,
+                                                    image: serializeItemMeta({ ...parseItemMeta(prev.image), externalSource: 'manual' }),
+                                                }));
+                                            }}
                                                 className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-2 hover:text-neutral-700 hover:border-neutral-500">
                                                 Continue without linking
                                             </button>
