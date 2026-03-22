@@ -53,9 +53,7 @@ export function isItemFilled(item: ConsumableItem): boolean {
     const config = getCategoryConfig(item.category);
     const meta = parseItemMeta(item.image);
     if (config.coupling === 'api') {
-        if (item.category === 'book') return !!meta.imageUrl;
-        if (item.category === 'beer') return !!(meta.externalSource || item.subtitle?.trim());
-        return !!meta.externalSource;
+        return item.category === 'book' ? !!meta.imageUrl : !!meta.externalSource;
     }
     // Bird items are filled when they have species in birdList or checklist
     if (item.category === 'bird') {
