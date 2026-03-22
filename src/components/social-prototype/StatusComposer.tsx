@@ -511,11 +511,110 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         {isPreparingComposer ? 'LOADING…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
                     </h2>
                 </button>
-                <div className="flex items-center justify-end gap-4 text-xs uppercase tracking-widest">
+                <div className="flex items-center justify-end gap-3 text-xs uppercase tracking-widest">
+                    {/* Entry menu: move post, multi-day */}
+                    <div className="relative" ref={bundlePickerRef}>
+                        <button type="button"
+                            onClick={() => setShowBundlePicker(p => !p)}
+                            className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation w-6 h-6 flex items-center justify-center"
+                            title="Entry options"
+                            aria-label="Entry options">
+                            <span className="inline-flex items-center gap-0.5">
+                                <span className="w-1 h-1 rounded-full bg-current" />
+                                <span className="w-1 h-1 rounded-full bg-current" />
+                                <span className="w-1 h-1 rounded-full bg-current" />
+                            </span>
+                        </button>
+                        {showBundlePicker && (() => {
+                            const currentBundle = activeStatus?.bundledDates || [];
+                            const hasRealStatus = activeStatus && activeStatus.id !== 'temp-optimistic';
+                            // Compute which multi-day options are available (no conflicting posts)
+                            const multiDayOptions = [2, 3].map(n => {
+                                const dates: string[] = [];
+                                for (let i = n - 1; i >= 1; i--) {
+                                    const d = new Date(activeDate + 'T12:00:00');
+                                    d.setDate(d.getDate() - i);
+                                    dates.push(d.toISOString().slice(0, 10));
+                                }
+                                const hasConflict = dates.some(dt => statuses.some(s => s.date === dt && s.id !== activeStatus?.id));
+                                return { n, dates, hasConflict };
+                            });
+                            return (
+                                <div className="absolute left-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-1 min-w-[140px]">
+                                    {/* Move post */}
+                                    {hasRealStatus && (
+                                        <div className="relative">
+                                            <button type="button"
+                                                onClick={() => { setShowBundlePicker(false); try { const t = moveDateInputRef.current; if (t && typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
+                                                className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
+                                                Move post
+                                            </button>
+                                            <input ref={moveDateInputRef} type="date"
+                                                onChange={async (e) => {
+                                                    const newDate = e.target.value;
+                                                    if (!newDate || newDate === activeDate || !activeStatus) return;
+                                                    if (!confirm(`Move this post to ${newDate}? If that date already has a post, items and content will be merged.`)) return;
+                                                    try {
+                                                        await moveStatusToDate(activeStatus.id, newDate);
+                                                        pushToast({ message: `Post moved to ${newDate}`, tone: 'success' });
+                                                    } catch (err) {
+                                                        pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
+                                                    }
+                                                }}
+                                                aria-label="Move to date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                                        </div>
+                                    )}
+                                    {/* Multi-day separator */}
+                                    <div className="border-t border-neutral-100 my-1" />
+                                    <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Multi-day</div>
+                                    {/* 1 day = unbundle */}
+                                    <button type="button"
+                                        className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${!currentBundle.length ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                        onClick={async () => {
+                                            setShowBundlePicker(false);
+                                            if (!hasRealStatus) return;
+                                            try {
+                                                await setBundledDates(activeStatus.id, null);
+                                                pushToast({ message: 'Multi-day removed', tone: 'success' });
+                                            } catch (err) {
+                                                pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
+                                            }
+                                        }}>
+                                        1 day{!currentBundle.length && ' *'}
+                                    </button>
+                                    {multiDayOptions.map(({ n, dates, hasConflict }) => {
+                                        const isSelected = currentBundle.length === n - 1;
+                                        if (hasConflict && !isSelected) return null; // hide unavailable options
+                                        return (
+                                            <button key={n} type="button"
+                                                className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                                onClick={async () => {
+                                                    setShowBundlePicker(false);
+                                                    try {
+                                                        const statusId = activeStatus?.id === 'temp-optimistic'
+                                                            ? await ensureActiveStatus()
+                                                            : activeStatus?.id;
+                                                        if (!statusId) return;
+                                                        await setBundledDates(statusId, dates);
+                                                        pushToast({ message: `${n}-day entry`, tone: 'success' });
+                                                    } catch (err) {
+                                                        pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
+                                                    }
+                                                }}>
+                                                {n} days{isSelected && ' *'}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
                     <button type="button" onClick={() => setShowHowToPost(true)}
-                        className="text-neutral-400 hover:text-neutral-600 transition-colors whitespace-nowrap touch-manipulation"
+                        className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation w-6 h-6 flex items-center justify-center"
                         aria-label="How to post?">
-                        How to post?
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
                     </button>
                     <span className={`whitespace-nowrap text-[10px] ${draftBadgeTone}`}>{draftBadgeText}</span>
                     <div className="relative inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
@@ -530,94 +629,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <input ref={dateInputRef} type="date" value={activeDate} onChange={(e) => setActiveDate(e.target.value)}
                             onClick={(e) => { try { const t = e.target as HTMLInputElement; if (typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
                             aria-label="Select date" className="absolute inset-0 opacity-0 cursor-pointer" />
-                    </div>
-                    {activeStatus && activeStatus.id !== 'temp-optimistic' && (
-                        <div className="relative inline-flex items-center">
-                            <button type="button"
-                                onClick={() => { try { const t = moveDateInputRef.current; if (t && typeof t.showPicker === 'function') t.showPicker(); } catch { /* fallback */ } }}
-                                className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation"
-                                title="Move post to different date"
-                                aria-label="Move post to different date">
-                                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M5 12h14M12 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                            <input ref={moveDateInputRef} type="date"
-                                onChange={async (e) => {
-                                    const newDate = e.target.value;
-                                    if (!newDate || newDate === activeDate) return;
-                                    if (!confirm(`Move this post to ${newDate}? If that date already has a post, items and content will be merged.`)) return;
-                                    try {
-                                        await moveStatusToDate(activeStatus.id, newDate);
-                                        pushToast({ message: `Post moved to ${newDate}`, tone: 'success' });
-                                    } catch (err) {
-                                        pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
-                                    }
-                                }}
-                                aria-label="Move to date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-                        </div>
-                    )}
-                    {/* Bundle days toggle */}
-                    <div className="relative" ref={bundlePickerRef}>
-                        <button type="button"
-                            onClick={() => setShowBundlePicker(p => !p)}
-                            className={`text-[10px] uppercase tracking-widest transition-colors touch-manipulation px-1 ${
-                                activeStatus?.bundledDates?.length ? 'text-neutral-700 font-bold' : 'text-neutral-400 hover:text-neutral-600'
-                            }`}
-                            title="Bundle multiple days"
-                            aria-label="Bundle days">
-                            {activeStatus?.bundledDates?.length ? `${activeStatus.bundledDates.length + 1}d` : 'bundle'}
-                        </button>
-                        {showBundlePicker && (() => {
-                            const currentBundle = activeStatus?.bundledDates || [];
-                            const options = [1, 2, 3, 4]; // total days
-                            return (
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-2 min-w-[120px]">
-                                    <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Days to cover</div>
-                                    {options.map(n => {
-                                        const isSelected = n === 1 ? !currentBundle.length : currentBundle.length === n - 1;
-                                        return (
-                                            <button key={n} type="button"
-                                                className={`block w-full text-left px-2 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
-                                                onClick={async () => {
-                                                    setShowBundlePicker(false);
-                                                    if (n === 1) {
-                                                        // Unbundle
-                                                        if (!activeStatus || activeStatus.id === 'temp-optimistic') return;
-                                                        try {
-                                                            await setBundledDates(activeStatus.id, null);
-                                                            pushToast({ message: 'Bundle removed', tone: 'success' });
-                                                        } catch (err) {
-                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to unbundle', tone: 'error' });
-                                                        }
-                                                    } else {
-                                                        // Bundle n-1 preceding days
-                                                        const dates: string[] = [];
-                                                        for (let i = n - 1; i >= 1; i--) {
-                                                            const d = new Date(activeDate + 'T12:00:00');
-                                                            d.setDate(d.getDate() - i);
-                                                            dates.push(d.toISOString().slice(0, 10));
-                                                        }
-                                                        try {
-                                                            const statusId = activeStatus?.id === 'temp-optimistic'
-                                                                ? await ensureActiveStatus()
-                                                                : activeStatus?.id;
-                                                            if (!statusId) return;
-                                                            await setBundledDates(statusId, dates);
-                                                            pushToast({ message: `Bundled ${n} days`, tone: 'success' });
-                                                        } catch (err) {
-                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to bundle', tone: 'error' });
-                                                        }
-                                                    }
-                                                }}>
-                                                {n === 1 ? '1 day (no bundle)' : `${n} days`}
-                                                {isSelected && ' *'}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            );
-                        })()}
                     </div>
                 </div>
             </header>

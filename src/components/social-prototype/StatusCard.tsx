@@ -235,7 +235,17 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                     )}
                     <span className="text-[10px] text-neutral-400">
                         {status.bundledDates && status.bundledDates.length > 0
-                            ? `${new Date([...status.bundledDates].sort()[0]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })} - ${new Date(status.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+                            ? (() => {
+                                const startDate = new Date([...status.bundledDates].sort()[0]);
+                                const endDate = new Date(status.date);
+                                const startMonth = startDate.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
+                                const endMonth = endDate.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
+                                const startDay = startDate.toLocaleDateString(undefined, { day: 'numeric', timeZone: 'UTC' });
+                                const endDay = endDate.toLocaleDateString(undefined, { day: 'numeric', timeZone: 'UTC' });
+                                return startMonth === endMonth
+                                    ? `${startMonth} ${startDay}-${endDay}`
+                                    : `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+                              })()
                             : new Date(status.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
                         }
                     </span>
