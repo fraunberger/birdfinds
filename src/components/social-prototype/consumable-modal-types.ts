@@ -20,6 +20,14 @@ export interface ConsumableModalProps {
     stayOpenAfterSave?: boolean;
     /** Imperative handle ref — exposes triggerSave() for external callers (e.g. TV group arrows). */
     modalRef?: React.Ref<ConsumableModalHandle>;
+    /** TV group carousel state — when provided, arrows render in the modal footer. */
+    tvGroup?: {
+        index: number;
+        total: number;
+        episodeLabel: string;
+        onPrev: () => void;
+        onNext: () => void;
+    };
 }
 
 export interface ConsumableModalHandle {
