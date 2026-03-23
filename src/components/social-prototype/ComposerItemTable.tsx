@@ -5,6 +5,7 @@ import { Category, ConsumableItem, getCategoryConfig, CategoryConfig } from '@/l
 import { pushToast } from '@/lib/social-prototype/toast';
 import { getItemHighlightTerms } from './useTaggingState';
 import { isItemFilled } from './ComposerOnboarding';
+import { parseItemMeta } from '@/lib/social-prototype/item-meta';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 
@@ -76,6 +77,34 @@ export function ComposerItemTable({
             return posA - posB;
         });
     }, [items, content]);
+
+    // Group TV binge episodes (same show) into one display row
+    type DisplayEntry = { type: 'item'; item: ConsumableItem } | { type: 'tv-group'; showName: string; episodes: ConsumableItem[] };
+    const displayEntries = useMemo(() => {
+        const tvGroups = new Map<string, ConsumableItem[]>();
+        for (const item of sortedItems) {
+            const meta = parseItemMeta(item.image);
+            if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode') {
+                const group = tvGroups.get(item.title) || [];
+                group.push(item);
+                tvGroups.set(item.title, group);
+            }
+        }
+        const entries: DisplayEntry[] = [];
+        const tvGroupSeen = new Set<string>();
+        for (const item of sortedItems) {
+            const meta = parseItemMeta(item.image);
+            if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode' && tvGroups.get(item.title)!.length > 1) {
+                if (!tvGroupSeen.has(item.title)) {
+                    tvGroupSeen.add(item.title);
+                    entries.push({ type: 'tv-group', showName: item.title, episodes: tvGroups.get(item.title)! });
+                }
+            } else {
+                entries.push({ type: 'item', item });
+            }
+        }
+        return entries;
+    }, [sortedItems]);
 
     const effectiveQuickAddCategory = activeCategoryConfigs.some(c => c.id === quickAddCategory)
         ? quickAddCategory
@@ -157,7 +186,70 @@ export function ComposerItemTable({
                     </tr>
                 </thead>
                 <tbody>
-                    {sortedItems.map((item) => {
+                    {displayEntries.map((entry) => {
+                        if (entry.type === 'tv-group') {
+                            const { showName, episodes } = entry;
+                            const config = getCategoryConfig('tv');
+                            const firstEp = episodes[0];
+                            const anyRemoving = episodes.some(ep => removingItemIds.has(ep.id));
+                            return (
+                                <tr
+                                    key={`tv-group:${showName}`}
+                                    className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
+                                >
+                                    <td
+                                        className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                        style={{ backgroundColor: config.color || undefined }}
+                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
+                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                    >
+                                        {config.shortLabel}
+                                    </td>
+                                    <td
+                                        className="px-2 py-1 border-b border-r border-neutral-200 font-medium"
+                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
+                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                    >
+                                        <span className="inline-flex items-center gap-1 min-w-0">
+                                            <span style={{
+                                                display: 'inline-block',
+                                                width: '7px',
+                                                height: '7px',
+                                                borderRadius: '50%',
+                                                flexShrink: 0,
+                                                backgroundColor: config.color || '#d4d4d4',
+                                                border: `1.5px solid ${config.color || '#d4d4d4'}`,
+                                            }} />
+                                            {showName}
+                                        </span>
+                                        <span className="text-neutral-400 ml-1 font-normal">
+                                            — {episodes.map(ep => ep.subtitle?.replace(/\s*-\s*.*$/, '') || '?').join(', ')}
+                                        </span>
+                                    </td>
+                                    <td
+                                        className="px-2 py-1 border-b border-r border-neutral-200 text-center"
+                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
+                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                    >
+                                        {firstEp.rating ? <span>{firstEp.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
+                                    </td>
+                                    <td className="px-2 py-1 border-b border-neutral-200 text-center">
+                                        <button
+                                            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onPointerUp={async (e) => { e.preventDefault(); e.stopPropagation(); for (const ep of episodes) await Promise.resolve(onRemoveItem(ep.id)); }}
+                                            onClick={async (e) => { e.preventDefault(); e.stopPropagation(); for (const ep of episodes) await Promise.resolve(onRemoveItem(ep.id)); }}
+                                            disabled={anyRemoving}
+                                            aria-label={`Delete ${showName} episodes`}
+                                            title={`Delete all ${episodes.length} episodes`}
+                                            className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[12px] leading-none"
+                                        >
+                                            {anyRemoving ? '…' : '×'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        }
+                        const { item } = entry;
                         const config = getCategoryConfig(item.category);
                         const isLinked = isItemFilled(item);
                         const isRemoving = removingItemIds.has(item.id);
