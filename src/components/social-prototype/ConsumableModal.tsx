@@ -302,7 +302,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     }, [category, title, allUserItems, readOnly]);
 
     // ── Handlers ───────────────────────────────────────────────────────
-    const handleSave = useCallback(() => {
+    const handleSave = useCallback((options?: { silent?: boolean }) => {
         if (!draft.title.trim() && draft.category !== 'bird') return;
         let imageToSave = draft.image;
         if (draft.category === 'book' && parseItemMeta(draft.image).finished) {
@@ -320,11 +320,13 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
             notes: draft.notes,
             image: imageToSave,
         });
-        if (!stayOpenAfterSave) onClose();
-    }, [draft, onClose, onSave, stayOpenAfterSave]);
+        // Silent saves (arrow navigation) don't close; explicit Save button closes.
+        if (options?.silent) return;
+        if (!stayOpenAfterSave || tvGroup) onClose();
+    }, [draft, onClose, onSave, stayOpenAfterSave, tvGroup]);
 
     // Expose imperative save for external callers (e.g. TV group arrow navigation)
-    useImperativeHandle(modalRef, () => ({ triggerSave: handleSave }), [handleSave]);
+    useImperativeHandle(modalRef, () => ({ triggerSave: () => handleSave({ silent: true }) }), [handleSave]);
 
     const handleDelete = () => {
         if (onDelete && confirm('Delete this entry?')) {
