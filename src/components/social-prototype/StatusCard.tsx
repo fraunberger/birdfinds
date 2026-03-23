@@ -277,83 +277,127 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         {renderContent()}
 
                         {/* Items as clickable colored boxes */}
-                        {status.items.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
-                                {(showAllItems ? status.items : status.items.slice(0, ITEM_LIMIT)).map(item => {
-                                    const config = getCategoryConfig(item.category);
-                                    const itemMeta = parseItemMeta(item.image);
-                                    const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
-                                    const isLinked = config.coupling === 'api'
-                                        ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
-                                        : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
-                                            style={{
-                                                backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
-                                                borderColor: config.color || '#e5e5e5',
-                                            }}
-                                        >
-                                            <span
+                        {status.items.length > 0 && (() => {
+                            // Group TV episodes by show name into compressed cards
+                            const tvGroups = new Map<string, ConsumableItem[]>();
+                            const nonGrouped: ConsumableItem[] = [];
+                            for (const item of status.items) {
+                                const meta = parseItemMeta(item.image);
+                                if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode') {
+                                    const group = tvGroups.get(item.title) || [];
+                                    group.push(item);
+                                    tvGroups.set(item.title, group);
+                                } else {
+                                    nonGrouped.push(item);
+                                }
+                            }
+                            // Build display list: grouped TV cards + individual items
+                            type DisplayEntry = { type: 'item'; item: ConsumableItem } | { type: 'tv-group'; showName: string; episodes: ConsumableItem[] };
+                            const displayItems: DisplayEntry[] = [];
+                            const tvGroupOrder: string[] = [];
+                            for (const item of status.items) {
+                                const meta = parseItemMeta(item.image);
+                                if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode') {
+                                    if (!tvGroupOrder.includes(item.title)) {
+                                        tvGroupOrder.push(item.title);
+                                        displayItems.push({ type: 'tv-group', showName: item.title, episodes: tvGroups.get(item.title)! });
+                                    }
+                                } else {
+                                    displayItems.push({ type: 'item', item });
+                                }
+                            }
+                            const visibleItems = showAllItems ? displayItems : displayItems.slice(0, ITEM_LIMIT);
+                            const totalDisplayCount = displayItems.length;
+
+                            return (
+                                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
+                                    {visibleItems.map(entry => {
+                                        if (entry.type === 'tv-group') {
+                                            const { showName, episodes } = entry;
+                                            const config = getCategoryConfig('tv');
+                                            const firstEp = episodes[0];
+                                            return (
+                                                <div
+                                                    key={`tv-group:${showName}`}
+                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full flex-wrap"
+                                                    style={{
+                                                        backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
+                                                        borderColor: config.color || '#e5e5e5',
+                                                    }}
+                                                >
+                                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: config.color || '#d4d4d4', border: `1.5px solid ${config.color || '#d4d4d4'}` }} />
+                                                    <span className="font-medium text-neutral-800">{showName}</span>
+                                                    {hasItemAggregatePage('tv') && (
+                                                        <Link
+                                                            href={buildItemPath(firstEp)}
+                                                            className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                            title="Open show details"
+                                                        >
+                                                            ↗
+                                                        </Link>
+                                                    )}
+                                                    <span className="text-neutral-400 mx-0.5">—</span>
+                                                    {episodes.map((ep, i) => (
+                                                        <button
+                                                            key={ep.id}
+                                                            onClick={() => setSelectedItem(ep)}
+                                                            className="text-neutral-600 hover:text-neutral-900 hover:underline transition-colors"
+                                                            title={ep.subtitle}
+                                                        >
+                                                            {ep.subtitle?.replace(/\s*-\s*.*$/, '') || `Ep ${i + 1}`}{i < episodes.length - 1 ? ',' : ''}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        const { item } = entry;
+                                        const config = getCategoryConfig(item.category);
+                                        const itemMeta = parseItemMeta(item.image);
+                                        const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
+                                        const isLinked = config.coupling === 'api'
+                                            ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
+                                            : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
                                                 style={{
-                                                    display: 'inline-block',
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%',
-                                                    flexShrink: 0,
-                                                    backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
-                                                    border: `1.5px solid ${config.color || '#d4d4d4'}`,
+                                                    backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
+                                                    borderColor: config.color || '#e5e5e5',
                                                 }}
-                                            />
-                                            <button
-                                                onClick={() => setSelectedItem(item)}
-                                                className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
-                                                title={item.title}
                                             >
-                                                {item.title}
-                                            </button>
-                                            {isLinked && hasItemAggregatePage(item.category) && (
-                                                <Link
-                                                    href={buildItemPath(item)}
-                                                    className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                                                    title="Open item details"
-                                                    aria-label="Open item details"
+                                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent', border: `1.5px solid ${config.color || '#d4d4d4'}` }} />
+                                                <button
+                                                    onClick={() => setSelectedItem(item)}
+                                                    className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
+                                                    title={item.title}
                                                 >
-                                                    ↗
-                                                </Link>
-                                            )}
-                                            {linkHref && (
-                                                <a
-                                                    href={linkHref}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                                                    title="Open hyperlink"
-                                                    aria-label="Open hyperlink"
-                                                >
-                                                    ↗
-                                                </a>
-                                            )}
-                                            {item.rating ? (
-                                                <span className="text-neutral-500 font-mono ml-1">
-                                                    {item.rating}<span className="text-[9px]">/10</span>
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                    );
-                                })}
-                                {!showAllItems && status.items.length > ITEM_LIMIT && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAllItems(true)}
-                                        className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
-                                    >
-                                        +{status.items.length - ITEM_LIMIT} more
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                                                    {item.title}
+                                                </button>
+                                                {isLinked && hasItemAggregatePage(item.category) && (
+                                                    <Link href={buildItemPath(item)} className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open item details" aria-label="Open item details">↗</Link>
+                                                )}
+                                                {linkHref && (
+                                                    <a href={linkHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open hyperlink" aria-label="Open hyperlink">↗</a>
+                                                )}
+                                                {item.rating ? (
+                                                    <span className="text-neutral-500 font-mono ml-1">{item.rating}<span className="text-[9px]">/10</span></span>
+                                                ) : null}
+                                            </div>
+                                        );
+                                    })}
+                                    {!showAllItems && totalDisplayCount > ITEM_LIMIT && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllItems(true)}
+                                            className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
+                                        >
+                                            +{totalDisplayCount - ITEM_LIMIT} more
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
             </div>
