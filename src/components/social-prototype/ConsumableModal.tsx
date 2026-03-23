@@ -86,6 +86,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
     const [tvShowSearchToken, setTvShowSearchToken] = useState(0);
     const [selectedTvShow, setSelectedTvShow] = useState<TvShowResult | null>(null);
     const [tvEpisodeSearchToken, setTvEpisodeSearchToken] = useState(0);
+    const [tvBingeMode, setTvBingeMode] = useState(false);
+    const [tvBingeSelected, setTvBingeSelected] = useState<Set<string>>(new Set());
 
     // ── Generic search hooks ───────────────────────────────────────────
     const music = useSearchPicker<MusicSearchResult>({ category, targetCategory: 'music', readOnly, enabled: showMusicResults, query: title, endpoint: '/api/music/search', token: musicSearchToken });
@@ -1027,11 +1029,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                         <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
+                                                        <button type="button" onClick={() => { setTvBingeMode(b => !b); setTvBingeSelected(new Set()); }}
+                                                            className={`text-[10px] uppercase tracking-wider border px-2 py-1 ${tvBingeMode ? 'border-neutral-900 text-neutral-900 font-bold' : 'border-neutral-300 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500'}`}>
+                                                            Binge
+                                                        </button>
                                                         <button type="button" onClick={() => setTvEpisodeSearchToken((p) => p + 1)}
                                                             className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
-                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '', subtitle: '' })); }}
+                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setTvBingeMode(false); setTvBingeSelected(new Set()); setDraft((prev) => ({ ...prev, title: '', subtitle: '' })); }}
                                                             className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
@@ -1040,7 +1046,59 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                 {isLoadingTvEpisodes && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Loading episodes...</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
                                                 {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
-                                                {!isLoadingTvEpisodes && tvEpisodes.map((ep) => (
+                                                {!isLoadingTvEpisodes && tvBingeMode ? (
+                                                    <>
+                                                        {tvEpisodes.map((ep) => {
+                                                            const isChecked = tvBingeSelected.has(ep.id);
+                                                            return (
+                                                                <button key={ep.id} type="button" onClick={() => {
+                                                                    setTvBingeSelected(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(ep.id)) next.delete(ep.id);
+                                                                        else next.add(ep.id);
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 flex items-center gap-2 ${isChecked ? 'bg-neutral-100' : 'hover:bg-neutral-50'}`}>
+                                                                    <span className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300'}`}>
+                                                                        {isChecked && '✓'}
+                                                                    </span>
+                                                                    <div className="min-w-0">
+                                                                        <div className="text-sm text-neutral-900">{ep.label}</div>
+                                                                        <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        {tvBingeSelected.size > 0 && (
+                                                            <div className="sticky bottom-0 px-3 py-2 border-t border-neutral-300 bg-white">
+                                                                <button type="button" onClick={() => {
+                                                                    const episodes = tvEpisodes.filter(ep => tvBingeSelected.has(ep.id));
+                                                                    episodes.forEach(ep => {
+                                                                        const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
+                                                                        onSave?.({
+                                                                            category: 'tv',
+                                                                            title: selectedTvShow.name,
+                                                                            subtitle: ep.label,
+                                                                            image: serializeItemMeta({
+                                                                                imageUrl: selectedTvShow.image || undefined,
+                                                                                externalSource: 'tvmaze-episode',
+                                                                                externalId: episodeIdentity,
+                                                                                releaseDate: ep.airdate || undefined,
+                                                                            }),
+                                                                        });
+                                                                    });
+                                                                    setTvBingeSelected(new Set());
+                                                                    setShowTvPicker(false);
+                                                                    onClose();
+                                                                }}
+                                                                    className="w-full px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                    Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : !isLoadingTvEpisodes && tvEpisodes.map((ep) => (
                                                     <button key={ep.id} type="button" onClick={() => {
                                                         const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
                                                         setDraft((prev) => ({
