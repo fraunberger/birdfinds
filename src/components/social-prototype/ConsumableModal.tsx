@@ -27,7 +27,7 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -88,6 +88,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     const [tvEpisodeSearchToken, setTvEpisodeSearchToken] = useState(0);
     const [tvBingeMode, setTvBingeMode] = useState(false);
     const [tvBingeSelected, setTvBingeSelected] = useState<Set<string>>(new Set());
+    const [tvBingeReview, setTvBingeReview] = useState(false);
 
     // ── Generic search hooks ───────────────────────────────────────────
     const music = useSearchPicker<MusicSearchResult>({ category, targetCategory: 'music', readOnly, enabled: showMusicResults, query: title, endpoint: '/api/music/search', token: musicSearchToken });
@@ -319,8 +320,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
             notes: draft.notes,
             image: imageToSave,
         });
-        onClose();
-    }, [draft, onClose, onSave]);
+        if (!stayOpenAfterSave) onClose();
+    }, [draft, onClose, onSave, stayOpenAfterSave]);
 
     const handleDelete = () => {
         if (onDelete && confirm('Delete this entry?')) {
@@ -335,7 +336,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     const hasSearchableApi = config.coupling === 'api';
     const isApiLinked = isParentChildCategory
         ? isEpisodeLinked
-        : !!parsedMeta.externalSource;
+        : category === 'book'
+            ? !!parsedMeta.externalSource && parsedMeta.externalSource !== 'book-progress'
+            : !!parsedMeta.externalSource;
     const hasReviewContent = !!(notes?.trim()) || rating !== undefined;
     // Beer is excluded: only the brewery (subtitle) is searchable, not the beer itself
     const showReviewGate = hasSearchableApi && category !== 'beer' && !isApiLinked && !hasReviewContent && !gateClicked && !readOnly;
@@ -1070,33 +1073,70 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                                 </button>
                                                             );
                                                         })}
-                                                        {tvBingeSelected.size > 0 && (
+                                                        {tvBingeSelected.size > 0 && !tvBingeReview && (
                                                             <div className="sticky bottom-0 px-3 py-2 border-t border-neutral-300 bg-white">
-                                                                <button type="button" onClick={() => {
-                                                                    const episodes = tvEpisodes.filter(ep => tvBingeSelected.has(ep.id));
-                                                                    const batch = episodes.map(ep => {
-                                                                        const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
-                                                                        return {
-                                                                            category: 'tv' as const,
-                                                                            title: selectedTvShow.name,
-                                                                            subtitle: ep.label,
-                                                                            notes: draft.notes || undefined,
-                                                                            image: serializeItemMeta({
-                                                                                imageUrl: selectedTvShow.image || undefined,
-                                                                                externalSource: 'tvmaze-episode',
-                                                                                externalId: episodeIdentity,
-                                                                                releaseDate: ep.airdate || undefined,
-                                                                            }),
-                                                                        };
-                                                                    });
-                                                                    onSaveBatch?.(batch);
-                                                                    setTvBingeSelected(new Set());
-                                                                    setShowTvPicker(false);
-                                                                    onClose();
-                                                                }}
+                                                                <button type="button" onClick={() => setTvBingeReview(true)}
                                                                     className="w-full px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
-                                                                    Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                                    Review {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
                                                                 </button>
+                                                            </div>
+                                                        )}
+                                                        {tvBingeReview && (
+                                                            <div className="sticky bottom-0 border-t border-neutral-300 bg-white px-3 py-3 space-y-2">
+                                                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">
+                                                                    Rating & notes for {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 shrink-0">Rating</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={1} max={10}
+                                                                        value={draft.rating ?? ''}
+                                                                        onChange={(e) => setDraft(prev => ({ ...prev, rating: e.target.value ? Number(e.target.value) : undefined }))}
+                                                                        placeholder="1-10"
+                                                                        className="w-16 border border-neutral-300 px-2 py-1 text-xs font-mono outline-none focus:border-neutral-500"
+                                                                    />
+                                                                </div>
+                                                                <textarea
+                                                                    value={draft.notes}
+                                                                    onChange={(e) => setDraft(prev => ({ ...prev, notes: e.target.value }))}
+                                                                    placeholder="Notes (applied to all episodes)..."
+                                                                    className="w-full border border-neutral-300 px-2 py-1.5 text-xs font-mono outline-none focus:border-neutral-500 resize-none min-h-[60px]"
+                                                                />
+                                                                <div className="flex gap-2">
+                                                                    <button type="button" onClick={() => setTvBingeReview(false)}
+                                                                        className="flex-1 px-3 py-2 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
+                                                                        Back
+                                                                    </button>
+                                                                    <button type="button" onClick={() => {
+                                                                        const episodes = tvEpisodes.filter(ep => tvBingeSelected.has(ep.id));
+                                                                        const batch = episodes.map(ep => {
+                                                                            const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
+                                                                            return {
+                                                                                category: 'tv' as const,
+                                                                                title: selectedTvShow.name,
+                                                                                subtitle: ep.label,
+                                                                                rating: draft.rating,
+                                                                                notes: draft.notes || undefined,
+                                                                                image: serializeItemMeta({
+                                                                                    imageUrl: selectedTvShow.image || undefined,
+                                                                                    externalSource: 'tvmaze-episode',
+                                                                                    externalId: episodeIdentity,
+                                                                                    releaseDate: ep.airdate || undefined,
+                                                                                }),
+                                                                            };
+                                                                        });
+                                                                        if (existingItem) onDelete?.();
+                                                                        onSaveBatch?.(batch);
+                                                                        setTvBingeSelected(new Set());
+                                                                        setTvBingeReview(false);
+                                                                        setShowTvPicker(false);
+                                                                        onClose();
+                                                                    }}
+                                                                        className="flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                        Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </>

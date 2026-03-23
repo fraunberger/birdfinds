@@ -16,6 +16,8 @@ export interface ConsumableModalProps {
     readOnly?: boolean;
     allUserItems?: ConsumableItem[];
     sourceUserId?: string;
+    /** When true, saving does not auto-close the modal (used for TV group browsing). */
+    stayOpenAfterSave?: boolean;
 }
 
 // ---------------------------------------------------------------------------
