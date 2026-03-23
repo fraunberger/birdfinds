@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ConsumableItem, Status, useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
-import { ConsumableModal } from './ConsumableModal';
+import { ConsumableModal, ConsumableModalHandle } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
 import { pushToast } from '@/lib/social-prototype/toast';
 import { normalizeTaggedTextForFeed, parseHighlights, segmentText, TAG_MARKER } from '@/lib/social-prototype/highlighting.mjs';
@@ -61,6 +61,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
+    const modalRef = useRef<ConsumableModalHandle>(null);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
 
@@ -393,6 +394,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         if (!tvGroupEpisodes) return;
         const nextIndex = direction === 'prev' ? tvGroupIndex - 1 : tvGroupIndex + 1;
         if (nextIndex < 0 || nextIndex >= tvGroupEpisodes.length) return;
+        // Save the current episode's edits before navigating away
+        modalRef.current?.triggerSave();
         setTvGroupIndex(nextIndex);
         setExistingItem(tvGroupEpisodes[nextIndex]);
     };
@@ -1089,6 +1092,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 existingItem={existingItem}
                 allUserItems={allUserItems}
                 stayOpenAfterSave={!!tvGroupEpisodes}
+                modalRef={modalRef}
             />
             {tvGroupEpisodes && isModalOpen && (
                 <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-between px-1 sm:px-3">
