@@ -27,7 +27,7 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -320,8 +320,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
             notes: draft.notes,
             image: imageToSave,
         });
-        onClose();
-    }, [draft, onClose, onSave]);
+        if (!stayOpenAfterSave) onClose();
+    }, [draft, onClose, onSave, stayOpenAfterSave]);
 
     const handleDelete = () => {
         if (onDelete && confirm('Delete this entry?')) {

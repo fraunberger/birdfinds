@@ -33,6 +33,8 @@ interface ComposerItemTableProps {
     activeCategoryConfigs: CategoryConfig[];
     /** Open the ConsumableModal for an item. */
     onOpenItem: (item: ConsumableItem) => void;
+    /** Open the TV group browser for a set of episodes. */
+    onOpenTvGroup?: (episodes: ConsumableItem[]) => void;
     /** Link an existing item into the post text. */
     onLinkItem: (item: ConsumableItem) => Promise<void>;
     /** Whether table row taps should link instead of opening modal. */
@@ -50,6 +52,7 @@ export function ComposerItemTable({
     selectedPlainText,
     activeCategoryConfigs,
     onOpenItem,
+    onOpenTvGroup,
     onLinkItem,
     isLinkingMode = false,
     onRemoveItem,
@@ -192,6 +195,7 @@ export function ComposerItemTable({
                             const config = getCategoryConfig('tv');
                             const firstEp = episodes[0];
                             const anyRemoving = episodes.some(ep => removingItemIds.has(ep.id));
+                            const handleGroupClick = () => onOpenTvGroup ? onOpenTvGroup(episodes) : onOpenItem(firstEp);
                             return (
                                 <tr
                                     key={`tv-group:${showName}`}
@@ -200,15 +204,15 @@ export function ComposerItemTable({
                                     <td
                                         className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
                                         style={{ backgroundColor: config.color || undefined }}
-                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
-                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                        onPointerUp={(e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); handleGroupClick(); } }}
+                                        onClick={(e) => { e.stopPropagation(); handleGroupClick(); }}
                                     >
                                         {config.shortLabel}
                                     </td>
                                     <td
                                         className="px-2 py-1 border-b border-r border-neutral-200 font-medium"
-                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
-                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                        onPointerUp={(e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); handleGroupClick(); } }}
+                                        onClick={(e) => { e.stopPropagation(); handleGroupClick(); }}
                                     >
                                         <span className="inline-flex items-center gap-1 min-w-0">
                                             <span style={{
@@ -228,8 +232,8 @@ export function ComposerItemTable({
                                     </td>
                                     <td
                                         className="px-2 py-1 border-b border-r border-neutral-200 text-center"
-                                        onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(firstEp); } }}
-                                        onClick={async (e) => { e.stopPropagation(); await handleRowAction(firstEp); }}
+                                        onPointerUp={(e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); handleGroupClick(); } }}
+                                        onClick={(e) => { e.stopPropagation(); handleGroupClick(); }}
                                     >
                                         {firstEp.rating ? <span>{firstEp.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
                                     </td>

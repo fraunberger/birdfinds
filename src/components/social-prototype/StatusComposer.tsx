@@ -51,6 +51,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
+    const [tvGroupShowName, setTvGroupShowName] = useState<string | null>(null);
+    const [tvGroupIndex, setTvGroupIndex] = useState(0);
 
     const [lastCursorPosition, setLastCursorPosition] = useState<number | null>(null);
     const [selectedPlainText, setSelectedPlainText] = useState<string>('');
@@ -332,7 +334,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 await addItemToActive({ ...item, image: nextImage });
             }
             setHasItemDraftChanges(true);
-            setExistingItem(undefined);
+            if (tvGroupEpisodes) {
+                pushToast({ message: 'Episode saved', tone: 'success' });
+            } else {
+                setExistingItem(undefined);
+            }
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
         }
@@ -358,11 +364,47 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         }
     };
 
+    // Derive TV group episodes from the live store items (stays in sync after saves)
+    const tvGroupEpisodes = useMemo(() => {
+        if (!tvGroupShowName || !activeStatus) return null;
+        return activeStatus.items.filter(item => {
+            if (item.category !== 'tv' || item.title !== tvGroupShowName) return false;
+            const meta = parseItemMeta(item.image);
+            return meta.externalSource === 'tvmaze-episode';
+        });
+    }, [tvGroupShowName, activeStatus]);
+
     const openModal = (item: ConsumableItem) => {
         setActiveCategory(item.category);
         setExistingItem(item);
+        setTvGroupShowName(null);
         setIsModalOpen(true);
     };
+
+    const openTvGroup = (episodes: ConsumableItem[]) => {
+        setActiveCategory('tv');
+        setTvGroupShowName(episodes[0].title);
+        setTvGroupIndex(0);
+        setExistingItem(episodes[0]);
+        setIsModalOpen(true);
+    };
+
+    const navigateTvGroup = (direction: 'prev' | 'next') => {
+        if (!tvGroupEpisodes) return;
+        const nextIndex = direction === 'prev' ? tvGroupIndex - 1 : tvGroupIndex + 1;
+        if (nextIndex < 0 || nextIndex >= tvGroupEpisodes.length) return;
+        setTvGroupIndex(nextIndex);
+        setExistingItem(tvGroupEpisodes[nextIndex]);
+    };
+
+    // Keep existingItem in sync with store data when in TV group mode (e.g. after save)
+    useEffect(() => {
+        if (!tvGroupEpisodes || !isModalOpen) return;
+        const idx = Math.min(tvGroupIndex, tvGroupEpisodes.length - 1);
+        if (idx >= 0 && tvGroupEpisodes[idx]) {
+            setExistingItem(tvGroupEpisodes[idx]);
+        }
+    }, [tvGroupEpisodes, tvGroupIndex, isModalOpen]);
 
     const linkExistingItemToPost = async (item: ConsumableItem) => {
         const ensureAliasLinked = async (phrase: string) => {
@@ -1013,6 +1055,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         selectedPlainText={selectedPlainText}
                         activeCategoryConfigs={toolbarCategoryConfigs}
                         onOpenItem={openModal}
+                        onOpenTvGroup={openTvGroup}
                         onLinkItem={linkExistingItemToPost}
                         isLinkingMode={isTableLinkingMode}
                         onRemoveItem={async (id) => {
@@ -1035,14 +1078,36 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             <ConsumableModal
                 key={`${existingItem?.id ?? 'new'}-${activeCategory}-${isModalOpen ? 'open' : 'closed'}`}
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => { setIsModalOpen(false); setTvGroupShowName(null); }}
                 onSave={handleSaveItem}
                 onSaveBatch={handleSaveBatch}
                 onDelete={handleDeleteItem}
                 initialCategory={activeCategory}
                 existingItem={existingItem}
                 allUserItems={allUserItems}
+                stayOpenAfterSave={!!tvGroupEpisodes}
             />
+            {tvGroupEpisodes && isModalOpen && (
+                <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-between px-1 sm:px-3">
+                    <button
+                        onClick={() => navigateTvGroup('prev')}
+                        disabled={tvGroupIndex <= 0}
+                        className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-white/90 border border-neutral-300 text-neutral-600 hover:bg-white hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed shadow-md text-lg font-bold"
+                    >
+                        ‹
+                    </button>
+                    <div className="pointer-events-auto bg-white/90 border border-neutral-300 shadow-md px-3 py-1 text-[10px] uppercase tracking-widest text-neutral-500 font-bold mt-auto mb-4">
+                        {tvGroupIndex + 1} / {tvGroupEpisodes.length} — {existingItem?.subtitle?.replace(/\s*-\s*.*$/, '') || `Episode ${tvGroupIndex + 1}`}
+                    </div>
+                    <button
+                        onClick={() => navigateTvGroup('next')}
+                        disabled={tvGroupIndex >= tvGroupEpisodes.length - 1}
+                        className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-white/90 border border-neutral-300 text-neutral-600 hover:bg-white hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed shadow-md text-lg font-bold"
+                    >
+                        ›
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
