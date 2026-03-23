@@ -336,7 +336,24 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             }
             setHasItemDraftChanges(true);
             if (!tvGroupEpisodes) {
-                setExistingItem(undefined);
+                // TV episode save: enter carousel mode instead of closing
+                const meta = parseItemMeta(nextImage);
+                if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode' && item.title) {
+                    setTvGroupShowName(item.title);
+                    // Find the just-saved episode's index in the group
+                    const savedKey = getItemExternalIdentityKey('tv', nextImage);
+                    const updatedItems = (activeStatus?.items || []).filter(i => {
+                        if (i.category !== 'tv' || i.title !== item.title) return false;
+                        return parseItemMeta(i.image).externalSource === 'tvmaze-episode';
+                    });
+                    const idx = updatedItems.findIndex(i => getItemExternalIdentityKey('tv', i.image) === savedKey);
+                    setTvGroupIndex(idx >= 0 ? idx : 0);
+                    setExistingItem(updatedItems[idx >= 0 ? idx : 0] ?? existingItem);
+                    setIsModalOpen(true);
+                } else {
+                    setExistingItem(undefined);
+                    setIsModalOpen(false);
+                }
             }
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
@@ -1096,30 +1113,16 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 initialCategory={activeCategory}
                 existingItem={existingItem}
                 allUserItems={allUserItems}
-                stayOpenAfterSave={!!tvGroupEpisodes}
+                stayOpenAfterSave={!!tvGroupEpisodes || activeCategory === 'tv'}
                 modalRef={modalRef}
+                tvGroup={tvGroupEpisodes ? {
+                    index: tvGroupIndex,
+                    total: tvGroupEpisodes.length,
+                    episodeLabel: existingItem?.subtitle?.replace(/\s*-\s*.*$/, '') || `Episode ${tvGroupIndex + 1}`,
+                    onPrev: () => navigateTvGroup('prev'),
+                    onNext: () => navigateTvGroup('next'),
+                } : undefined}
             />
-            {tvGroupEpisodes && isModalOpen && (
-                <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-between px-1 sm:px-3">
-                    <button
-                        onClick={() => navigateTvGroup('prev')}
-                        disabled={tvGroupIndex <= 0}
-                        className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-white/90 border border-neutral-300 text-neutral-600 hover:bg-white hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed shadow-md text-lg font-bold"
-                    >
-                        ‹
-                    </button>
-                    <div className="pointer-events-auto bg-white/90 border border-neutral-300 shadow-md px-3 py-1 text-[10px] uppercase tracking-widest text-neutral-500 font-bold mt-auto mb-4">
-                        {tvGroupIndex + 1} / {tvGroupEpisodes.length} — {existingItem?.subtitle?.replace(/\s*-\s*.*$/, '') || `Episode ${tvGroupIndex + 1}`}
-                    </div>
-                    <button
-                        onClick={() => navigateTvGroup('next')}
-                        disabled={tvGroupIndex >= tvGroupEpisodes.length - 1}
-                        className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-white/90 border border-neutral-300 text-neutral-600 hover:bg-white hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed shadow-md text-lg font-bold"
-                    >
-                        ›
-                    </button>
-                </div>
-            )}
         </div>
     );
 }

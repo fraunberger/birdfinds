@@ -27,7 +27,7 @@ import {
 
 export type { ConsumableModalProps, ConsumableModalHandle } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false, modalRef }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false, modalRef, tvGroup }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -1770,42 +1770,65 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                 </div>
 
                 {/* Footer */}
-                <div className="sticky bottom-0 z-10 flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-t border-neutral-300 bg-neutral-50/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-50/90 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-                    <div className="flex items-center gap-3">
-                        {existingItem && onDelete && !readOnly && (
-                            <button onClick={handleDelete} className="text-xs uppercase tracking-widest text-neutral-400 hover:text-red-600">
-                                Delete
+                <div className="sticky bottom-0 z-10 border-t border-neutral-300 bg-neutral-50/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-50/90 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+                    {tvGroup && (
+                        <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 border-b border-neutral-200">
+                            <button
+                                onClick={tvGroup.onPrev}
+                                disabled={tvGroup.index <= 0}
+                                className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed text-lg font-bold"
+                            >
+                                ‹
                             </button>
-                        )}
-                        {linkCardHref && (
-                            <a href={linkCardHref} target="_blank" rel="noreferrer"
-                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
-                                Open Link
-                            </a>
-                        )}
-                        {restaurantMapHref && (
-                            <a href={restaurantMapHref} target="_blank" rel="noreferrer"
-                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
-                                Maps
-                            </a>
-                        )}
-                        {showItemPageLink && itemPageHref && (
-                            <Link href={itemPageHref}
-                                className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
-                                Item Page
-                            </Link>
-                        )}
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-2">
-                            Cancel
-                        </button>
-                        {!readOnly && (
-                            <button onClick={handleSave} disabled={!title.trim()}
-                                className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 disabled:opacity-30">
-                                Save
+                            <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold">
+                                {tvGroup.index + 1} / {tvGroup.total} — {tvGroup.episodeLabel}
+                            </span>
+                            <button
+                                onClick={tvGroup.onNext}
+                                disabled={tvGroup.index >= tvGroup.total - 1}
+                                className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 disabled:opacity-20 disabled:cursor-not-allowed text-lg font-bold"
+                            >
+                                ›
                             </button>
-                        )}
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3">
+                        <div className="flex items-center gap-3">
+                            {existingItem && onDelete && !readOnly && (
+                                <button onClick={handleDelete} className="text-xs uppercase tracking-widest text-neutral-400 hover:text-red-600">
+                                    Delete
+                                </button>
+                            )}
+                            {linkCardHref && (
+                                <a href={linkCardHref} target="_blank" rel="noreferrer"
+                                    className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                    Open Link
+                                </a>
+                            )}
+                            {restaurantMapHref && (
+                                <a href={restaurantMapHref} target="_blank" rel="noreferrer"
+                                    className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                    Maps
+                                </a>
+                            )}
+                            {showItemPageLink && itemPageHref && (
+                                <Link href={itemPageHref}
+                                    className="text-xs uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                    Item Page
+                                </Link>
+                            )}
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={onClose} className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-2">
+                                Cancel
+                            </button>
+                            {!readOnly && (
+                                <button onClick={handleSave} disabled={!title.trim()}
+                                    className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 disabled:opacity-30">
+                                    Save
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
