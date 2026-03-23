@@ -335,9 +335,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 await addItemToActive({ ...item, image: nextImage });
             }
             setHasItemDraftChanges(true);
-            if (tvGroupEpisodes) {
-                pushToast({ message: 'Episode saved', tone: 'success' });
-            } else {
+            if (!tvGroupEpisodes) {
                 setExistingItem(undefined);
             }
         } catch (error: unknown) {
@@ -400,14 +398,21 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setExistingItem(tvGroupEpisodes[nextIndex]);
     };
 
-    // Keep existingItem in sync with store data when in TV group mode (e.g. after save)
+    // Keep existingItem in sync with store data when in TV group mode.
+    // Only update if the episode at the current index changed identity (e.g. after
+    // deletion shifted episodes), NOT on every store recomputation — otherwise the
+    // modal's draft resets mid-edit and causes glitchy form behavior.
+    const tvGroupCurrentId = tvGroupEpisodes
+        ? tvGroupEpisodes[Math.min(tvGroupIndex, tvGroupEpisodes.length - 1)]?.id
+        : undefined;
     useEffect(() => {
-        if (!tvGroupEpisodes || !isModalOpen) return;
-        const idx = Math.min(tvGroupIndex, tvGroupEpisodes.length - 1);
-        if (idx >= 0 && tvGroupEpisodes[idx]) {
-            setExistingItem(tvGroupEpisodes[idx]);
-        }
-    }, [tvGroupEpisodes, tvGroupIndex, isModalOpen]);
+        if (!tvGroupEpisodes || !isModalOpen || tvGroupCurrentId == null) return;
+        setExistingItem(prev => {
+            if (prev?.id === tvGroupCurrentId) return prev;
+            const idx = Math.min(tvGroupIndex, tvGroupEpisodes.length - 1);
+            return tvGroupEpisodes[idx] ?? prev;
+        });
+    }, [tvGroupCurrentId, tvGroupIndex, tvGroupEpisodes, isModalOpen]);
 
     const linkExistingItemToPost = async (item: ConsumableItem) => {
         const ensureAliasLinked = async (phrase: string) => {
