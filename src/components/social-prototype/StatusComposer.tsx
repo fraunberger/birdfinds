@@ -633,6 +633,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     ) : !activeStatus?.published ? (
                                         <button type="button"
                                             onClick={async () => {
+                                                if (items.length > 0) {
+                                                    if (!confirm(`Converting to baby bird will delete your ${items.length} item${items.length !== 1 ? 's' : ''} from the table. Continue?`)) return;
+                                                }
                                                 setShowComposerMenu(false);
                                                 try {
                                                     const statusId = hasRealStatus
