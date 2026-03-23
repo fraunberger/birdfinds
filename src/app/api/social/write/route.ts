@@ -79,7 +79,8 @@ type WriteAction =
   | "social.habit.remove"
   | "social.habit.log.toggle"
   | "social.status.changeDate"
-  | "social.status.setBundledDates";
+  | "social.status.setBundledDates"
+  | "social.status.setBabyBird";
 
 interface WriteBody {
   action: WriteAction;
@@ -307,6 +308,31 @@ export async function POST(req: NextRequest) {
       const { error } = await supabaseAdmin
         .from("social_statuses")
         .update({ bundled_dates: bundledDates })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.setBabyBird") {
+      const statusId = String(payload.statusId || "");
+      const url = payload.url ? truncate(String(payload.url), MAX_STATUS_CONTENT) : null;
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      const status = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
+        return NextResponse.json({ error: "Cannot edit posts older than 30 days" }, { status: 403 });
+      }
+
+      if (url) {
+        // Converting TO baby bird — delete all items for this status
+        await supabaseAdmin
+          .from("social_items")
+          .delete()
+          .eq("status_id", statusId);
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ baby_bird_url: url })
         .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });

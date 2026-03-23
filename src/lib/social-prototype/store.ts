@@ -43,6 +43,7 @@ export interface Status {
     published: boolean;
     createdAt: number;
     bundledDates?: string[]; // other dates this status covers (YYYY-MM-DD), excluding the primary date
+    babyBirdUrl?: string; // when set, this status is a "baby bird" (single URL + commentary)
 }
 
 export interface StatusComment {
@@ -164,6 +165,7 @@ interface StatusRow {
     created_at: string;
     deleted_at?: string | null;
     bundled_dates?: unknown[] | null;
+    baby_bird_url?: string | null;
 }
 
 interface MeResponse {
@@ -533,7 +535,7 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
 
                 const [journalResp, feedResp] = await Promise.all([
                     linkedUserId
@@ -621,6 +623,7 @@ class SocialStore {
                     published: s.published ?? false,
                     createdAt: new Date(s.created_at).getTime(),
                     bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
+                    babyBirdUrl: s.baby_bird_url || undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -748,7 +751,7 @@ class SocialStore {
 
         const me = await getLinkedMe();
         const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates';
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
 
         const { data: nextPage, error } = await supabase
             .from('social_statuses')
@@ -820,6 +823,7 @@ class SocialStore {
                 published: s.published ?? false,
                 createdAt: new Date(s.created_at).getTime(),
                 bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
+                babyBirdUrl: s.baby_bird_url || undefined,
                 items: (itemsByStatus.get(s.id) || []).map(i => ({
                     id: i.id as string,
                     category: i.category as Category,
@@ -1106,6 +1110,24 @@ class SocialStore {
         this.schedulePostWriteRefresh();
     }
 
+    async setBabyBirdUrl(statusId: string, url: string | null) {
+        await socialWrite('social.status.setBabyBird', { statusId, url });
+        const update = (s: Status) =>
+            s.id === statusId
+                ? { ...s, babyBirdUrl: url || undefined, ...(url ? { items: [] } : {}) }
+                : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = update(this.state.activeStatus);
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
     async moveStatusToDate(statusId: string, newDate: string) {
         await socialWrite('social.status.changeDate', { statusId, newDate });
         // Remove old status from local state and refresh
@@ -1314,6 +1336,7 @@ export function useSocialStore() {
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
         moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
         setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
+        setBabyBirdUrl: (id: string, url: string | null) => socialStore.setBabyBirdUrl(id, url),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),

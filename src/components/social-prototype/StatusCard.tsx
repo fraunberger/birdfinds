@@ -254,85 +254,107 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
 
             {/* Body: content + items */}
             <div>
-                {renderContent()}
-
-                {/* Items as clickable colored boxes */}
-                {status.items.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
-                        {(showAllItems ? status.items : status.items.slice(0, ITEM_LIMIT)).map(item => {
-                            const config = getCategoryConfig(item.category);
-                            const itemMeta = parseItemMeta(item.image);
-                            const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
-                            const isLinked = config.coupling === 'api'
-                                ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
-                                : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
-                                    style={{
-                                        backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
-                                        borderColor: config.color || '#e5e5e5',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            display: 'inline-block',
-                                            width: '8px',
-                                            height: '8px',
-                                            borderRadius: '50%',
-                                            flexShrink: 0,
-                                            backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
-                                            border: `1.5px solid ${config.color || '#d4d4d4'}`,
-                                        }}
-                                    />
-                                    <button
-                                        onClick={() => setSelectedItem(item)}
-                                        className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
-                                        title={item.title}
-                                    >
-                                        {item.title}
-                                    </button>
-                                    {isLinked && hasItemAggregatePage(item.category) && (
-                                        <Link
-                                            href={buildItemPath(item)}
-                                            className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                                            title="Open item details"
-                                            aria-label="Open item details"
-                                        >
-                                            ↗
-                                        </Link>
-                                    )}
-                                    {linkHref && (
-                                        <a
-                                            href={linkHref}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
-                                            title="Open hyperlink"
-                                            aria-label="Open hyperlink"
-                                        >
-                                            ↗
-                                        </a>
-                                    )}
-                                    {item.rating ? (
-                                        <span className="text-neutral-500 font-mono ml-1">
-                                            {item.rating}<span className="text-[9px]">/10</span>
-                                        </span>
-                                    ) : null}
-                                </div>
-                            );
-                        })}
-                        {!showAllItems && status.items.length > ITEM_LIMIT && (
-                            <button
-                                type="button"
-                                onClick={() => setShowAllItems(true)}
-                                className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
-                            >
-                                +{status.items.length - ITEM_LIMIT} more
-                            </button>
+                {status.babyBirdUrl ? (
+                    /* ── Baby Bird layout: link box first, commentary below ── */
+                    <>
+                        <a
+                            href={status.babyBirdUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs font-mono text-neutral-700 hover:bg-neutral-100 transition-colors truncate"
+                        >
+                            <span className="text-neutral-400 mr-1.5">↗</span>
+                            {status.babyBirdUrl}
+                        </a>
+                        {status.content && (
+                            <div className="mt-2">
+                                {renderContent()}
+                            </div>
                         )}
-                    </div>
+                    </>
+                ) : (
+                    <>
+                        {renderContent()}
+
+                        {/* Items as clickable colored boxes */}
+                        {status.items.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-neutral-100">
+                                {(showAllItems ? status.items : status.items.slice(0, ITEM_LIMIT)).map(item => {
+                                    const config = getCategoryConfig(item.category);
+                                    const itemMeta = parseItemMeta(item.image);
+                                    const linkHref = item.category === 'link' ? itemMeta.linkUrl : null;
+                                    const isLinked = config.coupling === 'api'
+                                        ? (item.category === 'book' ? !!itemMeta.imageUrl : !!itemMeta.externalSource)
+                                        : !!(item.rating || item.notes?.trim() || item.subtitle?.trim() || itemMeta.recipeUrl || itemMeta.linkUrl);
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
+                                            style={{
+                                                backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
+                                                borderColor: config.color || '#e5e5e5',
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    display: 'inline-block',
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    flexShrink: 0,
+                                                    backgroundColor: isLinked ? (config.color || '#d4d4d4') : 'transparent',
+                                                    border: `1.5px solid ${config.color || '#d4d4d4'}`,
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => setSelectedItem(item)}
+                                                className="font-medium text-neutral-800 hover:opacity-70 transition-opacity min-w-0 truncate"
+                                                title={item.title}
+                                            >
+                                                {item.title}
+                                            </button>
+                                            {isLinked && hasItemAggregatePage(item.category) && (
+                                                <Link
+                                                    href={buildItemPath(item)}
+                                                    className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                    title="Open item details"
+                                                    aria-label="Open item details"
+                                                >
+                                                    ↗
+                                                </Link>
+                                            )}
+                                            {linkHref && (
+                                                <a
+                                                    href={linkHref}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                    title="Open hyperlink"
+                                                    aria-label="Open hyperlink"
+                                                >
+                                                    ↗
+                                                </a>
+                                            )}
+                                            {item.rating ? (
+                                                <span className="text-neutral-500 font-mono ml-1">
+                                                    {item.rating}<span className="text-[9px]">/10</span>
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    );
+                                })}
+                                {!showAllItems && status.items.length > ITEM_LIMIT && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAllItems(true)}
+                                        className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
+                                    >
+                                        +{status.items.length - ITEM_LIMIT} more
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
