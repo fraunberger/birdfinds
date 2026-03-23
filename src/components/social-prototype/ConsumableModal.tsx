@@ -27,7 +27,7 @@ import {
 
 export type { ConsumableModalProps } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -1074,20 +1074,22 @@ export function ConsumableModal({ isOpen, onClose, onSave, onDelete, initialCate
                                                             <div className="sticky bottom-0 px-3 py-2 border-t border-neutral-300 bg-white">
                                                                 <button type="button" onClick={() => {
                                                                     const episodes = tvEpisodes.filter(ep => tvBingeSelected.has(ep.id));
-                                                                    episodes.forEach(ep => {
+                                                                    const batch = episodes.map(ep => {
                                                                         const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
-                                                                        onSave?.({
-                                                                            category: 'tv',
+                                                                        return {
+                                                                            category: 'tv' as const,
                                                                             title: selectedTvShow.name,
                                                                             subtitle: ep.label,
+                                                                            notes: draft.notes || undefined,
                                                                             image: serializeItemMeta({
                                                                                 imageUrl: selectedTvShow.image || undefined,
                                                                                 externalSource: 'tvmaze-episode',
                                                                                 externalId: episodeIdentity,
                                                                                 releaseDate: ep.airdate || undefined,
                                                                             }),
-                                                                        });
+                                                                        };
                                                                     });
+                                                                    onSaveBatch?.(batch);
                                                                     setTvBingeSelected(new Set());
                                                                     setShowTvPicker(false);
                                                                     onClose();

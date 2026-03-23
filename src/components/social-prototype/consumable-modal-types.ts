@@ -8,6 +8,7 @@ export interface ConsumableModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => void;
+    onSaveBatch?: (items: Omit<ConsumableItem, 'id' | 'createdAt'>[]) => void;
     onDelete?: () => void;
     initialCategory?: Category;
     initialTitle?: string;
