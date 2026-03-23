@@ -585,11 +585,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                         ? activeStatus.id
                                                         : await ensureActiveStatus();
                                                     if (!statusId) return;
-                                                    const url = window.prompt('Enter URL for baby bird:');
-                                                    if (!url?.trim()) return;
-                                                    await setBabyBirdUrl(statusId, url.trim());
-                                                    setBabyBirdUrlDraft(url.trim());
-                                                    pushToast({ message: 'Baby bird mode', tone: 'success' });
+                                                    await setBabyBirdUrl(statusId, ' ');
+                                                    setBabyBirdUrlDraft('');
+                                                    setIsExpanded(true);
                                                 } catch (err) {
                                                     pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
                                                 }
@@ -819,12 +817,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                 statusId = await updateActiveStatus(normalizedContent) || statusId;
                                             }
 
-                                            if (statusId && babyBirdUrlDraft.trim()) {
+                                            if (!babyBirdUrlDraft.trim()) {
+                                                pushToast({ message: 'Add a URL before posting.', tone: 'error' });
+                                            } else if (!normalizedContent.trim()) {
+                                                pushToast({ message: 'Add a comment before posting.', tone: 'error' });
+                                            } else if (statusId) {
+                                                // Persist the URL if it changed
+                                                if (babyBirdUrlDraft.trim() !== activeStatus?.babyBirdUrl) {
+                                                    await setBabyBirdUrl(statusId, babyBirdUrlDraft.trim());
+                                                }
                                                 await togglePublished(statusId, true);
                                                 setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
                                                 setIsExpanded(false);
                                             } else {
-                                                pushToast({ message: 'Add a URL before posting.', tone: 'error' });
+                                                pushToast({ message: 'Something went wrong.', tone: 'error' });
                                             }
                                         } catch (error) {
                                             pushToast({ message: error instanceof Error ? error.message : 'Failed to post', tone: 'error' });
