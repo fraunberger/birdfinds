@@ -18,6 +18,13 @@ export interface ConsumableModalProps {
     sourceUserId?: string;
     /** When true, saving does not auto-close the modal (used for TV group browsing). */
     stayOpenAfterSave?: boolean;
+    /** Imperative handle ref — exposes triggerSave() for external callers (e.g. TV group arrows). */
+    modalRef?: React.Ref<ConsumableModalHandle>;
+}
+
+export interface ConsumableModalHandle {
+    /** Trigger a save of the current draft (no-op if title is empty). */
+    triggerSave: () => void;
 }
 
 // ---------------------------------------------------------------------------

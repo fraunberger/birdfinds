@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore, usePublicProfile } from '@/lib/social-prototype/store';
@@ -25,9 +25,9 @@ import {
     buildInitialDraft,
 } from './consumable-modal-types';
 
-export type { ConsumableModalProps } from './consumable-modal-types';
+export type { ConsumableModalProps, ConsumableModalHandle } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false, modalRef }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -144,7 +144,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     // coupling:'none' categories are always linked (no linkage step).
     const isLinked = config.coupling === 'none'
         || (config.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
-        || (config.coupling === 'api' && !!parsedMeta.externalSource);
+        || (config.coupling === 'api' && !!parsedMeta.externalSource && (category !== 'book' || !!title.trim()));
 
     // Clear the card back to dead state (reset everything).
     const clearLinkage = useCallback(() => {
@@ -323,6 +323,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
         if (!stayOpenAfterSave) onClose();
     }, [draft, onClose, onSave, stayOpenAfterSave]);
 
+    // Expose imperative save for external callers (e.g. TV group arrow navigation)
+    useImperativeHandle(modalRef, () => ({ triggerSave: handleSave }), [handleSave]);
+
     const handleDelete = () => {
         if (onDelete && confirm('Delete this entry?')) {
             onDelete();
@@ -348,7 +351,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
-        ? (isCoupled || !!parsedMeta.externalSource)
+        ? (isCoupled || !!parsedMeta.externalSource) && (category !== 'book' || !!title.trim())
         : category === 'bird'
             ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
             : config.coupling === 'none'
