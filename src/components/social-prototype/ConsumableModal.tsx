@@ -144,7 +144,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     // coupling:'none' categories are always linked (no linkage step).
     const isLinked = config.coupling === 'none'
         || (config.coupling === 'url' && !!(parsedMeta.recipeUrl || parsedMeta.linkUrl))
-        || (config.coupling === 'api' && !!parsedMeta.externalSource);
+        || (config.coupling === 'api' && !!parsedMeta.externalSource && (category !== 'book' || !!title.trim()));
 
     // Clear the card back to dead state (reset everything).
     const clearLinkage = useCallback(() => {
@@ -348,7 +348,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     const isCoupled = category === 'book' ? !!parsedMeta.imageUrl : !!getItemExternalIdentityKey(category, draft.image);
     // Unified linkage check for the header badge — mirrors StatusCard logic.
     const isLinkedForDisplay = config.coupling === 'api'
-        ? (isCoupled || !!parsedMeta.externalSource)
+        ? (isCoupled || !!parsedMeta.externalSource) && (category !== 'book' || !!title.trim())
         : category === 'bird'
             ? !!((parsedMeta.birdList && parsedMeta.birdList.length > 0) || (parsedMeta.checklist && parsedMeta.checklist.length > 0))
             : config.coupling === 'none'
