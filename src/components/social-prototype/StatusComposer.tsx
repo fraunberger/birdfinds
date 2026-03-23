@@ -555,7 +555,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             }
                             return (
                                 <div className="absolute left-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-1 min-w-[160px]">
-                                    {/* Baby Bird toggle */}
+                                    {/* Baby Bird toggle — hidden once published */}
                                     {isBabyBird ? (
                                         <button type="button"
                                             onClick={async () => {
@@ -576,7 +576,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
                                             Convert to log entry
                                         </button>
-                                    ) : (
+                                    ) : !activeStatus?.published ? (
                                         <button type="button"
                                             onClick={async () => {
                                                 setShowComposerMenu(false);
@@ -595,7 +595,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
                                             Baby bird
                                         </button>
-                                    )}
+                                    ) : null}
                                     {!isBabyBird && (
                                         <>
                                             {/* Move post date picker */}
