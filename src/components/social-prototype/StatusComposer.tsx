@@ -338,6 +338,18 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         }
     };
 
+    const handleSaveBatch = async (items: Omit<ConsumableItem, 'id' | 'createdAt'>[]) => {
+        try {
+            for (const item of items) {
+                await addItemToActive(item);
+            }
+            setHasItemDraftChanges(true);
+            setExistingItem(undefined);
+        } catch (error: unknown) {
+            pushToast({ message: `Failed to save items: ${getErrorMessage(error)}`, tone: 'error' });
+        }
+    };
+
     const handleDeleteItem = async () => {
         if (existingItem) {
             await removeItemFromActive(existingItem.id);
@@ -1025,6 +1037,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveItem}
+                onSaveBatch={handleSaveBatch}
                 onDelete={handleDeleteItem}
                 initialCategory={activeCategory}
                 existingItem={existingItem}
