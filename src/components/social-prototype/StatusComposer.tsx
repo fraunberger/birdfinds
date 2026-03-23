@@ -23,7 +23,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, statuses, isLoaded, refresh } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, setBabyBirdUrl, statuses, isLoaded, refresh } = useSocialStore();
     const { hasPublishedPost } = useUserProfile();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
@@ -33,19 +33,21 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isPosting, setIsPosting] = useState(false);
     const [hasItemDraftChanges, setHasItemDraftChanges] = useState(false);
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
-    const [showBundlePicker, setShowBundlePicker] = useState(false);
+    const [showComposerMenu, setShowComposerMenu] = useState(false);
+    const [babyBirdUrlDraft, setBabyBirdUrlDraft] = useState('');
 
-    // Close bundle picker on outside click
+    // Close composer menu on outside click
+    const composerMenuRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        if (!showBundlePicker) return;
+        if (!showComposerMenu) return;
         const handler = (e: MouseEvent) => {
-            if (bundlePickerRef.current && !bundlePickerRef.current.contains(e.target as Node)) {
-                setShowBundlePicker(false);
+            if (composerMenuRef.current && !composerMenuRef.current.contains(e.target as Node)) {
+                setShowComposerMenu(false);
             }
         };
         window.addEventListener('mousedown', handler);
         return () => window.removeEventListener('mousedown', handler);
-    }, [showBundlePicker]);
+    }, [showComposerMenu]);
 
     const [activeCategory, setActiveCategory] = useState<Category>('movie');
     const [existingItem, setExistingItem] = useState<ConsumableItem | undefined>(undefined);
@@ -56,7 +58,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
-    const bundlePickerRef = useRef<HTMLDivElement>(null);
     const recentSelectionRef = useRef<{ text: string; at: number } | null>(null);
 
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
@@ -267,6 +268,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const isEditExpired = activeDate < localCutoff;
     const draftBadgeText = activeStatus?.published && !hasDraftChanges ? 'Posted' : (draftStatus === 'error' ? 'Draft Error' : 'Draft Saved');
     const draftBadgeTone = activeStatus?.published && !hasDraftChanges ? 'text-neutral-500' : (draftStatus === 'error' ? 'text-red-600' : 'text-green-700');
+    const isBabyBird = !!activeStatus?.babyBirdUrl;
     const isAtPrefixLinking = tagging.atPrefixPos >= 0 && tagging.atPrefixText.trim().length > 0;
     const hasTableItems = items.length > 0;
     const isTableLinkingMode = hasTableItems && (isAtPrefixLinking || selectedPlainText.trim().length > 0);
@@ -283,7 +285,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     useEffect(() => {
         setHasItemDraftChanges(false);
-    }, [activeDate, activeStatus?.id]);
+        setBabyBirdUrlDraft(activeStatus?.babyBirdUrl || '');
+    }, [activeDate, activeStatus?.id, activeStatus?.babyBirdUrl]);
 
     // All user items for repeat detection
     const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
@@ -490,31 +493,30 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
             {/* Header */}
             <header className="flex items-center justify-between mb-2 pb-2 border-b border-neutral-300 gap-4">
-                <button
-                    onClick={async () => {
-                        const next = !isExpanded;
-                        if (next) {
-                            await prepareComposerForEntry();
-                            // Show inline onboarding checklist for first-time composers
-                            if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
-                                setShowComposerOnboarding(true);
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={async () => {
+                            const next = !isExpanded;
+                            if (next) {
+                                await prepareComposerForEntry();
+                                if (user?.id && !hasCompletedComposerOnboarding(user.id) && !hasPublishedPost && !statuses.some(s => s.published)) {
+                                    setShowComposerOnboarding(true);
+                                }
                             }
-                        }
-                        setIsExpanded(next);
-                    }}
-                    disabled={isPreparingComposer}
-                    className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity touch-manipulation"
-                >
-                    <span className={`text-xs transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 whitespace-nowrap">
-                        {isPreparingComposer ? 'LOADING…' : (isExpanded ? 'LOG ENTRY' : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
-                    </h2>
-                </button>
-                <div className="flex items-center justify-end gap-3 text-xs uppercase tracking-widest">
-                    {/* Entry menu: move post, multi-day */}
-                    <div className="relative" ref={bundlePickerRef}>
+                            setIsExpanded(next);
+                        }}
+                        disabled={isPreparingComposer}
+                        className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity touch-manipulation"
+                    >
+                        <span className={`text-xs transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-600 whitespace-nowrap">
+                            {isPreparingComposer ? 'LOADING…' : (isExpanded ? (isBabyBird ? 'BABY BIRD' : 'LOG ENTRY') : (activeStatus?.content ? 'ENTRY' : 'NEW ENTRY'))}
+                        </h2>
+                    </button>
+                    {/* Three-dot menu — entry options */}
+                    <div className="relative" ref={composerMenuRef}>
                         <button type="button"
-                            onClick={() => setShowBundlePicker(p => !p)}
+                            onClick={() => setShowComposerMenu(p => !p)}
                             className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation w-6 h-6 flex items-center justify-center"
                             title="Entry options"
                             aria-label="Entry options">
@@ -524,10 +526,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 <span className="w-1 h-1 rounded-full bg-current" />
                             </span>
                         </button>
-                        {showBundlePicker && (() => {
+                        {showComposerMenu && (() => {
                             const currentBundle = activeStatus?.bundledDates || [];
                             const hasRealStatus = activeStatus && activeStatus.id !== 'temp-optimistic';
-                            // Compute which multi-day options are available (no conflicting posts)
                             const multiDayOptions = [2, 3].map(n => {
                                 const dates: string[] = [];
                                 for (let i = n - 1; i >= 1; i--) {
@@ -553,77 +554,126 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 }
                             }
                             return (
-                                <div className="absolute left-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-1 min-w-[140px]">
-                                    {/* Move post date picker */}
-                                    {hasRealStatus && moveDateOptions.length > 0 && (
-                                        <>
-                                            <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Move to</div>
-                                            {moveDateOptions.map(({ date, label, hasUnposted }) => (
-                                                <button key={date} type="button"
-                                                    className="block w-full text-left px-3 py-1.5 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50"
-                                                    onClick={async () => {
-                                                        setShowBundlePicker(false);
-                                                        const warning = hasUnposted
-                                                            ? `Move this post to ${label}? The existing draft on that date will be replaced.`
-                                                            : `Move this post to ${label}?`;
-                                                        if (!confirm(warning)) return;
-                                                        try {
-                                                            await moveStatusToDate(activeStatus.id, date);
-                                                            pushToast({ message: `Post moved to ${label}`, tone: 'success' });
-                                                        } catch (err) {
-                                                            pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
-                                                        }
-                                                    }}>
-                                                    {label}{hasUnposted && <span className="text-neutral-400 ml-1">(has draft)</span>}
-                                                </button>
-                                            ))}
-                                            <div className="border-t border-neutral-100 my-1" />
-                                        </>
+                                <div className="absolute left-0 top-full mt-1 bg-white border border-neutral-300 shadow-md z-50 p-1 min-w-[160px]">
+                                    {/* Baby Bird toggle */}
+                                    {isBabyBird ? (
+                                        <button type="button"
+                                            onClick={async () => {
+                                                setShowComposerMenu(false);
+                                                if (!hasRealStatus) return;
+                                                try {
+                                                    const url = activeStatus.babyBirdUrl;
+                                                    await setBabyBirdUrl(activeStatus.id, null);
+                                                    if (url) {
+                                                        const linkMeta = serializeItemMeta({ linkUrl: url });
+                                                        await addItemToActive({ category: 'link', title: url, image: linkMeta });
+                                                    }
+                                                    pushToast({ message: 'Converted back to log entry', tone: 'success' });
+                                                } catch (err) {
+                                                    pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
+                                                }
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
+                                            Convert to log entry
+                                        </button>
+                                    ) : (
+                                        <button type="button"
+                                            onClick={async () => {
+                                                setShowComposerMenu(false);
+                                                try {
+                                                    const statusId = hasRealStatus
+                                                        ? activeStatus.id
+                                                        : await ensureActiveStatus();
+                                                    if (!statusId) return;
+                                                    const url = window.prompt('Enter URL for baby bird:');
+                                                    if (!url?.trim()) return;
+                                                    await setBabyBirdUrl(statusId, url.trim());
+                                                    setBabyBirdUrlDraft(url.trim());
+                                                    pushToast({ message: 'Baby bird mode', tone: 'success' });
+                                                } catch (err) {
+                                                    pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
+                                                }
+                                            }}
+                                            className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
+                                            Baby bird
+                                        </button>
                                     )}
-                                    {/* Multi-day separator */}
-                                    <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Multi-day</div>
-                                    {/* 1 day = unbundle */}
-                                    <button type="button"
-                                        className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${!currentBundle.length ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
-                                        onClick={async () => {
-                                            setShowBundlePicker(false);
-                                            if (!hasRealStatus) return;
-                                            try {
-                                                await setBundledDates(activeStatus.id, null);
-                                                pushToast({ message: 'Multi-day removed', tone: 'success' });
-                                            } catch (err) {
-                                                pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
-                                            }
-                                        }}>
-                                        1 day{!currentBundle.length && ' *'}
-                                    </button>
-                                    {multiDayOptions.map(({ n, dates, hasConflict }) => {
-                                        const isSelected = currentBundle.length === n - 1;
-                                        if (hasConflict && !isSelected) return null; // hide unavailable options
-                                        return (
-                                            <button key={n} type="button"
-                                                className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                    {!isBabyBird && (
+                                        <>
+                                            {/* Move post date picker */}
+                                            {hasRealStatus && moveDateOptions.length > 0 && (
+                                                <>
+                                                    <div className="border-t border-neutral-100 my-1" />
+                                                    <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Move to</div>
+                                                    {moveDateOptions.map(({ date, label, hasUnposted }) => (
+                                                        <button key={date} type="button"
+                                                            className="block w-full text-left px-3 py-1.5 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50"
+                                                            onClick={async () => {
+                                                                setShowComposerMenu(false);
+                                                                const warning = hasUnposted
+                                                                    ? `Move this post to ${label}? The existing draft on that date will be replaced.`
+                                                                    : `Move this post to ${label}?`;
+                                                                if (!confirm(warning)) return;
+                                                                try {
+                                                                    await moveStatusToDate(activeStatus.id, date);
+                                                                    pushToast({ message: `Post moved to ${label}`, tone: 'success' });
+                                                                } catch (err) {
+                                                                    pushToast({ message: err instanceof Error ? err.message : 'Failed to move post', tone: 'error' });
+                                                                }
+                                                            }}>
+                                                            {label}{hasUnposted && <span className="text-neutral-400 ml-1">(has draft)</span>}
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                            {/* Multi-day */}
+                                            <div className="border-t border-neutral-100 my-1" />
+                                            <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Multi-day</div>
+                                            <button type="button"
+                                                className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${!currentBundle.length ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
                                                 onClick={async () => {
-                                                    setShowBundlePicker(false);
+                                                    setShowComposerMenu(false);
+                                                    if (!hasRealStatus) return;
                                                     try {
-                                                        const statusId = activeStatus?.id === 'temp-optimistic'
-                                                            ? await ensureActiveStatus()
-                                                            : activeStatus?.id;
-                                                        if (!statusId) return;
-                                                        await setBundledDates(statusId, dates);
-                                                        pushToast({ message: `${n}-day entry`, tone: 'success' });
+                                                        await setBundledDates(activeStatus.id, null);
+                                                        pushToast({ message: 'Multi-day removed', tone: 'success' });
                                                     } catch (err) {
                                                         pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
                                                     }
                                                 }}>
-                                                {n} days{isSelected && ' *'}
+                                                1 day{!currentBundle.length && ' *'}
                                             </button>
-                                        );
-                                    })}
+                                            {multiDayOptions.map(({ n, dates, hasConflict }) => {
+                                                const isSelected = currentBundle.length === n - 1;
+                                                if (hasConflict && !isSelected) return null;
+                                                return (
+                                                    <button key={n} type="button"
+                                                        className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                                        onClick={async () => {
+                                                            setShowComposerMenu(false);
+                                                            try {
+                                                                const statusId = activeStatus?.id === 'temp-optimistic'
+                                                                    ? await ensureActiveStatus()
+                                                                    : activeStatus?.id;
+                                                                if (!statusId) return;
+                                                                await setBundledDates(statusId, dates);
+                                                                pushToast({ message: `${n}-day entry`, tone: 'success' });
+                                                            } catch (err) {
+                                                                pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
+                                                            }
+                                                        }}>
+                                                        {n} days{isSelected && ' *'}
+                                                    </button>
+                                                );
+                                            })}
+                                        </>
+                                    )}
                                 </div>
                             );
                         })()}
                     </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 text-xs uppercase tracking-widest">
                     <button type="button" onClick={() => setShowHowToPost(true)}
                         className="text-neutral-400 hover:text-neutral-600 transition-colors touch-manipulation w-6 h-6 flex items-center justify-center"
                         aria-label="How to post?">
@@ -698,6 +748,101 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             {/* Collapsible Content */}
             {isExpanded && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    {isBabyBird ? (
+                        /* ── Baby Bird Mode ── */
+                        <>
+                            <div className="border border-neutral-300">
+                                {/* URL display */}
+                                <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center gap-2">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">URL</span>
+                                    <input
+                                        type="url"
+                                        value={babyBirdUrlDraft}
+                                        onChange={async (e) => {
+                                            const val = e.target.value;
+                                            setBabyBirdUrlDraft(val);
+                                        }}
+                                        onBlur={async () => {
+                                            if (!activeStatus || activeStatus.id === 'temp-optimistic') return;
+                                            if (babyBirdUrlDraft.trim() && babyBirdUrlDraft.trim() !== activeStatus.babyBirdUrl) {
+                                                try {
+                                                    await setBabyBirdUrl(activeStatus.id, babyBirdUrlDraft.trim());
+                                                } catch { /* ignore */ }
+                                            }
+                                        }}
+                                        placeholder="https://..."
+                                        className="flex-1 min-w-0 bg-transparent text-xs font-mono text-neutral-700 outline-none placeholder:text-neutral-300 truncate"
+                                    />
+                                    {babyBirdUrlDraft && (
+                                        <a
+                                            href={babyBirdUrlDraft}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-[10px] text-neutral-400 hover:text-neutral-700 shrink-0"
+                                            title="Open link"
+                                        >
+                                            ↗
+                                        </a>
+                                    )}
+                                </div>
+                                {/* Commentary textarea */}
+                                <div className="relative min-h-[100px] bg-white">
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={content}
+                                        onChange={handleContentChange}
+                                        onFocus={() => { adjustTextareaHeight(); if (textareaRef.current) textareaRef.current.style.minHeight = '100px'; }}
+                                        onBlur={() => { handleBlur(); }}
+                                        placeholder="What's this about?"
+                                        className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
+                                        spellCheck={false}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Post Action Row */}
+                            <div className="mt-2 mb-1 flex items-center gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (isPosting) return;
+                                        setIsPosting(true);
+                                        try {
+                                            let statusId = activeStatus?.id !== 'temp-optimistic' ? activeStatus?.id : undefined;
+                                            const normalizedContent = normalizeTaggedTextForFeed(content);
+                                            const hasContentChanges = normalizedContent !== (activeStatus?.content || '');
+
+                                            if (hasContentChanges) {
+                                                statusId = await updateActiveStatus(normalizedContent) || statusId;
+                                            }
+
+                                            if (statusId && babyBirdUrlDraft.trim()) {
+                                                await togglePublished(statusId, true);
+                                                setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
+                                                setIsExpanded(false);
+                                            } else {
+                                                pushToast({ message: 'Add a URL before posting.', tone: 'error' });
+                                            }
+                                        } catch (error) {
+                                            pushToast({ message: error instanceof Error ? error.message : 'Failed to post', tone: 'error' });
+                                        } finally {
+                                            setIsPosting(false);
+                                        }
+                                    }}
+                                    disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges && babyBirdUrlDraft === (activeStatus?.babyBirdUrl || '')) || isFuturePost || isEditExpired}
+                                    title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
+                                    className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                                >
+                                    {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges || babyBirdUrlDraft !== (activeStatus?.babyBirdUrl || '') ? 'UPDATE POST' : 'POSTED') : 'POST')}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        /* ── Normal Log Entry Mode ── */
+                        <>
                     {/* Editor Container */}
                     <div className="border border-neutral-300">
                         {/* ── Inline Category Toolbar — horizontally scrollable ── */}
@@ -773,7 +918,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 onSelect={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); handleTextSelection(t); }}
                                 onTouchEnd={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
                                 onPointerUp={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
-                                // onClick auto-match removed as requested
                                 placeholder="What did you do today? Type @item then tap a category, or select text..."
                                 className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[170px] sm:min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                                 spellCheck={false}
@@ -865,6 +1009,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         }}
                     />
                     </div>
+                        </>
+                    )}
                 </div>
             )}
 
