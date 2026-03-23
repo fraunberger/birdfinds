@@ -1,3 +1,4 @@
+import React from 'react';
 import { Category, ConsumableItem } from '@/lib/social-prototype/store';
 import { serializeItemMeta } from '@/lib/social-prototype/item-meta';
 
