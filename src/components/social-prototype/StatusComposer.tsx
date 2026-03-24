@@ -869,78 +869,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                         </a>
                                     )}
                                 </div>
-                                {/* ── Inline Category Toolbar — same as normal mode ── */}
-                                <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
-                                    <div className="flex items-stretch min-w-max shrink-0">
-                                        {toolbarCategoryConfigs.map(cat => {
-                                            const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
-                                            return (
-                                                <button
-                                                    key={cat.id}
-                                                    onClick={() => {
-                                                        setSelectedPlainText('');
-                                                        const hasRecentFallback = !!recentSelectionRef.current
-                                                            && (Date.now() - recentSelectionRef.current.at) < 2500
-                                                            && recentSelectionRef.current.text.trim().length > 0;
-                                                        recentSelectionRef.current = null;
-                                                        if (hasContext || hasRecentFallback) {
-                                                            tagging.handleCategoryTap(cat.id);
-                                                        } else {
-                                                            setActiveCategory(cat.id);
-                                                            setExistingItem(undefined);
-                                                            setIsModalOpen(true);
-                                                        }
-                                                    }}
-                                                    onPointerDown={(e) => e.preventDefault()}
-                                                    disabled={tagging.busy}
-                                                    title={cat.label}
-                                                    className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
-                                                        ? 'text-neutral-900 hover:brightness-90'
-                                                        : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
-                                                        }`}
-                                                    style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
-                                                >
-                                                    {cat.shortLabel}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    {tagging.selectedText && (
-                                        <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
-                                            TEXT SELECTED → TAP A CATEGORY
-                                        </div>
-                                    )}
-                                    {!tagging.selectedText && tagging.atPrefixText && (
-                                        <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
-                                            @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Commentary textarea + highlight overlay */}
+                                {/* Commentary textarea */}
                                 <div className="relative min-h-[100px] bg-white">
-                                    {content && (
-                                        <div className="highlight-layer absolute inset-0 p-3 pointer-events-none whitespace-pre-wrap break-words font-mono text-transparent leading-relaxed z-0 align-top overflow-hidden" aria-hidden="true">
-                                            {(segmentText(content, previewDecorations) as Array<{ type: 'text' | 'highlight'; text: string; start: number; end: number; decoration?: { color?: string; entityId?: string } }>).map((segment, index) =>
-                                                segment.type === 'text' ? (
-                                                    <React.Fragment key={`t:${segment.start}:${index}`}>{segment.text}</React.Fragment>
-                                                ) : (
-                                                    <mark key={`h:${segment.start}:${segment.end}:${segment.decoration?.entityId || index}`}
-                                                        style={{ backgroundColor: segment.decoration?.color || HIGHLIGHT_COLOR, padding: 0, color: 'transparent' }}>
-                                                        {segment.text}
-                                                    </mark>
-                                                )
-                                            )}
-                                        </div>
-                                    )}
                                     <textarea
                                         ref={textareaRef}
                                         value={content}
                                         onChange={handleContentChange}
                                         onFocus={() => { adjustTextareaHeight(); if (textareaRef.current) textareaRef.current.style.minHeight = '100px'; }}
                                         onBlur={() => { handleBlur(); }}
-                                        onSelect={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); handleTextSelection(t); }}
-                                        onTouchEnd={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
-                                        onPointerUp={(e) => { const t = e.target as HTMLTextAreaElement; setLastCursorPosition(t.selectionStart); window.setTimeout(() => handleTextSelection(t), 0); }}
                                         placeholder="What's this about? (required)"
                                         className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                                         spellCheck={false}
