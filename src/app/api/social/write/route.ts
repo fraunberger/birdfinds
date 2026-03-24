@@ -90,13 +90,13 @@ interface WriteBody {
 const ensureOwnStatus = async (supabaseAdmin: SupabaseClient, statusId: string, userId: string) => {
   const { data } = await supabaseAdmin
     .from("social_statuses")
-    .select("id,user_id,date,published")
+    .select("id,user_id,date,published,baby_bird_url")
     .eq("id", statusId)
     .maybeSingle();
   if (!data || data.user_id !== userId) {
     throw new Error("Not authorized for status");
   }
-  return data as { id: string; user_id: string; date: string; published: boolean };
+  return data as { id: string; user_id: string; date: string; published: boolean; baby_bird_url?: string | null };
 };
 
 const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, userId: string) => {
@@ -279,7 +279,12 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.setBundledDates") {
       const statusId = String(payload.statusId || "");
       if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const bundleStatus = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Baby birds cannot be date bundled
+      if (bundleStatus.baby_bird_url) {
+        return NextResponse.json({ error: "Baby birds cannot be date bundled" }, { status: 400 });
+      }
 
       const rawDates = Array.isArray(payload.bundledDates) ? payload.bundledDates : null;
       const bundledDates = rawDates
@@ -323,16 +328,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (url) {
-        // Converting TO baby bird — delete all items for this status
-        await supabaseAdmin
-          .from("social_items")
-          .delete()
-          .eq("status_id", statusId);
+        // Converting TO baby bird — clear bundled dates (baby birds are single-day only)
+        // Items are kept so they still appear in the user's profile piles
       }
 
       const { error } = await supabaseAdmin
         .from("social_statuses")
-        .update({ baby_bird_url: url })
+        .update({ baby_bird_url: url, ...(url ? { bundled_dates: null } : {}) })
         .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });

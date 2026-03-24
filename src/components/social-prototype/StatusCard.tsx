@@ -103,7 +103,8 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         if (!status.content) return null;
 
         const text = normalizeTaggedTextForFeed(status.content);
-        const entities = status.items.map((item) => {
+        // Baby bird items are for profile piles only — don't highlight them in the feed
+        const entities = status.babyBirdUrl ? [] : status.items.map((item) => {
             const config = getCategoryConfig(item.category);
             return {
                 id: item.id,
