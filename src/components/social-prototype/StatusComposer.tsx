@@ -658,9 +658,6 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     ) : !activeStatus?.published ? (
                                         <button type="button"
                                             onClick={async () => {
-                                                if (items.length > 0) {
-                                                    if (!confirm(`Converting to baby bird will delete your ${items.length} item${items.length !== 1 ? 's' : ''} from the table. Continue?`)) return;
-                                                }
                                                 setShowComposerMenu(false);
                                                 try {
                                                     const statusId = hasRealStatus
@@ -820,6 +817,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 <p className="pl-2">2. Highlight words in your status and tap a category in the top bar</p>
                                 <p className="pt-1">** Items tagged inline still need to be filled out — tap the row to open the card.</p>
                             </div>
+
+                            <div className="border-t border-neutral-200 pt-3 space-y-2">
+                                <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">Baby Birds</p>
+                                <p>A baby bird is a quick share — a single link with your commentary. Use it when you want to share an article, video, or anything with a URL without building a full log entry.</p>
+                                <p>Baby birds require a URL and a description. You can still tag items (movies, books, etc.) on a baby bird — they won&apos;t appear in the feed post, but they&apos;ll be added to your profile piles for tracking.</p>
+                                <p>Baby birds are always single-day entries and cannot be date bundled.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -873,7 +877,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                         onChange={handleContentChange}
                                         onFocus={() => { adjustTextareaHeight(); if (textareaRef.current) textareaRef.current.style.minHeight = '100px'; }}
                                         onBlur={() => { handleBlur(); }}
-                                        placeholder="What's this about?"
+                                        placeholder="What's this about? (required)"
                                         className="composer-text relative z-10 w-full bg-transparent text-neutral-900 caret-black outline-none placeholder:text-neutral-300 min-h-[100px] p-3 font-mono resize-none leading-relaxed align-top overflow-hidden transition-all duration-200"
                                         spellCheck={false}
                                     />
@@ -885,6 +889,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 <div className="min-w-0 flex-1">
                                     <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
                                 </div>
+                                {items.length > 0 && (
+                                    <span className="text-[9px] uppercase tracking-widest text-neutral-400 whitespace-nowrap">
+                                        {items.length} tag{items.length !== 1 ? 's' : ''} (pile only)
+                                    </span>
+                                )}
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -902,7 +911,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             if (!babyBirdUrlDraft.trim()) {
                                                 pushToast({ message: 'Add a URL before posting.', tone: 'error' });
                                             } else if (!normalizedContent.trim()) {
-                                                pushToast({ message: 'Add a comment before posting.', tone: 'error' });
+                                                pushToast({ message: 'Add a description before posting.', tone: 'error' });
                                             } else if (statusId) {
                                                 // Persist the URL if it changed
                                                 if (babyBirdUrlDraft.trim() !== activeStatus?.babyBirdUrl) {
@@ -927,6 +936,29 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges || babyBirdUrlDraft !== (activeStatus?.babyBirdUrl || '') ? 'UPDATE POST' : 'POSTED') : 'POST')}
                                 </button>
                             </div>
+
+                            {/* Data Table for baby bird tags (pile only) */}
+                            <ComposerItemTable
+                                items={items}
+                                content={content}
+                                isMobileTagging={tagging.isMobileTagging}
+                                selectedPlainText={selectedPlainText}
+                                activeCategoryConfigs={toolbarCategoryConfigs}
+                                onOpenItem={openModal}
+                                onOpenTvGroup={openTvGroup}
+                                onLinkItem={linkExistingItemToPost}
+                                isLinkingMode={isTableLinkingMode}
+                                onRemoveItem={async (id) => {
+                                    if (isPreparingComposer) return;
+                                    await removeItemFromActive(id);
+                                    setHasItemDraftChanges(true);
+                                }}
+                                onAddItem={async (item) => {
+                                    if (isPreparingComposer) return;
+                                    await addItemToActive(item);
+                                    setHasItemDraftChanges(true);
+                                }}
+                            />
                         </>
                     ) : (
                         /* ── Normal Log Entry Mode ── */

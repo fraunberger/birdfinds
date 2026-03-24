@@ -60,7 +60,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'single', coupling: 'api',
         hasRating: true, ratingScope: 'entity',
         childLabel: null, extras: [],
-        titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director',
+        titleLabel: 'Film Title', subtitleLabel: 'Starring', subtitlePlaceholder: 'Lead actors',
         ratingLabel: 'Score', color: '#f5d142', icon: '',
     },
     tv: {

@@ -1114,7 +1114,7 @@ class SocialStore {
         await socialWrite('social.status.setBabyBird', { statusId, url });
         const update = (s: Status) =>
             s.id === statusId
-                ? { ...s, babyBirdUrl: url || undefined, ...(url ? { items: [] } : {}) }
+                ? { ...s, babyBirdUrl: url || undefined, ...(url ? { bundledDates: undefined } : {}) }
                 : s;
         this.state = {
             ...this.state,
