@@ -641,7 +641,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                 setShowComposerMenu(false);
                                                 if (!hasRealStatus) return;
                                                 try {
-                                                    const url = activeStatus.babyBirdUrl;
+                                                    const url = activeStatus.babyBirdUrl?.trim();
                                                     await setBabyBirdUrl(activeStatus.id, null);
                                                     if (url) {
                                                         const linkMeta = serializeItemMeta({ linkUrl: url });
