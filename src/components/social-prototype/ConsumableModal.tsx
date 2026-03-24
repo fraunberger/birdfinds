@@ -883,8 +883,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                 setDraft((prev) => ({
                                                     ...prev,
                                                     title: r.title,
-                                                    // IMDB subtitle is lead actors, not director — only use iTunes (artistName = director)
-                                                    subtitle: source === 'itunes' ? (r.subtitle || '') : '',
+                                                    // IMDB subtitle = lead actors (Starring field); iTunes subtitle is empty (artistName = director, not used)
+                                                    subtitle: r.subtitle || prev.subtitle || '',
                                                     rating: undefined,
                                                     notes: '',
                                                     image: serializeItemMeta({
