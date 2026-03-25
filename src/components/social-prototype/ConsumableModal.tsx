@@ -1825,8 +1825,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                 Cancel
                             </button>
                             {!readOnly && (
-                                <button onClick={() => handleSave()} disabled={!title.trim()}
-                                    className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 disabled:opacity-30">
+                                <button
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => handleSave()}
+                                    disabled={!title.trim()}
+                                    className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 disabled:opacity-30 touch-manipulation">
                                     Save
                                 </button>
                             )}
