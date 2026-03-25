@@ -165,6 +165,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         <span className="text-[11px] font-bold text-neutral-700 truncate">
                             {profile.username}
                         </span>
+                        {status.babyBirdUrl && (
+                            <span className="text-[9px] uppercase tracking-widest text-neutral-400 ml-1">baby bird</span>
+                        )}
                     </button>
                 )}
                 <div className="flex items-center gap-2 ml-auto flex-shrink-0">
@@ -256,22 +259,18 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
             {/* Body: content + items */}
             <div>
                 {status.babyBirdUrl ? (
-                    /* ── Baby Bird layout: link box first, commentary below ── */
+                    /* ── Baby Bird layout: commentary with inline link ── */
                     <>
+                        {status.content && renderContent()}
                         <a
                             href={status.babyBirdUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="block border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs font-mono text-neutral-700 hover:bg-neutral-100 transition-colors truncate"
+                            className="inline-flex items-center gap-1 text-[10px] font-mono text-neutral-400 hover:text-neutral-700 transition-colors mt-1"
                         >
-                            <span className="text-neutral-400 mr-1.5">↗</span>
-                            {status.babyBirdUrl}
+                            <span>↗</span>
+                            <span className="truncate max-w-[250px]">{status.babyBirdUrl.replace(/^https?:\/\//, '')}</span>
                         </a>
-                        {status.content && (
-                            <div className="mt-2">
-                                {renderContent()}
-                            </div>
-                        )}
                     </>
                 ) : (
                     <>
