@@ -1339,7 +1339,7 @@ export function useSocialStore() {
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
         moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
         setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
-        setBabyBirdUrl: (id: string, url: string | null) => socialStore.setBabyBirdUrl(id, url),
+        setBabyBirdUrl: (id: string, url: string | null, linkLabel?: string | null) => socialStore.setBabyBirdUrl(id, url, linkLabel),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
