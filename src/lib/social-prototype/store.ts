@@ -167,7 +167,6 @@ interface StatusRow {
     deleted_at?: string | null;
     bundled_dates?: unknown[] | null;
     baby_bird_url?: string | null;
-    baby_bird_link_label?: string | null;
 }
 
 interface MeResponse {
@@ -537,7 +536,7 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
 
                 const [journalResp, feedResp] = await Promise.all([
                     linkedUserId
@@ -625,8 +624,8 @@ class SocialStore {
                     published: s.published ?? false,
                     createdAt: new Date(s.created_at).getTime(),
                     bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
-                    babyBirdUrl: s.baby_bird_url || undefined,
-                    babyBirdLinkLabel: s.baby_bird_link_label || undefined,
+                    babyBirdUrl: s.baby_bird_url ? s.baby_bird_url.split('\n')[0] : undefined,
+                    babyBirdLinkLabel: s.baby_bird_url?.includes('\n') ? s.baby_bird_url.split('\n')[1] : undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -1114,7 +1113,9 @@ class SocialStore {
     }
 
     async setBabyBirdUrl(statusId: string, url: string | null, linkLabel?: string | null) {
-        await socialWrite('social.status.setBabyBird', { statusId, url, linkLabel: linkLabel ?? null });
+        // Encode label into the url field as "url\nlabel" — URLs can't contain newlines
+        const encoded = url && linkLabel ? `${url}\n${linkLabel}` : url;
+        await socialWrite('social.status.setBabyBird', { statusId, url: encoded });
         const update = (s: Status) =>
             s.id === statusId
                 ? { ...s, babyBirdUrl: url || undefined, babyBirdLinkLabel: linkLabel || undefined, ...(url ? { bundledDates: undefined } : {}) }
