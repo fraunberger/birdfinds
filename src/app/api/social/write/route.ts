@@ -321,6 +321,7 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.setBabyBird") {
       const statusId = String(payload.statusId || "");
       const url = payload.url ? truncate(String(payload.url), MAX_STATUS_CONTENT) : null;
+      const linkLabel = payload.linkLabel ? truncate(String(payload.linkLabel), 200) : null;
       if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
       const status = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
       if (isOlderThan30Days(status.date)) {
@@ -334,7 +335,7 @@ export async function POST(req: NextRequest) {
 
       const { error } = await supabaseAdmin
         .from("social_statuses")
-        .update({ baby_bird_url: url, ...(url ? { bundled_dates: null } : {}) })
+        .update({ baby_bird_url: url, baby_bird_link_label: linkLabel, ...(url ? { bundled_dates: null } : {}) })
         .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });

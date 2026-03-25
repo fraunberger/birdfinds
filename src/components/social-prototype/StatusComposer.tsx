@@ -35,6 +35,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [isPreparingComposer, setIsPreparingComposer] = useState(false);
     const [showComposerMenu, setShowComposerMenu] = useState(false);
     const [babyBirdUrlDraft, setBabyBirdUrlDraft] = useState('');
+    const [babyBirdLinkLabelDraft, setBabyBirdLinkLabelDraft] = useState('');
 
     // Close composer menu on outside click
     const composerMenuRef = useRef<HTMLDivElement>(null);
@@ -289,7 +290,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     useEffect(() => {
         setHasItemDraftChanges(false);
         setBabyBirdUrlDraft(activeStatus?.babyBirdUrl || '');
-    }, [activeDate, activeStatus?.id, activeStatus?.babyBirdUrl]);
+        setBabyBirdLinkLabelDraft(activeStatus?.babyBirdLinkLabel || '');
+    }, [activeDate, activeStatus?.id, activeStatus?.babyBirdUrl, activeStatus?.babyBirdLinkLabel]);
 
     // All user items for repeat detection
     const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
@@ -869,6 +871,25 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                         </a>
                                     )}
                                 </div>
+                                {/* Link label input */}
+                                <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center gap-2">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">LABEL</span>
+                                    <input
+                                        type="text"
+                                        value={babyBirdLinkLabelDraft}
+                                        onChange={(e) => setBabyBirdLinkLabelDraft(e.target.value)}
+                                        onBlur={async () => {
+                                            if (!activeStatus || activeStatus.id === 'temp-optimistic') return;
+                                            if (babyBirdLinkLabelDraft.trim() !== (activeStatus.babyBirdLinkLabel || '')) {
+                                                try {
+                                                    await setBabyBirdUrl(activeStatus.id, babyBirdUrlDraft.trim() || activeStatus.babyBirdUrl || ' ', babyBirdLinkLabelDraft.trim() || null);
+                                                } catch { /* ignore */ }
+                                            }
+                                        }}
+                                        placeholder="Display text for the link (required)"
+                                        className="flex-1 min-w-0 bg-transparent text-xs font-mono text-neutral-700 outline-none placeholder:text-neutral-300 truncate"
+                                    />
+                                </div>
                                 {/* Commentary textarea */}
                                 <div className="relative min-h-[100px] bg-white">
                                     <textarea
@@ -910,12 +931,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
                                             if (!babyBirdUrlDraft.trim()) {
                                                 pushToast({ message: 'Add a URL before posting.', tone: 'error' });
+                                            } else if (!babyBirdLinkLabelDraft.trim()) {
+                                                pushToast({ message: 'Add a link label before posting.', tone: 'error' });
                                             } else if (!normalizedContent.trim()) {
                                                 pushToast({ message: 'Add a description before posting.', tone: 'error' });
                                             } else if (statusId) {
-                                                // Persist the URL if it changed
-                                                if (babyBirdUrlDraft.trim() !== activeStatus?.babyBirdUrl) {
-                                                    await setBabyBirdUrl(statusId, babyBirdUrlDraft.trim());
+                                                // Persist the URL and label if changed
+                                                if (babyBirdUrlDraft.trim() !== activeStatus?.babyBirdUrl || babyBirdLinkLabelDraft.trim() !== (activeStatus?.babyBirdLinkLabel || '')) {
+                                                    await setBabyBirdUrl(statusId, babyBirdUrlDraft.trim(), babyBirdLinkLabelDraft.trim() || null);
                                                 }
                                                 await togglePublished(statusId, true);
                                                 setContentDrafts((prev) => { const next = { ...prev }; delete next[activeContentKey]; return next; });
@@ -929,11 +952,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             setIsPosting(false);
                                         }
                                     }}
-                                    disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges && babyBirdUrlDraft === (activeStatus?.babyBirdUrl || '')) || isFuturePost || isEditExpired}
+                                    disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges && babyBirdUrlDraft === (activeStatus?.babyBirdUrl || '') && babyBirdLinkLabelDraft === (activeStatus?.babyBirdLinkLabel || '')) || isFuturePost || isEditExpired}
                                     title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
                                     className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                                 >
-                                    {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges || babyBirdUrlDraft !== (activeStatus?.babyBirdUrl || '') ? 'UPDATE POST' : 'POSTED') : 'POST')}
+                                    {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges || babyBirdUrlDraft !== (activeStatus?.babyBirdUrl || '') || babyBirdLinkLabelDraft !== (activeStatus?.babyBirdLinkLabel || '') ? 'UPDATE POST' : 'POSTED') : 'POST')}
                                 </button>
                             </div>
 

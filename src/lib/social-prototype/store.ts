@@ -44,6 +44,7 @@ export interface Status {
     createdAt: number;
     bundledDates?: string[]; // other dates this status covers (YYYY-MM-DD), excluding the primary date
     babyBirdUrl?: string; // when set, this status is a "baby bird" (single URL + commentary)
+    babyBirdLinkLabel?: string; // display label for the baby bird URL (hyperlink mask)
 }
 
 export interface StatusComment {
@@ -166,6 +167,7 @@ interface StatusRow {
     deleted_at?: string | null;
     bundled_dates?: unknown[] | null;
     baby_bird_url?: string | null;
+    baby_bird_link_label?: string | null;
 }
 
 interface MeResponse {
@@ -535,7 +537,7 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label';
 
                 const [journalResp, feedResp] = await Promise.all([
                     linkedUserId
@@ -624,6 +626,7 @@ class SocialStore {
                     createdAt: new Date(s.created_at).getTime(),
                     bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
                     babyBirdUrl: s.baby_bird_url || undefined,
+                    babyBirdLinkLabel: s.baby_bird_link_label || undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -751,7 +754,7 @@ class SocialStore {
 
         const me = await getLinkedMe();
         const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label';
 
         const { data: nextPage, error } = await supabase
             .from('social_statuses')
@@ -1110,11 +1113,11 @@ class SocialStore {
         this.schedulePostWriteRefresh();
     }
 
-    async setBabyBirdUrl(statusId: string, url: string | null) {
-        await socialWrite('social.status.setBabyBird', { statusId, url });
+    async setBabyBirdUrl(statusId: string, url: string | null, linkLabel?: string | null) {
+        await socialWrite('social.status.setBabyBird', { statusId, url, linkLabel: linkLabel ?? null });
         const update = (s: Status) =>
             s.id === statusId
-                ? { ...s, babyBirdUrl: url || undefined, ...(url ? { bundledDates: undefined } : {}) }
+                ? { ...s, babyBirdUrl: url || undefined, babyBirdLinkLabel: linkLabel || undefined, ...(url ? { bundledDates: undefined } : {}) }
                 : s;
         this.state = {
             ...this.state,
@@ -1336,7 +1339,7 @@ export function useSocialStore() {
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
         moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
         setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
-        setBabyBirdUrl: (id: string, url: string | null) => socialStore.setBabyBirdUrl(id, url),
+        setBabyBirdUrl: (id: string, url: string | null, linkLabel?: string | null) => socialStore.setBabyBirdUrl(id, url, linkLabel),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),

@@ -259,51 +259,28 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
             {/* Body: content + items */}
             <div>
                 {status.babyBirdUrl ? (
-                    /* ── Baby Bird layout: bird icon + prominent URL + commentary ── */
-                    <div className="flex gap-2.5">
-                        {/* Bird holding URL in beak */}
-                        <div className="flex-shrink-0 w-10 pt-0.5">
-                            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-neutral-300">
-                                {/* body */}
-                                <ellipse cx="22" cy="28" rx="10" ry="9" />
-                                {/* head */}
-                                <circle cx="28" cy="16" r="7" />
-                                {/* eye */}
-                                <circle cx="30" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
-                                {/* beak top — holding the link */}
-                                <line x1="34.5" y1="15" x2="46" y2="13" />
-                                {/* beak bottom */}
-                                <line x1="34.5" y1="17" x2="46" y2="13" />
-                                {/* small link icon at beak tip */}
-                                <rect x="42" y="10.5" width="5" height="5" rx="1" strokeWidth="1" />
-                                {/* wing */}
-                                <path d="M16 24 C10 20, 8 26, 13 30" />
-                                {/* tail feathers */}
-                                <path d="M12 30 C6 28, 5 32, 8 34" />
-                                <path d="M12 32 C7 31, 5 35, 9 36" />
-                                {/* feet */}
-                                <line x1="19" y1="37" x2="17" y2="43" />
-                                <line x1="15" y1="43" x2="20" y2="43" />
-                                <line x1="25" y1="37" x2="26" y2="43" />
-                                <line x1="23" y1="43" x2="29" y2="43" />
-                            </svg>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <a
-                                href={status.babyBirdUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block text-xs font-mono text-neutral-700 hover:text-neutral-900 transition-colors truncate"
-                            >
-                                <span className="text-neutral-400 mr-1">↗</span>
-                                {status.babyBirdUrl.replace(/^https?:\/\//, '')}
-                            </a>
-                            {status.content && (
-                                <div className="mt-1.5">
-                                    {renderContent()}
-                                </div>
-                            )}
-                        </div>
+                    /* ── Baby Bird layout: logo overflows left, big bold link + commentary ── */
+                    <div className="relative">
+                        {/* BirdFinds logo — overflows left outside the card */}
+                        <img
+                            src="/logo.svg"
+                            alt=""
+                            className="absolute -left-10 top-0 w-8 h-8 opacity-40 pointer-events-none select-none"
+                            style={{ filter: 'grayscale(1)' }}
+                        />
+                        <a
+                            href={status.babyBirdUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-base font-bold font-mono text-neutral-900 underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-900 transition-colors break-words"
+                        >
+                            {status.babyBirdLinkLabel || status.babyBirdUrl.replace(/^https?:\/\//, '')}
+                        </a>
+                        {status.content && (
+                            <div className="mt-1.5">
+                                {renderContent()}
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <>
