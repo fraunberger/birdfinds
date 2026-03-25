@@ -265,7 +265,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         <img
                             src="/logo.svg"
                             alt=""
-                            className="absolute -left-10 top-0 w-8 h-8 opacity-[0.12] pointer-events-none select-none"
+                            className="absolute -left-10 top-0 w-8 h-8 opacity-40 pointer-events-none select-none"
                             style={{ filter: 'grayscale(1)' }}
                         />
                         <a
