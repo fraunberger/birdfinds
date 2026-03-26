@@ -99,6 +99,13 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
         setShowComments(true);
     }, [forceShowComments]);
 
+    // When a user reveals the comment thread on a post, mark notifications as
+    // seen so they stop getting re-pinged about comments they've already read.
+    useEffect(() => {
+        if (!showComments || typeof window === 'undefined') return;
+        window.dispatchEvent(new Event('birdfinds:notifications-seen'));
+    }, [showComments]);
+
     const renderContent = () => {
         if (!status.content) return null;
 

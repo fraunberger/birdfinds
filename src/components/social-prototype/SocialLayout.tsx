@@ -167,6 +167,7 @@ export function SocialLayout() {
     // seenBeforeRef tracks the server-side timestamp so we can detect unseen
     // notifications without relying on localStorage (cross-device safe).
     const seenBeforeRef = { current: null as string | null };
+    const lastUnseenCountRef = { current: 0 };
 
     const readCommentNotifications = async () => {
       const controller = new AbortController();
@@ -208,7 +209,11 @@ export function SocialLayout() {
             | "on_commented_post",
         })).filter((entry: CommentNotification) => Boolean(entry.id && entry.statusId));
 
-        if (!cancelled && unseen.length > 0) {
+        // Only toast when the unseen count genuinely increases (new comments
+        // arrived since the last poll), not on every poll cycle.  This prevents
+        // the multi-pinging behaviour where the same notifications keep
+        // triggering toasts.
+        if (!cancelled && unseen.length > lastUnseenCountRef.current) {
           const newest = unseen[0] as { fromUsername?: string; type?: string };
           const isReply = newest.type === "on_commented_post";
           pushToast({
@@ -223,6 +228,7 @@ export function SocialLayout() {
           });
         }
         if (!cancelled) {
+          lastUnseenCountRef.current = unseen.length;
           setCommentNotificationCount(unseen.length);
           setCommentNotifications(allMapped);
         }
@@ -240,6 +246,7 @@ export function SocialLayout() {
       const payload = await res.json();
       seenBeforeRef.current = payload?.seenBefore ?? seenBeforeRef.current;
       if (!cancelled) {
+        lastUnseenCountRef.current = 0;
         setCommentNotificationCount(0);
       }
     };
