@@ -33,7 +33,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, updateItemInActive, removeItemFromActive, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -283,6 +283,12 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             onAddItem={async (item) => {
                                 await addItemToPileCategory(item);
                             }}
+                            onEditItem={isOwnProfile ? async (itemId, item) => {
+                                await updateItemInActive(itemId, item);
+                            } : undefined}
+                            onDeleteItem={isOwnProfile ? async (itemId) => {
+                                await removeItemFromActive(itemId);
+                            } : undefined}
                         />
                     )}
 

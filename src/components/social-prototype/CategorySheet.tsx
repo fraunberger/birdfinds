@@ -12,6 +12,8 @@ interface CategorySheetProps {
     onClose: () => void;
     canAddItem?: boolean;
     onAddItem?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => Promise<void>;
+    onEditItem?: (itemId: string, item: Partial<Omit<ConsumableItem, 'id' | 'createdAt'>>) => Promise<void>;
+    onDeleteItem?: (itemId: string) => Promise<void>;
 }
 
 type SortMode = 'latest' | 'top';
@@ -52,7 +54,7 @@ const getAggregateKey = (category: Category, item: ConsumableItem) => {
     return getCanonicalItemKey(item);
 };
 
-export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem }: CategorySheetProps) {
+export function CategorySheet({ category, items, onClose, canAddItem = false, onAddItem, onEditItem, onDeleteItem }: CategorySheetProps) {
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
@@ -609,9 +611,18 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     isOpen={true}
                     initialCategory={selectedItem.category}
                     existingItem={selectedItem}
-                    readOnly
+                    readOnly={!onEditItem}
                     onClose={() => setSelectedItem(null)}
-                    onSave={() => { }}
+                    onSave={async (item) => {
+                        if (onEditItem) {
+                            await onEditItem(selectedItem.id, item);
+                        }
+                        setSelectedItem(null);
+                    }}
+                    onDelete={onDeleteItem ? async () => {
+                        await onDeleteItem(selectedItem.id);
+                        setSelectedItem(null);
+                    } : undefined}
                 />
             )}
 
