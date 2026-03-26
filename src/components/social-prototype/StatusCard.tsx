@@ -145,7 +145,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
     };
 
     return (
-        <div id={`status-${status.id}`} className="border border-neutral-200 bg-white px-3 py-2.5 font-mono">
+        <div id={`status-${status.id}`} className={`border border-neutral-200 px-3 py-2.5 font-mono ${status.babyBirdUrl ? 'bg-sky-50' : 'bg-white'}`}>
             {/* Header: Avatar + Username + Date — compact single line */}
             <div className="flex items-center gap-2 mb-2">
                 {profile && (
