@@ -1028,30 +1028,7 @@ class SocialStore {
     }
 
     async addItemToPileCategory(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
-        try {
-            const response = await socialWrite('social.status.upsert', {
-                date: PILE_CATEGORY_STATUS_DATE,
-                content: PILE_CATEGORY_STATUS_CONTENT,
-            });
-            const statusId = response?.statusId as string | undefined;
-            if (!statusId) throw new Error('Failed to ensure pile category status');
-
-            await socialWrite('social.item.add', {
-                statusId,
-                item: {
-                    category: item.category,
-                    title: item.title,
-                    subtitle: item.subtitle,
-                    rating: item.rating,
-                    notes: item.notes,
-                    image: item.image,
-                }
-            });
-            this.schedulePostWriteRefresh();
-        } catch (error) {
-            console.error('Error adding item to pile category:', error);
-            throw error;
-        }
+        await this.addItemToActive(item);
     }
 
     async togglePublished(statusId: string, published: boolean) {

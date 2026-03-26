@@ -48,10 +48,7 @@ const isFutureDate = (date: string) => date > getDateInOffset(EARLIEST_TZ_OFFSET
  * Uses UTC-12 (Baker Island) — the world's latest timezone — so the full
  * 30-day edit window stays open until the day has ended everywhere on Earth.
  */
-const PILE_BUCKET_DATE = "1900-01-01";
-
 const isOlderThan30Days = (date: string) => {
-  if (date === PILE_BUCKET_DATE) return false;
   const nowInLatestTZ = new Date(Date.now() + LATEST_TZ_OFFSET * 60 * 60 * 1000);
   nowInLatestTZ.setUTCDate(nowInLatestTZ.getUTCDate() - 30);
   return date < nowInLatestTZ.toISOString().slice(0, 10);
