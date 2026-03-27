@@ -27,7 +27,7 @@ import {
 
 export type { ConsumableModalProps, ConsumableModalHandle } from './consumable-modal-types';
 
-export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false, modalRef, tvGroup }: ConsumableModalProps) {
+export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete, onEdit, initialCategory = 'movie', initialTitle, existingItem, readOnly = false, allUserItems, sourceUserId, stayOpenAfterSave = false, modalRef, tvGroup }: ConsumableModalProps) {
     const { user } = useAuth();
     const { savedItems, toggleSaveItem, getAllItemsByCategory } = useSocialStore();
     const isSaved = useMemo(() => existingItem ? savedItems.some(s => s.itemId === existingItem.id) : false, [savedItems, existingItem]);
@@ -403,7 +403,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     return (
         <div
             className="fixed inset-0 bg-white/95 z-50 flex items-start sm:items-center justify-center pt-4 sm:pt-0"
-            onClick={onClose}
         >
             <div
                 className="bg-white border border-neutral-300 w-full sm:max-w-md font-mono flex flex-col" style={{ maxHeight: '90vh' }}
@@ -1822,8 +1821,15 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                         </div>
                         <div className="flex gap-3">
                             <button onClick={onClose} className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-700 px-3 py-2">
-                                Cancel
+                                {readOnly ? 'Close' : 'Cancel'}
                             </button>
+                            {readOnly && onEdit && (
+                                <button
+                                    onClick={onEdit}
+                                    className="text-xs uppercase tracking-widest bg-neutral-800 text-white px-4 sm:px-5 py-2 min-h-[40px] hover:bg-neutral-700 touch-manipulation">
+                                    Edit
+                                </button>
+                            )}
                             {!readOnly && (
                                 <button
                                     onMouseDown={(e) => e.preventDefault()}

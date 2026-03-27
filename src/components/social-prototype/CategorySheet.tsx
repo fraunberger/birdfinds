@@ -58,6 +58,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const config = getCategoryConfig(category);
     const [sortMode, setSortMode] = useState<SortMode>('latest');
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [episodeSeriesFilter, setEpisodeSeriesFilter] = useState<string>('all');
     const [episodeTextFilter, setEpisodeTextFilter] = useState('');
@@ -629,26 +630,32 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
             ))}
 
             {/* Item detail modal */}
-            {selectedItem && (
-                <ConsumableModal
-                    key={selectedItem.id}
-                    isOpen={true}
-                    initialCategory={selectedItem.category}
-                    existingItem={selectedItem}
-                    readOnly={!onEditItem}
-                    onClose={() => setSelectedItem(null)}
-                    onSave={async (item) => {
-                        if (onEditItem) {
-                            await onEditItem(selectedItem.id, item);
-                        }
-                        setSelectedItem(null);
-                    }}
-                    onDelete={onDeleteItem ? async () => {
-                        await onDeleteItem(selectedItem.id);
-                        setSelectedItem(null);
-                    } : undefined}
-                />
-            )}
+            {selectedItem && (() => {
+                const isEditing = editingItemId === selectedItem.id;
+                return (
+                    <ConsumableModal
+                        key={`${selectedItem.id}-${isEditing ? 'edit' : 'view'}`}
+                        isOpen={true}
+                        initialCategory={selectedItem.category}
+                        existingItem={selectedItem}
+                        readOnly={!isEditing}
+                        onClose={() => { setSelectedItem(null); setEditingItemId(null); }}
+                        onEdit={onEditItem ? () => setEditingItemId(selectedItem.id) : undefined}
+                        onSave={async (item) => {
+                            if (onEditItem) {
+                                await onEditItem(selectedItem.id, item);
+                            }
+                            setSelectedItem(null);
+                            setEditingItemId(null);
+                        }}
+                        onDelete={onDeleteItem ? async () => {
+                            await onDeleteItem(selectedItem.id);
+                            setSelectedItem(null);
+                            setEditingItemId(null);
+                        } : undefined}
+                    />
+                );
+            })()}
 
             {showAddModal && (
                 <ConsumableModal
