@@ -11,6 +11,7 @@ export interface ConsumableModalProps {
     onSave?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => void;
     onSaveBatch?: (items: Omit<ConsumableItem, 'id' | 'createdAt'>[]) => void;
     onDelete?: () => void;
+    onEdit?: () => void;
     initialCategory?: Category;
     initialTitle?: string;
     existingItem?: ConsumableItem;

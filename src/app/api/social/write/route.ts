@@ -427,13 +427,7 @@ export async function POST(req: NextRequest) {
       if (!itemId) {
         return NextResponse.json({ error: "Missing itemId" }, { status: 400 });
       }
-      const status = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
-      if (isOlderThan30Days(status.date)) {
-        return NextResponse.json(
-          { error: "Cannot edit posts older than 30 days" },
-          { status: 403 }
-        );
-      }
+      await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
 
       const item = (payload.item || {}) as Record<string, unknown>;
       const updates: Record<string, unknown> = {};
@@ -456,13 +450,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "social.item.delete") {
       const itemId = String(payload.itemId || "");
-      const status = await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
-      if (isOlderThan30Days(status.date)) {
-        return NextResponse.json(
-          { error: "Cannot edit posts older than 30 days" },
-          { status: 403 }
-        );
-      }
+      await ensureOwnItem(supabaseAdmin, itemId, linkedUserId);
       const { error } = await supabaseAdmin.from("social_items").delete().eq("id", itemId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
