@@ -64,6 +64,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const [exerciseNameFilter, setExerciseNameFilter] = useState<string>('all');
     const [expandedRestaurantKeys, setExpandedRestaurantKeys] = useState<Set<string>>(new Set());
     const [expandedBookKeys, setExpandedBookKeys] = useState<Set<string>>(new Set());
+    const [thisYearOnly, setThisYearOnly] = useState(false);
 
     if (!config) return null;
 
@@ -115,14 +116,26 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
         return Array.from(names).sort((a, b) => a.localeCompare(b));
     })();
 
+    const hasThisYearFilter = category === 'music' || category === 'movie';
+    const currentYear = new Date().getFullYear().toString();
+
     const filteredItems = (() => {
-        if (exerciseCat) {
-            if (exerciseNameFilter === 'all') return aggregatedItems;
-            return aggregatedItems.filter(entry => entry.latest.title.trim() === exerciseNameFilter);
+        let result = aggregatedItems;
+
+        if (thisYearOnly && hasThisYearFilter) {
+            result = result.filter(entry => {
+                const meta = parseItemMeta(entry.latest.image);
+                return meta.releaseDate?.startsWith(currentYear);
+            });
         }
-        if (!episodeFilteringEnabled) return aggregatedItems;
+
+        if (exerciseCat) {
+            if (exerciseNameFilter === 'all') return result;
+            return result.filter(entry => entry.latest.title.trim() === exerciseNameFilter);
+        }
+        if (!episodeFilteringEnabled) return result;
         const query = episodeTextFilter.trim().toLowerCase();
-        return aggregatedItems.filter((entry) => {
+        return result.filter((entry) => {
             const series = getEpisodeSeriesLabel(category, entry.latest);
             if (episodeSeriesFilter !== 'all' && series !== episodeSeriesFilter) return false;
             if (!query) return true;
@@ -211,6 +224,17 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 text-neutral-600 hover:text-neutral-800 hover:border-neutral-500"
                         >
                             Add Find
+                        </button>
+                    )}
+                    {hasThisYearFilter && (
+                        <button
+                            onClick={() => setThisYearOnly(prev => !prev)}
+                            className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${thisYearOnly
+                                ? 'bg-neutral-800 text-white border-neutral-800'
+                                : 'border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500'
+                                }`}
+                        >
+                            {currentYear}
                         </button>
                     )}
                     {/* Sort Toggle */}
