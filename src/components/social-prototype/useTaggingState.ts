@@ -30,14 +30,21 @@ const isAtPrefixBoundary = (value: string, atIndex: number) => {
 const insertTagMarkerAtRange = (content: string, start: number, end: number) => {
     if (start < 0 || end <= start || end > content.length) return content;
 
-    if (content[start] === '@') {
-        const withoutAt = `${content.slice(0, start)}${content.slice(start + 1)}`;
-        if (withoutAt.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return withoutAt;
-        return `${withoutAt.slice(0, start)}${TAG_MARKER}${withoutAt.slice(start)}`;
+    // Advance past leading whitespace so the marker sits immediately before the
+    // tagged phrase — parseHighlights requires TAG_MARKER to be adjacent to the
+    // term with no characters between them.
+    let insertAt = start;
+    while (insertAt < end && /\s/.test(content[insertAt])) insertAt += 1;
+    if (insertAt >= end) return content;
+
+    if (content[insertAt] === '@') {
+        const withoutAt = `${content.slice(0, insertAt)}${content.slice(insertAt + 1)}`;
+        if (withoutAt.slice(Math.max(0, insertAt - TAG_MARKER.length), insertAt) === TAG_MARKER) return withoutAt;
+        return `${withoutAt.slice(0, insertAt)}${TAG_MARKER}${withoutAt.slice(insertAt)}`;
     }
 
-    if (content.slice(Math.max(0, start - TAG_MARKER.length), start) === TAG_MARKER) return content;
-    return `${content.slice(0, start)}${TAG_MARKER}${content.slice(start)}`;
+    if (content.slice(Math.max(0, insertAt - TAG_MARKER.length), insertAt) === TAG_MARKER) return content;
+    return `${content.slice(0, insertAt)}${TAG_MARKER}${content.slice(insertAt)}`;
 };
 
 const insertTagMarkerByPhraseFallback = (content: string, phrase: string) => {
