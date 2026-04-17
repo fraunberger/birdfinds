@@ -83,7 +83,8 @@ type WriteAction =
   | "social.habit.log.toggle"
   | "social.status.changeDate"
   | "social.status.setBundledDates"
-  | "social.status.setBabyBird";
+  | "social.status.setBabyBird"
+  | "social.status.setPhoto";
 
 interface WriteBody {
   action: WriteAction;
@@ -93,13 +94,13 @@ interface WriteBody {
 const ensureOwnStatus = async (supabaseAdmin: SupabaseClient, statusId: string, userId: string) => {
   const { data } = await supabaseAdmin
     .from("social_statuses")
-    .select("id,user_id,date,published,baby_bird_url")
+    .select("id,user_id,date,published,baby_bird_url,photo_url")
     .eq("id", statusId)
     .maybeSingle();
   if (!data || data.user_id !== userId) {
     throw new Error("Not authorized for status");
   }
-  return data as { id: string; user_id: string; date: string; published: boolean; baby_bird_url?: string | null };
+  return data as { id: string; user_id: string; date: string; published: boolean; baby_bird_url?: string | null; photo_url?: string | null };
 };
 
 const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, userId: string) => {
@@ -233,9 +234,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "social.status.setPhoto") {
+      const statusId = String(payload.statusId || "");
+      const photoUrl = payload.photoUrl ? String(payload.photoUrl) : null;
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // If replacing or removing, delete old file from storage
+      if (current.photo_url) {
+        try {
+          const url = new URL(current.photo_url);
+          const pathMatch = url.pathname.match(/\/photos\/(.+)$/);
+          if (pathMatch) {
+            await supabaseAdmin.storage.from("photos").remove([decodeURIComponent(pathMatch[1])]);
+          }
+        } catch { /* best-effort cleanup */ }
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ photo_url: photoUrl })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "social.status.delete") {
       const statusId = String(payload.statusId || "");
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Clean up photo from storage if present
+      if (current.photo_url) {
+        try {
+          const url = new URL(current.photo_url);
+          const pathMatch = url.pathname.match(/\/photos\/(.+)$/);
+          if (pathMatch) {
+            await supabaseAdmin.storage.from("photos").remove([decodeURIComponent(pathMatch[1])]);
+          }
+        } catch { /* best-effort cleanup */ }
+      }
+
       // Delete children before parent to respect FK constraints
       await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
       await supabaseAdmin.from("social_items").delete().eq("status_id", statusId);
