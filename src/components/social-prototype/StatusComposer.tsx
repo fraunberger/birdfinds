@@ -305,6 +305,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
+                URL.revokeObjectURL(img.src);
                 let { width, height } = img;
                 if (width > MAX_DIM || height > MAX_DIM) {
                     const scale = MAX_DIM / Math.max(width, height);
@@ -326,8 +327,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                     QUALITY
                 );
             };
-            img.onerror = () => reject(new Error('Failed to load image'));
-            img.src = URL.createObjectURL(file);
+            img.onerror = () => {
+                URL.revokeObjectURL(img.src);
+                const isHeic = /\.heic|\.heif/i.test(file.name) || file.type.includes('heic') || file.type.includes('heif');
+                reject(new Error(isHeic ? 'HEIC photos are not supported on this browser. Try converting to JPEG first.' : 'Failed to load image. Try a JPEG or PNG file.'));
+            };
+            const objectUrl = URL.createObjectURL(file);
+            img.src = objectUrl;
         });
     };
 
