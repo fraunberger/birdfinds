@@ -45,6 +45,7 @@ export interface Status {
     bundledDates?: string[]; // other dates this status covers (YYYY-MM-DD), excluding the primary date
     babyBirdUrl?: string; // when set, this status is a "baby bird" (single URL + commentary)
     babyBirdLinkLabel?: string; // display label for the baby bird URL (hyperlink mask)
+    photoUrl?: string; // daily photo URL from Supabase Storage
 }
 
 export interface StatusComment {
@@ -167,6 +168,7 @@ interface StatusRow {
     deleted_at?: string | null;
     bundled_dates?: unknown[] | null;
     baby_bird_url?: string | null;
+    photo_url?: string | null;
 }
 
 interface MeResponse {
@@ -536,7 +538,7 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,photo_url';
 
                 const [journalResp, feedResp] = await Promise.all([
                     linkedUserId
@@ -626,6 +628,7 @@ class SocialStore {
                     bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
                     babyBirdUrl: s.baby_bird_url ? s.baby_bird_url.split('\n')[0] : undefined,
                     babyBirdLinkLabel: s.baby_bird_url?.includes('\n') ? s.baby_bird_url.split('\n')[1] : undefined,
+                    photoUrl: s.photo_url || undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -753,7 +756,7 @@ class SocialStore {
 
         const me = await getLinkedMe();
         const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label';
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label,photo_url';
 
         const { data: nextPage, error } = await supabase
             .from('social_statuses')
@@ -826,6 +829,7 @@ class SocialStore {
                 createdAt: new Date(s.created_at).getTime(),
                 bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
                 babyBirdUrl: s.baby_bird_url || undefined,
+                photoUrl: s.photo_url || undefined,
                 items: (itemsByStatus.get(s.id) || []).map(i => ({
                     id: i.id as string,
                     category: i.category as Category,
@@ -1109,6 +1113,22 @@ class SocialStore {
         this.schedulePostWriteRefresh();
     }
 
+    async setPhotoUrl(statusId: string, photoUrl: string | null) {
+        await socialWrite('social.status.setPhoto', { statusId, photoUrl });
+        const update = (s: Status) =>
+            s.id === statusId ? { ...s, photoUrl: photoUrl || undefined } : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = update(this.state.activeStatus);
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
     async moveStatusToDate(statusId: string, newDate: string) {
         await socialWrite('social.status.changeDate', { statusId, newDate });
         // Remove old status from local state and refresh
@@ -1318,6 +1338,7 @@ export function useSocialStore() {
         moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
         setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
         setBabyBirdUrl: (id: string, url: string | null, linkLabel?: string | null) => socialStore.setBabyBirdUrl(id, url, linkLabel),
+        setPhotoUrl: (id: string, photoUrl: string | null) => socialStore.setPhotoUrl(id, photoUrl),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
@@ -1476,6 +1497,41 @@ export function useUserProfile() {
         return data.publicUrl;
     };
 
+    const uploadPhoto = async (file: File) => {
+        const response = await fetch('/api/social/photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contentType: file.type || 'image/jpeg',
+            }),
+        });
+        const raw = await response.text();
+        let data: { error?: string; publicUrl?: string; path?: string; token?: string } = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch {
+            data = {};
+        }
+        if (!response.ok) {
+            const detail = data?.error || raw || `${response.status} ${response.statusText}`;
+            throw new Error(`Failed to prepare photo upload (${response.status}): ${detail}`);
+        }
+        if (!data?.path || !data?.token) {
+            throw new Error('Photo upload token missing');
+        }
+
+        const { error: uploadError } = await supabase.storage
+            .from('photos')
+            .uploadToSignedUrl(data.path, data.token, file);
+        if (uploadError) {
+            throw new Error(`Failed to upload photo: ${uploadError.message}`);
+        }
+        if (!data.publicUrl) {
+            throw new Error('Photo uploaded but public URL missing');
+        }
+        return data.publicUrl;
+    };
+
     const updateProfile = async (updates: Partial<UserProfile>) => {
         const resolvedUsername = (updates.username
             || profile?.username
@@ -1542,6 +1598,7 @@ export function useUserProfile() {
         updateProfile,
         saveProfile: updateProfile, // Alias for backward compat
         uploadAvatar,
+        uploadPhoto,
         refetch: fetchProfile
     };
 }

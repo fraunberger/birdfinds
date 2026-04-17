@@ -23,8 +23,8 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, setBabyBirdUrl, statuses, isLoaded, refresh } = useSocialStore();
-    const { hasPublishedPost } = useUserProfile();
+    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, setBabyBirdUrl, setPhotoUrl, statuses, isLoaded, refresh } = useSocialStore();
+    const { hasPublishedPost, uploadPhoto } = useUserProfile();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,6 +36,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const [showComposerMenu, setShowComposerMenu] = useState(false);
     const [babyBirdUrlDraft, setBabyBirdUrlDraft] = useState('');
     const [babyBirdLinkLabelDraft, setBabyBirdLinkLabelDraft] = useState('');
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const photoInputRef = useRef<HTMLInputElement>(null);
 
     // Close composer menu on outside click
     const composerMenuRef = useRef<HTMLDivElement>(null);
@@ -295,6 +297,69 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
 
     // All user items for repeat detection
     const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
+
+    // ── Photo callbacks ────────────────────────────────────────────────
+    const compressPhoto = async (file: File): Promise<File> => {
+        const MAX_DIM = 1200;
+        const QUALITY = 0.7;
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > MAX_DIM || height > MAX_DIM) {
+                    const scale = MAX_DIM / Math.max(width, height);
+                    width = Math.round(width * scale);
+                    height = Math.round(height * scale);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('Canvas not supported'));
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) return reject(new Error('Compression failed'));
+                        resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+                    },
+                    'image/jpeg',
+                    QUALITY
+                );
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        // Reset so the same file can be re-selected
+        e.target.value = '';
+
+        setIsUploadingPhoto(true);
+        try {
+            const statusId = await ensureActiveStatus();
+            const compressed = await compressPhoto(file);
+            const publicUrl = await uploadPhoto(compressed);
+            await setPhotoUrl(statusId, publicUrl);
+            pushToast({ message: 'Photo added', tone: 'success' });
+        } catch (error) {
+            pushToast({ message: getErrorMessage(error), tone: 'error' });
+        } finally {
+            setIsUploadingPhoto(false);
+        }
+    };
+
+    const handleDeletePhoto = async () => {
+        if (!activeStatus || activeStatus.id === 'temp-optimistic') return;
+        try {
+            await setPhotoUrl(activeStatus.id, null);
+            pushToast({ message: 'Photo removed', tone: 'success' });
+        } catch (error) {
+            pushToast({ message: getErrorMessage(error), tone: 'error' });
+        }
+    };
 
     // ── Item callbacks ─────────────────────────────────────────────────
     const handleSaveItem = async (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => {
@@ -831,6 +896,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 </div>
             )}
 
+            {/* Hidden photo file input (shared by both modes) */}
+            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+
             {/* Collapsible Content */}
             {isExpanded && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1066,6 +1134,32 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 spellCheck={false}
                             />
                         </div>
+                    </div>
+
+                    {/* Photo Section */}
+                    <div className="mt-2">
+                        {activeStatus?.photoUrl ? (
+                            <div className="relative inline-block">
+                                <img src={activeStatus.photoUrl} alt="Daily photo" className="max-h-32 rounded border border-neutral-200 object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={handleDeletePhoto}
+                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-neutral-900 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600 transition-colors"
+                                    title="Remove photo"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => photoInputRef.current?.click()}
+                                disabled={isUploadingPhoto || isFuturePost || isEditExpired}
+                                className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {isUploadingPhoto ? 'UPLOADING...' : '+ PHOTO'}
+                            </button>
+                        )}
                     </div>
 
                     {/* Post Action Row + Habits */}

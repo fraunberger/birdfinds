@@ -263,6 +263,13 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                 </div>
             </div>
 
+            {/* Photo */}
+            {status.photoUrl && (
+                <div className="mb-2">
+                    <img src={status.photoUrl} alt="" className="w-full rounded border border-neutral-200 object-cover max-h-[400px]" />
+                </div>
+            )}
+
             {/* Body: content + items */}
             <div>
                 {status.babyBirdUrl ? (
