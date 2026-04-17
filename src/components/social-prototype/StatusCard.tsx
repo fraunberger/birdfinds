@@ -25,6 +25,24 @@ interface StatusCardProps {
     forceShowComments?: boolean;
 }
 
+function PhotoToggle({ url }: { url: string }) {
+    const [show, setShow] = useState(true);
+    return (
+        <div className="mb-2">
+            <button
+                type="button"
+                onClick={() => setShow(v => !v)}
+                className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors mb-1"
+            >
+                {show ? 'HIDE PHOTO' : 'SHOW PHOTO'}
+            </button>
+            {show && (
+                <img src={url} alt="" className="w-full rounded border border-neutral-200 object-cover max-h-[400px]" />
+            )}
+        </div>
+    );
+}
+
 export function StatusCard({ status, profile, onClickProfile, isOwn = false, isAdmin = false, currentUserId = null, onEdit, showPostReportButton = true, disableItemEditing = false, forceShowComments = false }: StatusCardProps) {
     const [selectedItem, setSelectedItem] = useState<ConsumableItem | null>(null);
     const [showHabits, setShowHabits] = useState(false);
@@ -265,9 +283,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
 
             {/* Photo */}
             {status.photoUrl && (
-                <div className="mb-2">
-                    <img src={status.photoUrl} alt="" className="w-full rounded border border-neutral-200 object-cover max-h-[400px]" />
-                </div>
+                <PhotoToggle url={status.photoUrl} />
             )}
 
             {/* Body: content + items */}
