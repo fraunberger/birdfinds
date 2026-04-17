@@ -1598,16 +1598,10 @@ export function useHabits(userId?: string) {
             sortOrder: h.sort_order
         })));
 
-        // Fetch logs for the last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const since = thirtyDaysAgo.toISOString().split("T")[0];
-
         const { data: logsData } = await supabase
             .from('habit_logs')
             .select('habit_id,date,completed,notes')
-            .eq('user_id', targetId)
-            .gte('date', since);
+            .eq('user_id', targetId);
 
         setHabitLogs(logsData || []);
 
