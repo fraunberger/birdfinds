@@ -195,7 +195,15 @@ export function ComposerItemTable({
                             const config = getCategoryConfig('tv');
                             const firstEp = episodes[0];
                             const anyRemoving = episodes.some(ep => removingItemIds.has(ep.id));
-                            const handleGroupClick = () => onOpenTvGroup ? onOpenTvGroup(episodes) : onOpenItem(firstEp);
+                            const handleGroupClick = async () => {
+                                if (isLinkingMode) {
+                                    try { await onLinkItem(firstEp); }
+                                    catch (error: unknown) { pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' }); }
+                                    return;
+                                }
+                                if (onOpenTvGroup) onOpenTvGroup(episodes);
+                                else onOpenItem(firstEp);
+                            };
                             return (
                                 <tr
                                     key={`tv-group:${showName}`}
@@ -229,6 +237,9 @@ export function ComposerItemTable({
                                         <span className="text-neutral-400 ml-1 font-normal">
                                             — {episodes.map(ep => ep.subtitle?.replace(/\s*-\s*.*$/, '') || '?').join(', ')}
                                         </span>
+                                        {isLinkingMode && (
+                                            <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
+                                        )}
                                     </td>
                                     <td
                                         className="px-2 py-1 border-b border-r border-neutral-200 text-center"
