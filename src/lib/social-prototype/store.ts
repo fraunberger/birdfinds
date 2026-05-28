@@ -405,12 +405,16 @@ interface SocialState {
     feedHasMore: boolean;
     feedCursor: string | null; // ISO timestamp of the oldest loaded feed status
     savedItems: SavedItem[];
+    allLinkedUserItems: ConsumableItem[];
+    linkedUserId: string | null;
 }
 
 class SocialStore {
     private state: SocialState = {
         statuses: [],
         allStatuses: [],
+        allLinkedUserItems: [],
+        linkedUserId: null,
         activeDate: getTodayDateString(),
         activeStatus: null,
         isLoaded: false,
@@ -472,6 +476,8 @@ class SocialStore {
         this.state = {
             statuses: [],
             allStatuses: [],
+            allLinkedUserItems: [],
+            linkedUserId: null,
             activeDate: getTodayDateString(),
             activeStatus: null,
             isLoaded: false,
@@ -540,7 +546,7 @@ class SocialStore {
                 const linkedUserId = me.linkedUserId;
                 const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,photo_url';
 
-                const [journalResp, feedResp] = await Promise.all([
+                const [journalResp, feedResp, allUserStatusIdsResp] = await Promise.all([
                     linkedUserId
                         ? supabase
                             .from('social_statuses')
@@ -558,6 +564,13 @@ class SocialStore {
                         .order('created_at', { ascending: false })
                         // Slight over-fetch so filtering still yields a full first page.
                         .limit(FEED_FETCH_SIZE),
+                    linkedUserId
+                        ? supabase
+                            .from('social_statuses')
+                            .select('id')
+                            .is('deleted_at', null)
+                            .eq('user_id', linkedUserId)
+                        : Promise.resolve({ data: [] as { id: string }[], error: null }),
                 ]);
                 if (journalResp.error) throw journalResp.error;
                 if (feedResp.error) throw feedResp.error;
@@ -571,22 +584,24 @@ class SocialStore {
                 // Scope items + comments to only fetched status IDs
                 let itemData: Record<string, unknown>[] = [];
                 let comments: CommentRow[] = [];
+                const allUserStatusIds = (allUserStatusIdsResp.data || []).map((s: { id: string }) => s.id);
 
-                if (statusIds.length > 0) {
-                    const { data: items, error: itemError } = await supabase
-                        .from('social_items')
-                        .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
-                        .in('status_id', statusIds);
-                    if (itemError) throw itemError;
-                    itemData = items || [];
-
-                    const { data: commentData, error: commentError } = await supabase
-                        .from('social_comments')
-                        .select('id,status_id,user_id,content,created_at,deleted_at')
-                        .is('deleted_at', null)
-                        .in('status_id', statusIds);
-                    comments = commentError ? [] : ((commentData || []) as CommentRow[]);
-                }
+                const itemSelect = 'id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates';
+                const [displayItemsResp, commentsResp, allUserItemsResp] = await Promise.all([
+                    statusIds.length > 0
+                        ? supabase.from('social_items').select(itemSelect).in('status_id', statusIds)
+                        : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+                    statusIds.length > 0
+                        ? supabase.from('social_comments').select('id,status_id,user_id,content,created_at,deleted_at').is('deleted_at', null).in('status_id', statusIds)
+                        : Promise.resolve({ data: [] as CommentRow[], error: null }),
+                    allUserStatusIds.length > 0
+                        ? supabase.from('social_items').select(itemSelect).in('status_id', allUserStatusIds)
+                        : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+                ]);
+                if (displayItemsResp.error) throw displayItemsResp.error;
+                itemData = displayItemsResp.data || [];
+                comments = commentsResp.error ? [] : ((commentsResp.data || []) as CommentRow[]);
+                const allUserItemsRaw: Record<string, unknown>[] = allUserItemsResp.data || [];
 
                 // Resolve comment author usernames
                 const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
@@ -700,6 +715,22 @@ class SocialStore {
                     ? new Date(visibleStatuses[visibleStatuses.length - 1].createdAt).toISOString()
                     : null;
 
+                // Map all linked-user items (from ALL their statuses, no page limit) for
+                // accurate repeat counting and category aggregation.
+                const allLinkedUserItems: ConsumableItem[] = allUserItemsRaw.map(i => ({
+                    id: i.id as string,
+                    category: i.category as Category,
+                    title: i.title as string,
+                    subtitle: (i.subtitle as string | null) || undefined,
+                    rating: (i.rating as number | null) ?? undefined,
+                    notes: (i.notes as string | null) || undefined,
+                    image: (i.image as string | null) || undefined,
+                    createdAt: new Date(i.created_at as string).getTime(),
+                    consumedDates: Array.isArray(i.consumed_dates)
+                        ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
+                        : undefined,
+                }));
+
                 this.state = {
                     ...this.state,
                     allStatuses: visibleStatuses,
@@ -709,6 +740,8 @@ class SocialStore {
                     isLoaded: true,
                     feedHasMore,
                     feedCursor,
+                    allLinkedUserItems,
+                    linkedUserId: linkedUserId ?? null,
                 };
                 this.syncActiveStatus();
                 this.emit();
@@ -1276,6 +1309,11 @@ class SocialStore {
 
     getUserItemsByCategory(category: Category, userId: string): ConsumableItem[] {
         if (NON_PILE_CATEGORIES.includes(category)) return [];
+        // Use the unlimited full-history set for the linked user; fall back to
+        // allStatuses (paginated) for other users' profiles.
+        if (userId === this.state.linkedUserId && this.state.allLinkedUserItems.length > 0) {
+            return this.state.allLinkedUserItems.filter(i => i.category === category);
+        }
         return this.state.allStatuses
             .filter(s => s.userId === userId)
             .flatMap(s => s.items)

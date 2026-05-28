@@ -76,7 +76,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
             const key = getAggregateKey(category, item);
             const existing = map.get(key);
             if (!existing) {
-                map.set(key, { key, latest: item, count: 1, visits: [item] });
+                map.set(key, { key, latest: item, count: Math.max(item.consumedDates?.length ?? 0, 1), visits: [item] });
                 continue;
             }
             existing.count += Math.max(item.consumedDates?.length ?? 0, 1);
