@@ -1081,12 +1081,22 @@ class SocialStore {
         // Optimistic: remove from local state immediately
         const prevStatuses = this.state.statuses;
         const prevAllStatuses = this.state.allStatuses;
+        const prevAllLinkedUserItems = this.state.allLinkedUserItems;
         const prevActiveStatus = this.state.activeStatus;
+
+        // Collect IDs of items belonging to this status so we can prune
+        // allLinkedUserItems too (prevents stale repeat counts).
+        const deletedItemIds = new Set(
+            (this.state.statuses.find(s => s.id === statusId)?.items ?? []).map(i => i.id)
+        );
 
         this.state = {
             ...this.state,
             statuses: this.state.statuses.filter(s => s.id !== statusId),
             allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+            allLinkedUserItems: deletedItemIds.size > 0
+                ? this.state.allLinkedUserItems.filter(i => !deletedItemIds.has(i.id))
+                : this.state.allLinkedUserItems,
         };
         if (this.state.activeStatus?.id === statusId) {
             this.syncActiveStatus();
@@ -1102,6 +1112,7 @@ class SocialStore {
                 ...this.state,
                 statuses: prevStatuses,
                 allStatuses: prevAllStatuses,
+                allLinkedUserItems: prevAllLinkedUserItems,
                 activeStatus: prevActiveStatus,
             };
             this.emit();
@@ -1178,14 +1189,19 @@ class SocialStore {
 
     async removeItemFromActive(itemId: string) {
         try {
-            // Optimistic removal
+            // Optimistic removal — also prune allLinkedUserItems so the repeat
+            // counter doesn't show a deleted item as a previous visit.
             if (this.state.activeStatus && this.state.activeStatus.items) {
                 this.state.activeStatus = {
                     ...this.state.activeStatus,
                     items: this.state.activeStatus.items.filter(i => i.id !== itemId)
                 };
-                this.emit();
             }
+            this.state = {
+                ...this.state,
+                allLinkedUserItems: this.state.allLinkedUserItems.filter(i => i.id !== itemId),
+            };
+            this.emit();
 
             await socialWrite('social.item.delete', { itemId });
             this.schedulePostWriteRefresh();
