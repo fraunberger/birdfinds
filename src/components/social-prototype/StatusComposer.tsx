@@ -23,7 +23,7 @@ const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim
 
 export function StatusComposer({ userCategories, onEntryModeChange }: StatusComposerProps) {
     const { user } = useAuth();
-    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, setBabyBirdUrl, setPhotoUrl, statuses, isLoaded, refresh } = useSocialStore();
+    const { activeStatus, activeDate, setActiveDate, setActiveStatusForEdit, updateActiveStatus, ensureActiveStatus, addItemToActive, removeItemFromActive, updateItemInActive, togglePublished, moveStatusToDate, setBundledDates, setBabyBirdUrl, setPhotoUrl, statuses, allLinkedUserItems, isLoaded, refresh } = useSocialStore();
     const { hasPublishedPost, uploadPhoto } = useUserProfile();
     const [contentDrafts, setContentDrafts] = useState<Record<string, string>>({});
     const [draftStatus, setDraftStatus] = useState<'saved' | 'error'>('saved');
@@ -295,8 +295,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setBabyBirdLinkLabelDraft(activeStatus?.babyBirdLinkLabel || '');
     }, [activeDate, activeStatus?.id, activeStatus?.babyBirdUrl, activeStatus?.babyBirdLinkLabel]);
 
-    // All user items for repeat detection
-    const allUserItems = useMemo(() => statuses.flatMap(s => s.items), [statuses]);
+    // All user items for repeat detection — use full history (no page limit)
+    const allUserItems = allLinkedUserItems.length > 0 ? allLinkedUserItems : statuses.flatMap(s => s.items);
 
     // ── Photo callbacks ────────────────────────────────────────────────
     const compressPhoto = async (file: File): Promise<File> => {
