@@ -139,6 +139,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
 
     const config = getCategoryConfig(category);
 
+    // When the TV episode picker is open it takes over the whole card body, so
+    // the per-episode detail fields (subtitle, score, notes) are hidden until an
+    // episode is chosen. This keeps "pick episodes" and "review one episode"
+    // from rendering on top of each other.
+    const tvPickerActive = category === 'tv' && !readOnly && showTvPicker;
+
     // ── Linkage status — determines whether the card is "alive" ────────
     // API categories need externalSource, URL categories need a URL,
     // coupling:'none' categories are always linked (no linkage step).
@@ -771,9 +777,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {/* Actively-reading chips — always shown when starting a new book log,
-                                    no matter what's typed in the title. Finished/stopped books drop off. */}
-                                {category === 'book' && !readOnly && !existingItem && !parsedMeta.finished && (() => {
+                                {/* Actively-reading chips — always shown on an unfinished book card
+                                    (whether composing a new log or filling in one tagged from the
+                                    status), no matter what's typed in the title. Finished/stopped
+                                    books drop off. */}
+                                {category === 'book' && !readOnly && !parsedMeta.finished && (() => {
                                     const inProgressBooks = getActivelyReadingBooks(allUserItems || []);
                                     if (inProgressBooks.length === 0) return null;
                                     return (
@@ -813,8 +821,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     );
                                 })()}
                                 {/* Recent-show chips — your last few tagged shows, so the common
-                                    case (logging another episode of a show you watch) is one tap. */}
-                                {category === 'tv' && !readOnly && !existingItem && !selectedTvShow && !parsedMeta.externalSource && (() => {
+                                    case (logging another episode of a show you watch) is one tap.
+                                    Shown whenever the card isn't yet pinned to a specific show. */}
+                                {category === 'tv' && !readOnly && !selectedTvShow && !parsedMeta.externalSource && (() => {
                                     const recentShows = getRecentTvShows(getAllItemsByCategory('tv'));
                                     if (recentShows.length === 0) return null;
                                     return (
@@ -853,7 +862,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         </div>
                                     );
                                 })()}
-                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && (
+                                {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && !(category === 'tv' && selectedTvShow) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
                                             className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
@@ -1019,189 +1028,214 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         )}
                                     </div>
                                 )}
-                                {/* TV picker */}
+                                {/* ── TV episode picker ──────────────────────────────────────
+                                    Full-width takeover: pick a show, choose Single vs Binge,
+                                    then a single episode (fills the card) or several (one
+                                    rating/notes, then flip-through). */}
                                 {category === 'tv' && !readOnly && showTvPicker && (
-                                    <div className="mt-2 border border-neutral-300 bg-white max-h-56 overflow-y-auto">
+                                    <div className="mt-2 border border-neutral-300 bg-white flex flex-col" style={{ maxHeight: '60vh' }}>
+                                        {/* Step 1 — choose a show */}
                                         {!selectedTvShow && (
-                                            <SearchResultsPanel
-                                                visible={true}
-                                                isSearching={tvShows.isSearching}
-                                                results={tvShows.results}
-                                                query={title}
-                                                searchingLabel="Searching shows..."
-                                                emptyLabel="No shows"
-                                                keyExtractor={(r) => r.id}
-                                                renderResult={(show) => (
-                                                    <button type="button" onClick={() => {
-                                                        setSelectedTvShow(show);
-                                                        setTvEpisodes([]);
-                                                        setTvEpisodeSearchToken(0);
-                                                        setDraft((prev) => ({
-                                                            ...prev,
-                                                            title: show.name,
-                                                            subtitle: '',
-                                                            rating: undefined,
-                                                            notes: '',
-                                                            image: serializeItemMeta({
-                                                                imageUrl: show.image || undefined,
-                                                                externalSource: 'tvmaze-show',
-                                                                externalId: show.id,
-                                                                releaseDate: show.premiered || undefined,
-                                                            }),
-                                                        }));
-                                                        setPopulatedFromId(null);
-                                                        setShowTvPicker(true);
-                                                    }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                        <div className="text-sm text-neutral-900">{show.name}</div>
-                                                        <div className="text-xs text-neutral-500">{show.network || 'TV'}{show.premiered ? ` • ${show.premiered}` : ''}</div>
-                                                    </button>
-                                                )}
-                                            />
+                                            <div className="overflow-y-auto">
+                                                <SearchResultsPanel
+                                                    visible={true}
+                                                    isSearching={tvShows.isSearching}
+                                                    results={tvShows.results}
+                                                    query={title}
+                                                    searchingLabel="Searching shows..."
+                                                    emptyLabel="No shows"
+                                                    keyExtractor={(r) => r.id}
+                                                    renderResult={(show) => (
+                                                        <button type="button" onClick={() => {
+                                                            setSelectedTvShow(show);
+                                                            setTvEpisodes([]);
+                                                            setTvBingeMode(false);
+                                                            setTvBingeSelected(new Set());
+                                                            setTvBingeReview(false);
+                                                            setDraft((prev) => ({
+                                                                ...prev,
+                                                                title: show.name,
+                                                                subtitle: '',
+                                                                rating: undefined,
+                                                                notes: '',
+                                                                image: serializeItemMeta({
+                                                                    imageUrl: show.image || undefined,
+                                                                    externalSource: 'tvmaze-show',
+                                                                    externalId: show.id,
+                                                                    releaseDate: show.premiered || undefined,
+                                                                }),
+                                                            }));
+                                                            setPopulatedFromId(null);
+                                                            setShowTvPicker(true);
+                                                            setTvEpisodeSearchToken((p) => p + 1); // auto-load episodes
+                                                        }} className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                            <div className="text-sm text-neutral-900">{show.name}</div>
+                                                            <div className="text-xs text-neutral-500">{show.network || 'TV'}{show.premiered ? ` • ${show.premiered}` : ''}</div>
+                                                        </button>
+                                                    )}
+                                                />
+                                            </div>
                                         )}
-                                        {selectedTvShow && (
-                                            <>
-                                                <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
-                                                    <div className="min-w-0">
-                                                        <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
-                                                        <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button type="button" onClick={() => { setTvBingeMode(b => !b); setTvBingeSelected(new Set()); }}
-                                                            className={`text-[10px] uppercase tracking-wider border px-2 py-1 ${tvBingeMode ? 'border-neutral-900 text-neutral-900 font-bold' : 'border-neutral-300 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500'}`}>
-                                                            Binge
-                                                        </button>
-                                                        <button type="button" onClick={() => setTvEpisodeSearchToken((p) => p + 1)}
-                                                            className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
-                                                            Load Episodes
-                                                        </button>
-                                                        <button type="button" onClick={() => { setSelectedTvShow(null); setTvEpisodes([]); setTvEpisodeSearchToken(0); setTvBingeMode(false); setTvBingeSelected(new Set()); setDraft((prev) => ({ ...prev, title: '', subtitle: '' })); }}
-                                                            className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
+
+                                        {/* Step 2 — pick episode(s) for the chosen show */}
+                                        {selectedTvShow && (() => {
+                                            const changeShow = () => {
+                                                setSelectedTvShow(null);
+                                                setTvEpisodes([]);
+                                                setTvEpisodeSearchToken(0);
+                                                setTvBingeMode(false);
+                                                setTvBingeSelected(new Set());
+                                                setTvBingeReview(false);
+                                                setDraft((prev) => ({ ...prev, title: '', subtitle: '', image: undefined }));
+                                                setTvShowSearchToken((p) => p + 1);
+                                            };
+                                            const pickSingle = (ep: TvEpisodeResult) => {
+                                                setDraft((prev) => ({
+                                                    ...prev,
+                                                    title: selectedTvShow.name,
+                                                    subtitle: ep.label,
+                                                    rating: undefined,
+                                                    notes: '',
+                                                    image: serializeItemMeta({
+                                                        imageUrl: selectedTvShow.image || undefined,
+                                                        externalSource: 'tvmaze-episode',
+                                                        externalId: `${selectedTvShow.id}:${ep.id}`,
+                                                        releaseDate: ep.airdate || undefined,
+                                                    }),
+                                                }));
+                                                setPopulatedFromId(null);
+                                                setShowTvPicker(false);
+                                            };
+                                            const toggleBinge = (id: string) => setTvBingeSelected(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(id)) next.delete(id); else next.add(id);
+                                                return next;
+                                            });
+                                            const saveBinge = () => {
+                                                const batch = tvEpisodes
+                                                    .filter(ep => tvBingeSelected.has(ep.id))
+                                                    .map(ep => ({
+                                                        category: 'tv' as const,
+                                                        title: selectedTvShow.name,
+                                                        subtitle: ep.label,
+                                                        rating: draft.rating,
+                                                        notes: draft.notes || undefined,
+                                                        image: serializeItemMeta({
+                                                            imageUrl: selectedTvShow.image || undefined,
+                                                            externalSource: 'tvmaze-episode',
+                                                            externalId: `${selectedTvShow.id}:${ep.id}`,
+                                                            releaseDate: ep.airdate || undefined,
+                                                        }),
+                                                    }));
+                                                if (existingItem) onDelete?.();
+                                                onSaveBatch?.(batch);
+                                                setTvBingeSelected(new Set());
+                                                setTvBingeReview(false);
+                                                setShowTvPicker(false);
+                                                // Parent transitions into the flip-through carousel.
+                                            };
+                                            return (
+                                                <>
+                                                    {/* Header: show + change */}
+                                                    <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
+                                                            <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
+                                                        </div>
+                                                        <button type="button" onClick={changeShow}
+                                                            className="text-[10px] uppercase tracking-wider text-neutral-500 hover:text-neutral-900">
                                                             Change
                                                         </button>
                                                     </div>
-                                                </div>
-                                                {isLoadingTvEpisodes && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Loading episodes...</div>}
-                                                {!isLoadingTvEpisodes && tvEpisodeSearchToken === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">Click load episodes</div>}
-                                                {!isLoadingTvEpisodes && tvEpisodeSearchToken > 0 && tvEpisodes.length === 0 && <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wider">No episodes</div>}
-                                                {!isLoadingTvEpisodes && tvBingeMode ? (
-                                                    <>
-                                                        {tvEpisodes.map((ep) => {
+                                                    {/* Mode toggle: Single | Binge */}
+                                                    <div className="flex border-b border-neutral-200 text-[10px] uppercase tracking-widest">
+                                                        <button type="button"
+                                                            onClick={() => { setTvBingeMode(false); setTvBingeSelected(new Set()); setTvBingeReview(false); }}
+                                                            className={`flex-1 px-3 py-2 transition-colors ${!tvBingeMode ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
+                                                            Single Episode
+                                                        </button>
+                                                        <button type="button"
+                                                            onClick={() => { setTvBingeMode(true); setTvBingeReview(false); }}
+                                                            className={`flex-1 px-3 py-2 border-l border-neutral-200 transition-colors ${tvBingeMode ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
+                                                            Binge
+                                                        </button>
+                                                    </div>
+                                                    {/* Hint */}
+                                                    <div className="px-3 py-1.5 text-[9px] uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
+                                                        {tvBingeMode ? 'Tap every episode you watched' : 'Tap the episode you watched'}
+                                                    </div>
+                                                    {/* Episode list */}
+                                                    <div className="flex-1 overflow-y-auto min-h-0">
+                                                        {isLoadingTvEpisodes && <div className="px-3 py-3 text-xs text-neutral-500 uppercase tracking-wider">Loading episodes…</div>}
+                                                        {!isLoadingTvEpisodes && tvEpisodes.length === 0 && tvEpisodeSearchToken > 0 && <div className="px-3 py-3 text-xs text-neutral-500 uppercase tracking-wider">No episodes found</div>}
+                                                        {!isLoadingTvEpisodes && tvBingeMode && tvEpisodes.map((ep) => {
                                                             const isChecked = tvBingeSelected.has(ep.id);
                                                             return (
-                                                                <button key={ep.id} type="button" onClick={() => {
-                                                                    setTvBingeSelected(prev => {
-                                                                        const next = new Set(prev);
-                                                                        if (next.has(ep.id)) next.delete(ep.id);
-                                                                        else next.add(ep.id);
-                                                                        return next;
-                                                                    });
-                                                                }}
-                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 flex items-center gap-2 ${isChecked ? 'bg-neutral-100' : 'hover:bg-neutral-50'}`}>
+                                                                <button key={ep.id} type="button" onClick={() => toggleBinge(ep.id)}
+                                                                    className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 flex items-center gap-2.5 ${isChecked ? 'bg-neutral-100' : 'hover:bg-neutral-50'}`}>
                                                                     <span className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300'}`}>
                                                                         {isChecked && '✓'}
                                                                     </span>
                                                                     <div className="min-w-0">
-                                                                        <div className="text-sm text-neutral-900">{ep.label}</div>
+                                                                        <div className="text-sm text-neutral-900 truncate">{ep.label}</div>
                                                                         <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
                                                                     </div>
                                                                 </button>
                                                             );
                                                         })}
-                                                        {tvBingeSelected.size > 0 && !tvBingeReview && (
-                                                            <div className="sticky bottom-0 px-3 py-2 border-t border-neutral-300 bg-white">
-                                                                <button type="button" onClick={() => setTvBingeReview(true)}
-                                                                    className="w-full px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
-                                                                    Review {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                        {!isLoadingTvEpisodes && !tvBingeMode && tvEpisodes.map((ep) => (
+                                                            <button key={ep.id} type="button" onClick={() => pickSingle(ep)}
+                                                                className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
+                                                                <div className="text-sm text-neutral-900 truncate">{ep.label}</div>
+                                                                <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {/* Binge footer: review → rating/notes → save */}
+                                                    {tvBingeMode && tvBingeSelected.size > 0 && !tvBingeReview && (
+                                                        <div className="px-3 py-2 border-t border-neutral-300 bg-white">
+                                                            <button type="button" onClick={() => setTvBingeReview(true)}
+                                                                className="w-full px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                Review {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {tvBingeMode && tvBingeReview && (
+                                                        <div className="border-t border-neutral-300 bg-white px-3 py-3 space-y-2">
+                                                            <div className="text-[9px] uppercase tracking-widest text-neutral-400">
+                                                                One rating & note for all {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''} — refine each next
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] uppercase tracking-wider text-neutral-500 shrink-0">Rating</span>
+                                                                <input
+                                                                    type="number" min={0} max={10} step="0.1"
+                                                                    value={draft.rating ?? ''}
+                                                                    onChange={(e) => setDraft(prev => ({ ...prev, rating: e.target.value ? Number(e.target.value) : undefined }))}
+                                                                    placeholder="1-10"
+                                                                    className="w-16 border border-neutral-300 px-2 py-1 text-xs font-mono outline-none focus:border-neutral-500"
+                                                                />
+                                                            </div>
+                                                            <textarea
+                                                                value={draft.notes}
+                                                                onChange={(e) => setDraft(prev => ({ ...prev, notes: e.target.value }))}
+                                                                placeholder="Notes (applied to all)…"
+                                                                className="w-full border border-neutral-300 px-2 py-1.5 text-xs font-mono outline-none focus:border-neutral-500 resize-none min-h-[60px]"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <button type="button" onClick={() => setTvBingeReview(false)}
+                                                                    className="flex-1 px-3 py-2 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
+                                                                    Back
+                                                                </button>
+                                                                <button type="button" onClick={saveBinge}
+                                                                    className="flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                    Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
                                                                 </button>
                                                             </div>
-                                                        )}
-                                                        {tvBingeReview && (
-                                                            <div className="sticky bottom-0 border-t border-neutral-300 bg-white px-3 py-3 space-y-2">
-                                                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">
-                                                                    Rating & notes for {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 shrink-0">Rating</span>
-                                                                    <input
-                                                                        type="number"
-                                                                        min={1} max={10}
-                                                                        value={draft.rating ?? ''}
-                                                                        onChange={(e) => setDraft(prev => ({ ...prev, rating: e.target.value ? Number(e.target.value) : undefined }))}
-                                                                        placeholder="1-10"
-                                                                        className="w-16 border border-neutral-300 px-2 py-1 text-xs font-mono outline-none focus:border-neutral-500"
-                                                                    />
-                                                                </div>
-                                                                <textarea
-                                                                    value={draft.notes}
-                                                                    onChange={(e) => setDraft(prev => ({ ...prev, notes: e.target.value }))}
-                                                                    placeholder="Notes (applied to all episodes)..."
-                                                                    className="w-full border border-neutral-300 px-2 py-1.5 text-xs font-mono outline-none focus:border-neutral-500 resize-none min-h-[60px]"
-                                                                />
-                                                                <div className="flex gap-2">
-                                                                    <button type="button" onClick={() => setTvBingeReview(false)}
-                                                                        className="flex-1 px-3 py-2 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
-                                                                        Back
-                                                                    </button>
-                                                                    <button type="button" onClick={() => {
-                                                                        const episodes = tvEpisodes.filter(ep => tvBingeSelected.has(ep.id));
-                                                                        const batch = episodes.map(ep => {
-                                                                            const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
-                                                                            return {
-                                                                                category: 'tv' as const,
-                                                                                title: selectedTvShow.name,
-                                                                                subtitle: ep.label,
-                                                                                rating: draft.rating,
-                                                                                notes: draft.notes || undefined,
-                                                                                image: serializeItemMeta({
-                                                                                    imageUrl: selectedTvShow.image || undefined,
-                                                                                    externalSource: 'tvmaze-episode',
-                                                                                    externalId: episodeIdentity,
-                                                                                    releaseDate: ep.airdate || undefined,
-                                                                                }),
-                                                                            };
-                                                                        });
-                                                                        if (existingItem) onDelete?.();
-                                                                        onSaveBatch?.(batch);
-                                                                        setTvBingeSelected(new Set());
-                                                                        setTvBingeReview(false);
-                                                                        setShowTvPicker(false);
-                                                                        // Don't close — the parent transitions
-                                                                        // into the flip-through carousel so each
-                                                                        // binged episode can be reviewed in turn.
-                                                                    }}
-                                                                        className="flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
-                                                                        Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                ) : !isLoadingTvEpisodes && tvEpisodes.map((ep) => (
-                                                    <button key={ep.id} type="button" onClick={() => {
-                                                        const episodeIdentity = `${selectedTvShow.id}:${ep.id}`;
-                                                        setDraft((prev) => ({
-                                                            ...prev,
-                                                            title: selectedTvShow.name,
-                                                            subtitle: ep.label,
-                                                            rating: undefined,
-                                                            notes: '',
-                                                            image: serializeItemMeta({
-                                                                imageUrl: selectedTvShow.image || undefined,
-                                                                externalSource: 'tvmaze-episode',
-                                                                externalId: episodeIdentity,
-                                                                releaseDate: ep.airdate || undefined,
-                                                            }),
-                                                        }));
-                                                        setPopulatedFromId(null);
-                                                        setShowTvPicker(false);
-                                                    }}
-                                                        className="w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50">
-                                                        <div className="text-sm text-neutral-900">{ep.label}</div>
-                                                        <div className="text-xs text-neutral-500">{ep.airdate || 'Recent episode'}</div>
-                                                    </button>
-                                                ))}
-                                            </>
-                                        )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                                 {/* Restaurant results */}
@@ -1321,8 +1355,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     />
                                 )}
                             </div>}
-                            {/* Subtitle (skip for beer — brewery is rendered above title) */}
-                            {category !== 'cooking' && category !== 'link' && category !== 'beer' && (
+                            {/* Subtitle (skip for beer — brewery is rendered above title;
+                                hidden while the TV episode picker is taking over the card) */}
+                            {category !== 'cooking' && category !== 'link' && category !== 'beer' && !tvPickerActive && (
                                 <div>
                                     <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                                         {config.subtitleLabel}
@@ -1338,7 +1373,6 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                             onChange={(e) => {
                                                 setDraft((prev) => ({ ...prev, subtitle: e.target.value }));
                                                 if (category === 'podcast') setShowPodcastPicker(true);
-                                                if (category === 'tv') setShowTvPicker(true);
                                             }}
                                             placeholder={config.subtitlePlaceholder}
                                             className="w-full text-sm font-mono border border-neutral-300 focus:border-neutral-400 outline-none p-2 bg-transparent"
@@ -1495,7 +1529,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
 
                         {/* Score Box — numeric for rated categories, liked signal for likedSignal extra */}
                         {/* For books: only show after marking finished. For beer: only show after brewery linked. */}
-                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && !parsedMeta.externalSource && !gateClicked) && (
+                        {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !tvPickerActive && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && !parsedMeta.externalSource && !gateClicked) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
                                 <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
@@ -1719,8 +1753,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                         </div>
                     )}
 
-                    {/* Notes / Cooking layout */}
-                    {category === 'cooking' ? (
+                    {/* Notes / Cooking layout — hidden while the TV episode picker owns the card */}
+                    {tvPickerActive ? null : category === 'cooking' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="sm:col-span-2">
                                 <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">Recipe URL</label>
