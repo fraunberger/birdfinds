@@ -771,9 +771,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {/* Actively-reading chips — always shown when starting a new book log,
-                                    no matter what's typed in the title. Finished/stopped books drop off. */}
-                                {category === 'book' && !readOnly && !existingItem && !parsedMeta.finished && (() => {
+                                {/* Actively-reading chips — always shown on an unfinished book card
+                                    (whether composing a new log or filling in one tagged from the
+                                    status), no matter what's typed in the title. Finished/stopped
+                                    books drop off. */}
+                                {category === 'book' && !readOnly && !parsedMeta.finished && (() => {
                                     const inProgressBooks = getActivelyReadingBooks(allUserItems || []);
                                     if (inProgressBooks.length === 0) return null;
                                     return (
@@ -813,8 +815,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     );
                                 })()}
                                 {/* Recent-show chips — your last few tagged shows, so the common
-                                    case (logging another episode of a show you watch) is one tap. */}
-                                {category === 'tv' && !readOnly && !existingItem && !selectedTvShow && !parsedMeta.externalSource && (() => {
+                                    case (logging another episode of a show you watch) is one tap.
+                                    Shown whenever the card isn't yet pinned to a specific show. */}
+                                {category === 'tv' && !readOnly && !selectedTvShow && !parsedMeta.externalSource && (() => {
                                     const recentShows = getRecentTvShows(getAllItemsByCategory('tv'));
                                     if (recentShows.length === 0) return null;
                                     return (
