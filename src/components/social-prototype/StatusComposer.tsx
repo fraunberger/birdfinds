@@ -409,24 +409,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             }
             setHasItemDraftChanges(true);
             if (!tvGroupEpisodes) {
-                // TV episode save: enter carousel mode instead of closing
-                const meta = parseItemMeta(nextImage);
-                if (item.category === 'tv' && meta.externalSource === 'tvmaze-episode' && item.title) {
-                    setTvGroupShowName(item.title);
-                    // Find the just-saved episode's index in the group
-                    const savedKey = getItemExternalIdentityKey('tv', nextImage);
-                    const updatedItems = (activeStatus?.items || []).filter(i => {
-                        if (i.category !== 'tv' || i.title !== item.title) return false;
-                        return parseItemMeta(i.image).externalSource === 'tvmaze-episode';
-                    });
-                    const idx = updatedItems.findIndex(i => getItemExternalIdentityKey('tv', i.image) === savedKey);
-                    setTvGroupIndex(idx >= 0 ? idx : 0);
-                    setExistingItem(updatedItems[idx >= 0 ? idx : 0] ?? existingItem);
-                    setIsModalOpen(true);
-                } else {
-                    setExistingItem(undefined);
-                    setIsModalOpen(false);
-                }
+                // A single save (including a single TV episode) closes like any other
+                // category. The flip-through carousel is reserved for binge saves,
+                // which come through handleSaveBatch.
+                setExistingItem(undefined);
+                setIsModalOpen(false);
             }
         } catch (error: unknown) {
             pushToast({ message: `Failed to save item: ${getErrorMessage(error)}`, tone: 'error' });
@@ -439,7 +426,20 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                 await addItemToActive(item);
             }
             setHasItemDraftChanges(true);
-            setExistingItem(undefined);
+            // TV binge: drop straight into the flip-through carousel for the show so
+            // each episode just saved can be reviewed in sequence.
+            const bingedShow = items.find(
+                (i) => i.category === 'tv' && parseItemMeta(i.image).externalSource === 'tvmaze-episode'
+            )?.title;
+            if (bingedShow) {
+                setActiveCategory('tv');
+                setTvGroupShowName(bingedShow);
+                setTvGroupIndex(0);
+                setIsModalOpen(true);
+                // existingItem is synced to the first episode by the tvGroup sync effect.
+            } else {
+                setExistingItem(undefined);
+            }
         } catch (error: unknown) {
             pushToast({ message: `Failed to save items: ${getErrorMessage(error)}`, tone: 'error' });
         }

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Category, ConsumableItem, getCategoryConfig } from '@/lib/social-prototype/store';
 import { getCanonicalItemKey, getRepeatTagVerb } from '@/lib/social-prototype/items';
-import { parseItemMeta } from '@/lib/social-prototype/item-meta';
+import { parseItemMeta, serializeItemMeta } from '@/lib/social-prototype/item-meta';
 import { ConsumableModal } from './ConsumableModal';
 
 interface CategorySheetProps {
@@ -166,7 +166,18 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
         entry.visits.find(v => parseItemMeta(v.image).finished) ??
         [...entry.visits].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
 
-    const inProgressBooks = bookCat ? aggregatedItems.filter(e => !isBookFinished(e)) : [];
+    // A book is "stopped" when its most recent log was removed from the
+    // actively-reading list (without finishing).
+    const isBookStopped = (entry: AggregatedItem): boolean =>
+        !!parseItemMeta(entry.latest.image).stoppedReading;
+    // Remove a book from the actively-reading list by flagging its latest log.
+    const stopReadingBook = async (entry: AggregatedItem) => {
+        if (!onEditItem) return;
+        if (!confirm(`Remove "${entry.latest.title}" from your reading list?`)) return;
+        const meta = parseItemMeta(entry.latest.image);
+        await onEditItem(entry.latest.id, { image: serializeItemMeta({ ...meta, stoppedReading: true }) });
+    };
+    const inProgressBooks = bookCat ? aggregatedItems.filter(e => !isBookFinished(e) && !isBookStopped(e)) : [];
     const finishedBooks = bookCat
         ? (() => {
             const finished = aggregatedItems.filter(e => isBookFinished(e));
@@ -381,21 +392,30 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                             ? `p. ${latestMeta.progressPage}${latestMeta.totalPages ? ` / ${latestMeta.totalPages}` : ''}`
                                             : '—');
                                     return (
-                                        <button key={entry.key} type="button" onClick={() => setSelectedItem(entry.latest)} className="w-full text-left">
-                                            <div className="flex items-center gap-2.5 px-3 py-2 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
-                                                <div className="w-2 h-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: color }} />
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-xs font-bold truncate">{entry.latest.title}</div>
-                                                    {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
-                                                    {pct != null && (
-                                                        <div className="mt-1 h-0.5 bg-neutral-100">
-                                                            <div className="h-full" style={{ width: `${Math.min(100, pct).toFixed(1)}%`, backgroundColor: color }} />
-                                                        </div>
-                                                    )}
+                                        <div key={entry.key} className="flex items-stretch">
+                                            <button type="button" onClick={() => setSelectedItem(entry.latest)} className="flex-1 min-w-0 text-left">
+                                                <div className="flex items-center gap-2.5 px-3 py-2 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
+                                                    <div className="w-2 h-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: color }} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-bold truncate">{entry.latest.title}</div>
+                                                        {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
+                                                        {pct != null && (
+                                                            <div className="mt-1 h-0.5 bg-neutral-100">
+                                                                <div className="h-full" style={{ width: `${Math.min(100, pct).toFixed(1)}%`, backgroundColor: color }} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[10px] text-neutral-400 flex-shrink-0">{progressLabel}</div>
                                                 </div>
-                                                <div className="text-[10px] text-neutral-400 flex-shrink-0">{progressLabel}</div>
-                                            </div>
-                                        </button>
+                                            </button>
+                                            {onEditItem && (
+                                                <button type="button" title="Remove from reading list"
+                                                    onClick={() => stopReadingBook(entry)}
+                                                    className="px-2.5 border border-l-0 border-neutral-200 text-neutral-300 hover:text-neutral-700 hover:border-neutral-400 bg-white text-sm leading-none">
+                                                    ×
+                                                </button>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </div>
