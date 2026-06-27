@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore, usePublicProfile } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
-import { buildItemPath, getCanonicalItemKey, getItemPageSlug, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
+import { buildItemPath, getActivelyReadingBooks, getCanonicalItemKey, getItemPageSlug, getRecentTvShows, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
 import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
@@ -771,28 +771,17 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
-                                {category === 'book' && !readOnly && !isLinked && (() => {
-                                    const seen = new Set<string>();
-                                    const inProgressBooks = (allUserItems || [])
-                                        .filter(i => {
-                                            if (i.category !== 'book') return false;
-                                            const m = parseItemMeta(i.image);
-                                            // Show any book not finished — whether or not progressPage is set
-                                            return !m.finished && m.externalSource !== 'book-review';
-                                        })
-                                        .sort((a, b) => b.createdAt - a.createdAt)
-                                        .filter(i => {
-                                            const key = i.title.trim().toLowerCase();
-                                            if (seen.has(key)) return false;
-                                            seen.add(key);
-                                            return true;
-                                        });
+                                {/* Actively-reading chips — always shown when starting a new book log,
+                                    no matter what's typed in the title. Finished/stopped books drop off. */}
+                                {category === 'book' && !readOnly && !existingItem && !parsedMeta.finished && (() => {
+                                    const inProgressBooks = getActivelyReadingBooks(allUserItems || []);
                                     if (inProgressBooks.length === 0) return null;
                                     return (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Recent:</span>
+                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Reading:</span>
                                             {inProgressBooks.map(book => {
                                                 const m = parseItemMeta(book.image);
+                                                const isActive = title.trim().toLowerCase() === book.title.trim().toLowerCase();
                                                 return (
                                                     <button key={book.id} type="button"
                                                         onMouseDown={(e) => {
@@ -815,11 +804,52 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                             }));
                                                             setPopulatedFromId(null);
                                                         }}
-                                                        className="text-[10px] border border-neutral-300 px-1.5 py-0.5 text-neutral-600 hover:border-neutral-500 hover:bg-neutral-50">
+                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${isActive ? 'border-neutral-500 bg-neutral-100 font-semibold text-neutral-800' : 'border-neutral-300 text-neutral-600'}`}>
                                                         {book.title}
                                                     </button>
                                                 );
                                             })}
+                                        </div>
+                                    );
+                                })()}
+                                {/* Recent-show chips — your last few tagged shows, so the common
+                                    case (logging another episode of a show you watch) is one tap. */}
+                                {category === 'tv' && !readOnly && !existingItem && !selectedTvShow && !parsedMeta.externalSource && (() => {
+                                    const recentShows = getRecentTvShows(getAllItemsByCategory('tv'));
+                                    if (recentShows.length === 0) return null;
+                                    return (
+                                        <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Recent:</span>
+                                            {recentShows.map(show => (
+                                                <button key={show.id} type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        setSelectedTvShow({ id: show.id, name: show.name, network: '', premiered: show.releaseDate || '', image: show.image || '' });
+                                                        setTvEpisodes([]);
+                                                        setTvBingeMode(false);
+                                                        setTvBingeSelected(new Set());
+                                                        setTvBingeReview(false);
+                                                        setDraft(prev => ({
+                                                            ...prev,
+                                                            title: show.name,
+                                                            subtitle: '',
+                                                            rating: undefined,
+                                                            notes: '',
+                                                            image: serializeItemMeta({
+                                                                imageUrl: show.image || undefined,
+                                                                externalSource: 'tvmaze-show',
+                                                                externalId: show.id,
+                                                                releaseDate: show.releaseDate || undefined,
+                                                            }),
+                                                        }));
+                                                        setPopulatedFromId(null);
+                                                        setShowTvPicker(true);
+                                                        setTvEpisodeSearchToken(p => p + 1);
+                                                    }}
+                                                    className="text-[10px] border border-neutral-300 px-1.5 py-0.5 text-neutral-600 hover:border-neutral-500 hover:bg-neutral-50">
+                                                    {show.name}
+                                                </button>
+                                            ))}
                                         </div>
                                     );
                                 })()}
@@ -1135,7 +1165,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                                         setTvBingeSelected(new Set());
                                                                         setTvBingeReview(false);
                                                                         setShowTvPicker(false);
-                                                                        onClose();
+                                                                        // Don't close — the parent transitions
+                                                                        // into the flip-through carousel so each
+                                                                        // binged episode can be reviewed in turn.
                                                                     }}
                                                                         className="flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
                                                                         Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}

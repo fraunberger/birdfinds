@@ -1,5 +1,6 @@
 import type { Category, ConsumableItem } from "@/lib/social-prototype/store";
 import { getCategoryDef } from "@/lib/social-prototype/categories";
+import { parseItemMeta } from "@/lib/social-prototype/item-meta";
 
 const normalizePart = (value: string) =>
   value
@@ -120,3 +121,71 @@ export const getCanonicalItemKey = (
 /** Return the appropriate past-tense verb for a category (e.g. "watched" for movie). */
 export const getRepeatTagVerb = (category: Category): string =>
   getCategoryDef(category)?.verb ?? "tagged";
+
+/**
+ * Books the user is actively reading. Groups all book logs by title, keeps the
+ * most recent log per book, and includes it only when that latest log is still
+ * in progress — i.e. not finished, not a finished review, and not explicitly
+ * removed from the reading list (`stoppedReading`). Returns one representative
+ * (latest) log per book, newest first.
+ */
+export const getActivelyReadingBooks = (
+  items: ConsumableItem[]
+): ConsumableItem[] => {
+  const latestByTitle = new Map<string, ConsumableItem>();
+  for (const item of items) {
+    if (item.category !== "book") continue;
+    const key = normalizePart(item.title);
+    if (!key) continue;
+    const existing = latestByTitle.get(key);
+    if (!existing || item.createdAt > existing.createdAt) latestByTitle.set(key, item);
+  }
+  const result: ConsumableItem[] = [];
+  for (const item of latestByTitle.values()) {
+    const meta = parseItemMeta(item.image);
+    if (meta.finished || meta.stoppedReading) continue;
+    if (meta.externalSource === "book-review") continue;
+    result.push(item);
+  }
+  return result.sort((a, b) => b.createdAt - a.createdAt);
+};
+
+export interface RecentTvShow {
+  id: string;
+  name: string;
+  image?: string;
+  releaseDate?: string;
+}
+
+/**
+ * The user's most recently tagged TV shows (distinct by show), newest first.
+ * Reconstructs show identity from episode/show metadata so a chip can re-open
+ * the episode picker for that show.
+ */
+export const getRecentTvShows = (
+  items: ConsumableItem[],
+  limit = 3
+): RecentTvShow[] => {
+  const sorted = [...items]
+    .filter((i) => i.category === "tv")
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const seen = new Map<string, RecentTvShow>();
+  for (const item of sorted) {
+    const meta = parseItemMeta(item.image);
+    const showId =
+      meta.externalSource === "tvmaze-episode"
+        ? meta.externalId?.split(":")[0] || ""
+        : meta.externalSource === "tvmaze-show"
+        ? meta.externalId || ""
+        : "";
+    if (!showId || seen.has(showId) || !item.title.trim()) continue;
+    seen.set(showId, {
+      id: showId,
+      name: item.title.trim(),
+      image: meta.imageUrl,
+      releaseDate: meta.releaseDate,
+    });
+    if (seen.size >= limit) break;
+  }
+  return Array.from(seen.values());
+};
