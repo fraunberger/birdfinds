@@ -123,29 +123,37 @@ export const getRepeatTagVerb = (category: Category): string =>
   getCategoryDef(category)?.verb ?? "tagged";
 
 /**
- * Books the user is actively reading. Groups all book logs by title, keeps the
- * most recent log per book, and includes it only when that latest log is still
- * in progress — i.e. not finished, not a finished review, and not explicitly
- * removed from the reading list (`stoppedReading`). Returns one representative
- * (latest) log per book, newest first.
+ * Books the user is actively reading. Groups all book logs by title and keeps a
+ * book only when none of its logs mark it done. "Done" mirrors the profile's
+ * CategorySheet logic so the chips and the profile stay in sync:
+ *   - any log explicitly finished (or a finished `book-review`), OR
+ *   - an old-style entry with a rating but no progress tracking on any log.
+ * A book is also dropped when its most recent log was removed from the reading
+ * list (`stoppedReading`). Returns one representative (latest) log per book,
+ * newest first.
  */
 export const getActivelyReadingBooks = (
   items: ConsumableItem[]
 ): ConsumableItem[] => {
-  const latestByTitle = new Map<string, ConsumableItem>();
+  const groups = new Map<string, ConsumableItem[]>();
   for (const item of items) {
     if (item.category !== "book") continue;
     const key = normalizePart(item.title);
     if (!key) continue;
-    const existing = latestByTitle.get(key);
-    if (!existing || item.createdAt > existing.createdAt) latestByTitle.set(key, item);
+    const arr = groups.get(key);
+    if (arr) arr.push(item);
+    else groups.set(key, [item]);
   }
   const result: ConsumableItem[] = [];
-  for (const item of latestByTitle.values()) {
-    const meta = parseItemMeta(item.image);
-    if (meta.finished || meta.stoppedReading) continue;
-    if (meta.externalSource === "book-review") continue;
-    result.push(item);
+  for (const logs of groups.values()) {
+    const metas = logs.map((l) => parseItemMeta(l.image));
+    const anyFinished = metas.some((m) => m.finished || m.externalSource === "book-review");
+    const hasProgress = metas.some((m) => m.progressPage != null);
+    const ratedNoProgress = !hasProgress && logs.some((l) => !!l.rating);
+    if (anyFinished || ratedNoProgress) continue;
+    const latest = logs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+    if (parseItemMeta(latest.image).stoppedReading) continue;
+    result.push(latest);
   }
   return result.sort((a, b) => b.createdAt - a.createdAt);
 };
