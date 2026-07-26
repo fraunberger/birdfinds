@@ -177,6 +177,12 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
         // For TV: also match at show level so any previously watched episode of
         // the same show counts as a repeat (show-level key = title only).
         const draftShowKey = category === 'tv' ? `tv::${getItemPageSlug('tv', title)}` : null;
+        // For restaurants: match by name alone — the dish (subtitle) varies per visit
+        // and the canonical key includes it, so two visits with different dishes would
+        // otherwise be missed. External-key match already covers Places-linked entries.
+        const draftRestaurantKey = category === 'restaurant'
+            ? `restaurant::${getItemPageSlug('restaurant', title)}`
+            : null;
         const matches = allUserItems.filter(item => {
             if (existingItem && item.id === existingItem.id) return false;
             if (draftExternalKey) {
@@ -187,6 +193,10 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
             // TV show-level fallback: match any episode of the same show
             if (draftShowKey && item.category === 'tv') {
                 return `tv::${getItemPageSlug('tv', item.title)}` === draftShowKey;
+            }
+            // Restaurant name-level fallback: match across different dishes
+            if (draftRestaurantKey && item.category === 'restaurant') {
+                return `restaurant::${getItemPageSlug('restaurant', item.title)}` === draftRestaurantKey;
             }
             return false;
         });

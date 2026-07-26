@@ -47,9 +47,10 @@ const normalizePart = (value?: string) =>
 const getAggregateKey = (category: Category, item: ConsumableItem) => {
     if (category === 'exercise' || category === 'bird') return item.id; // each sighting/session is a unique personal log
     if (category === 'restaurant') {
-        const meta = parseItemMeta(item.image);
-        const location = normalizePart(meta.restaurantLocation);
-        return `restaurant::${normalizePart(item.title)}::${location}`;
+        // Group by name only — location is unreliable (missing on manual entries,
+        // varies by address format across searches) and the dish (subtitle) differs
+        // per visit. Title-only is the most stable cross-visit identity.
+        return `restaurant::${normalizePart(item.title)}`;
     }
     return getCanonicalItemKey(item);
 };
