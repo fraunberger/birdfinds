@@ -295,8 +295,15 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         setBabyBirdLinkLabelDraft(activeStatus?.babyBirdLinkLabel || '');
     }, [activeDate, activeStatus?.id, activeStatus?.babyBirdUrl, activeStatus?.babyBirdLinkLabel]);
 
-    // All user items for repeat detection — use full history (no page limit)
-    const allUserItems = allLinkedUserItems.length > 0 ? allLinkedUserItems : statuses.flatMap(s => s.items);
+    // All user items for repeat detection — merge full history (allLinkedUserItems, no page
+    // limit) with currently-loaded statuses so optimistic updates are immediately visible.
+    const allUserItems = useMemo(() => {
+        const byId = new Map(allLinkedUserItems.map(i => [i.id, i]));
+        for (const item of statuses.flatMap(s => s.items)) {
+            byId.set(item.id, item);
+        }
+        return Array.from(byId.values());
+    }, [allLinkedUserItems, statuses]);
 
     // ── Photo callbacks ────────────────────────────────────────────────
     const compressPhoto = async (file: File): Promise<File> => {

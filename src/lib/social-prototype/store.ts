@@ -587,21 +587,30 @@ class SocialStore {
                 const allUserStatusIds = (allUserStatusIdsResp.data || []).map((s: { id: string }) => s.id);
 
                 const itemSelect = 'id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates';
-                const [displayItemsResp, commentsResp, allUserItemsResp] = await Promise.all([
+
+                // Chunk allUserStatusIds to avoid URL length limits (~8 KB) on the
+                // .in() query parameter. Each UUID is ~37 chars; 100 per chunk ≈ 3.7 KB.
+                const ALL_ITEMS_CHUNK = 100;
+                const allUserStatusChunks: string[][] = [];
+                for (let i = 0; i < allUserStatusIds.length; i += ALL_ITEMS_CHUNK) {
+                    allUserStatusChunks.push(allUserStatusIds.slice(i, i + ALL_ITEMS_CHUNK));
+                }
+
+                const [displayItemsResp, commentsResp, ...allUserItemChunkResps] = await Promise.all([
                     statusIds.length > 0
                         ? supabase.from('social_items').select(itemSelect).in('status_id', statusIds)
                         : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
                     statusIds.length > 0
                         ? supabase.from('social_comments').select('id,status_id,user_id,content,created_at,deleted_at').is('deleted_at', null).in('status_id', statusIds)
                         : Promise.resolve({ data: [] as CommentRow[], error: null }),
-                    allUserStatusIds.length > 0
-                        ? supabase.from('social_items').select(itemSelect).in('status_id', allUserStatusIds)
-                        : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+                    ...allUserStatusChunks.map(chunk =>
+                        supabase.from('social_items').select(itemSelect).in('status_id', chunk)
+                    ),
                 ]);
                 if (displayItemsResp.error) throw displayItemsResp.error;
                 itemData = displayItemsResp.data || [];
                 comments = commentsResp.error ? [] : ((commentsResp.data || []) as CommentRow[]);
-                const allUserItemsRaw: Record<string, unknown>[] = allUserItemsResp.data || [];
+                const allUserItemsRaw: Record<string, unknown>[] = allUserItemChunkResps.flatMap(r => r.data || []);
 
                 // Resolve comment author usernames
                 const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
@@ -1081,12 +1090,22 @@ class SocialStore {
         // Optimistic: remove from local state immediately
         const prevStatuses = this.state.statuses;
         const prevAllStatuses = this.state.allStatuses;
+        const prevAllLinkedUserItems = this.state.allLinkedUserItems;
         const prevActiveStatus = this.state.activeStatus;
+
+        // Collect IDs of items belonging to this status so we can prune
+        // allLinkedUserItems too (prevents stale repeat counts).
+        const deletedItemIds = new Set(
+            (this.state.statuses.find(s => s.id === statusId)?.items ?? []).map(i => i.id)
+        );
 
         this.state = {
             ...this.state,
             statuses: this.state.statuses.filter(s => s.id !== statusId),
             allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+            allLinkedUserItems: deletedItemIds.size > 0
+                ? this.state.allLinkedUserItems.filter(i => !deletedItemIds.has(i.id))
+                : this.state.allLinkedUserItems,
         };
         if (this.state.activeStatus?.id === statusId) {
             this.syncActiveStatus();
@@ -1102,6 +1121,7 @@ class SocialStore {
                 ...this.state,
                 statuses: prevStatuses,
                 allStatuses: prevAllStatuses,
+                allLinkedUserItems: prevAllLinkedUserItems,
                 activeStatus: prevActiveStatus,
             };
             this.emit();
@@ -1178,14 +1198,19 @@ class SocialStore {
 
     async removeItemFromActive(itemId: string) {
         try {
-            // Optimistic removal
+            // Optimistic removal — also prune allLinkedUserItems so the repeat
+            // counter doesn't show a deleted item as a previous visit.
             if (this.state.activeStatus && this.state.activeStatus.items) {
                 this.state.activeStatus = {
                     ...this.state.activeStatus,
                     items: this.state.activeStatus.items.filter(i => i.id !== itemId)
                 };
-                this.emit();
             }
+            this.state = {
+                ...this.state,
+                allLinkedUserItems: this.state.allLinkedUserItems.filter(i => i.id !== itemId),
+            };
+            this.emit();
 
             await socialWrite('social.item.delete', { itemId });
             this.schedulePostWriteRefresh();
