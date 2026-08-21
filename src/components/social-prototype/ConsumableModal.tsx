@@ -72,6 +72,9 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     // Gate — tracks whether the user has explicitly clicked "Review without linking"
     const [gateClicked, setGateClicked] = useState(false);
 
+    // Restaurant bar checkbox — once the user sets it by hand, stop auto-inheriting
+    const [barTouched, setBarTouched] = useState(false);
+
     // Exercise combobox
     const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
 
@@ -250,6 +253,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
         setGateClicked(false);
+        setBarTouched(false);
         setShowBookResults(false);
         books.setResults([]);
         setShowMusicResults(false);
@@ -316,6 +320,25 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [category, title, allUserItems, readOnly]);
+
+    // ── Restaurant: inherit the bar flag from previous visits to the same place ──
+    // Bar-ness belongs to the place, not the visit, so a new log of a place already
+    // tagged as a bar starts checked (until the user touches the checkbox themselves).
+    useEffect(() => {
+        if (category !== 'restaurant' || readOnly || existingItem || barTouched) return;
+        if (!allUserItems || !title.trim()) return;
+        const placeKey = `restaurant::${getItemPageSlug('restaurant', title)}`;
+        const previousVisits = allUserItems.filter(
+            (item) => item.category === 'restaurant' && `restaurant::${getItemPageSlug('restaurant', item.title)}` === placeKey
+        );
+        if (previousVisits.length === 0) return;
+        const previouslyTaggedBar = previousVisits.some((item) => parseItemMeta(item.image).isBar);
+        setDraft((prev) => {
+            const meta = parseItemMeta(prev.image);
+            if (!!meta.isBar === previouslyTaggedBar) return prev;
+            return { ...prev, image: serializeItemMeta({ ...meta, isBar: previouslyTaggedBar || undefined }) };
+        });
+    }, [category, title, allUserItems, readOnly, existingItem, barTouched]);
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback((options?: { silent?: boolean }) => {
@@ -1416,6 +1439,38 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                 />
                                             )}
                                         </div>
+                                    )}
+                                    {/* Bar subcategory — a restaurant that is really a bar */}
+                                    {category === 'restaurant' && (
+                                        readOnly ? (
+                                            parsedMeta.isBar ? (
+                                                <div className="mt-3">
+                                                    <span className="inline-block text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                        Bar
+                                                    </span>
+                                                </div>
+                                            ) : null
+                                        ) : (
+                                            <label className="mt-3 flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-500 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!parsedMeta.isBar}
+                                                    onChange={(e) => {
+                                                        const nextIsBar = e.target.checked;
+                                                        setBarTouched(true);
+                                                        setDraft((prev) => ({
+                                                            ...prev,
+                                                            image: serializeItemMeta({
+                                                                ...parseItemMeta(prev.image),
+                                                                isBar: nextIsBar || undefined,
+                                                            }),
+                                                        }));
+                                                    }}
+                                                    className="h-3.5 w-3.5 accent-neutral-800"
+                                                />
+                                                This is a bar
+                                            </label>
+                                        )
                                     )}
                                 </div>
                             )}

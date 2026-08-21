@@ -17,6 +17,7 @@ interface CategorySheetProps {
 }
 
 type SortMode = 'latest' | 'top';
+type BarFilter = 'all' | 'bars' | 'restaurants';
 
 interface AggregatedItem {
     key: string;
@@ -67,6 +68,11 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const [expandedRestaurantKeys, setExpandedRestaurantKeys] = useState<Set<string>>(new Set());
     const [expandedBookKeys, setExpandedBookKeys] = useState<Set<string>>(new Set());
     const [thisYearOnly, setThisYearOnly] = useState(false);
+    const [barFilter, setBarFilter] = useState<BarFilter>('all');
+    // Optimistic bar-tag state: server refresh lags the write by ~1s, so the row
+    // reflects the click immediately and falls back to stored meta once refreshed.
+    const [barOverrides, setBarOverrides] = useState<Record<string, boolean | undefined>>({});
+    const [pendingBarKeys, setPendingBarKeys] = useState<Set<string>>(new Set());
 
     if (!config) return null;
 
@@ -99,6 +105,63 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
     const bookCat = isBookCategory(category);
     const isRestaurantCategory = category === 'restaurant';
 
+    // Bar-ness belongs to the place, so an entry counts as a bar when any of its
+    // visits carries the flag. A pending toggle wins until the refresh lands.
+    const isEntryBar = (entry: AggregatedItem) =>
+        barOverrides[entry.key] ?? entry.visits.some((visit) => parseItemMeta(visit.image).isBar === true);
+
+    // Tag/untag every visit to this place so the flag stays consistent whichever
+    // visit the modal happens to open.
+    const toggleEntryBar = async (entry: AggregatedItem) => {
+        if (!onEditItem || pendingBarKeys.has(entry.key)) return;
+        const nextIsBar = !isEntryBar(entry);
+        setBarOverrides((prev) => ({ ...prev, [entry.key]: nextIsBar }));
+        setPendingBarKeys((prev) => new Set(prev).add(entry.key));
+        try {
+            const stale = entry.visits.filter((visit) => !!parseItemMeta(visit.image).isBar !== nextIsBar);
+            for (const visit of stale) {
+                const meta = parseItemMeta(visit.image);
+                await onEditItem(visit.id, { image: serializeItemMeta({ ...meta, isBar: nextIsBar || undefined }) });
+            }
+        } catch (error) {
+            console.error('Failed to update bar tag:', error);
+            setBarOverrides((prev) => {
+                const next = { ...prev };
+                delete next[entry.key];
+                return next;
+            });
+        } finally {
+            setPendingBarKeys((prev) => {
+                const next = new Set(prev);
+                next.delete(entry.key);
+                return next;
+            });
+        }
+    };
+
+    // The modal edits a single visit — mirror the bar tag onto the other visits to
+    // the same place so the flag stays place-level however it was set.
+    const syncBarFlagAcrossVisits = async (savedItemId: string, savedImage?: string) => {
+        if (!onEditItem || !isRestaurantCategory) return;
+        const entry = aggregatedItems.find((candidate) => candidate.visits.some((visit) => visit.id === savedItemId));
+        if (!entry) return;
+        const nextIsBar = !!parseItemMeta(savedImage).isBar;
+        setBarOverrides((prev) => ({ ...prev, [entry.key]: nextIsBar }));
+        for (const visit of entry.visits) {
+            if (visit.id === savedItemId) continue;
+            const meta = parseItemMeta(visit.image);
+            if (!!meta.isBar === nextIsBar) continue;
+            await onEditItem(visit.id, { image: serializeItemMeta({ ...meta, isBar: nextIsBar || undefined }) });
+        }
+    };
+
+    const barCount = isRestaurantCategory ? aggregatedItems.filter(isEntryBar).length : 0;
+    const barFilterOptions: { value: BarFilter; label: string; count: number }[] = [
+        { value: 'all', label: 'All', count: aggregatedItems.length },
+        { value: 'bars', label: 'Bars', count: barCount },
+        { value: 'restaurants', label: 'Restaurants', count: aggregatedItems.length - barCount },
+    ];
+
     const episodeSeriesOptions = (() => {
         if (!episodeFilteringEnabled) return [] as string[];
         const names = new Set<string>();
@@ -129,6 +192,11 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 const meta = parseItemMeta(entry.latest.image);
                 return meta.releaseDate?.startsWith(currentYear);
             });
+        }
+
+        if (isRestaurantCategory && barFilter !== 'all') {
+            const wantBars = barFilter === 'bars';
+            result = result.filter((entry) => isEntryBar(entry) === wantBars);
         }
 
         if (exerciseCat) {
@@ -318,6 +386,30 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 </div>
             )}
 
+            {isRestaurantCategory && (
+                <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex text-[10px] border border-neutral-300">
+                        {barFilterOptions.map(({ value, label, count }, i) => (
+                            <button
+                                key={value}
+                                onClick={() => setBarFilter(value)}
+                                className={`px-2 py-0.5 uppercase tracking-wider transition-colors ${i > 0 ? 'border-l border-neutral-300' : ''} ${barFilter === value
+                                    ? 'bg-neutral-800 text-white'
+                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                    }`}
+                            >
+                                {label} <span className={barFilter === value ? 'text-neutral-300' : 'text-neutral-400'}>{count}</span>
+                            </button>
+                        ))}
+                    </div>
+                    {onEditItem && (
+                        <span className="text-[9px] uppercase tracking-widest text-neutral-400">
+                            Tick bar to tag a place
+                        </span>
+                    )}
+                </div>
+            )}
+
             {/* ── Book-specific layout ─────────────────────────────────────────── */}
             {bookCat && (
                 <div>
@@ -473,8 +565,12 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 </div>
             ) : (
                 <div className="space-y-1.5">
-                    {sortedItems.map((entry, idx) => (
+                    {sortedItems.map((entry, idx) => {
+                        const showBarToggle = isRestaurantCategory && !!onEditItem;
+                        const entryIsBar = isRestaurantCategory && isEntryBar(entry);
+                        return (
                         <div key={entry.key} className="w-full text-left group">
+                            <div className={showBarToggle ? 'flex items-stretch' : undefined}>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -502,9 +598,9 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                     }
                                     setSelectedItem(entry.latest);
                                 }}
-                                className="w-full text-left"
+                                className={showBarToggle ? 'flex-1 min-w-0 text-left' : 'w-full text-left'}
                             >
-                                <div className="flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white">
+                                <div className={`flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white ${showBarToggle ? 'h-full' : ''}`}>
                                 {/* Rank number for top mode */}
                                 {sortMode === 'top' && (
                                     <span className="text-[10px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
@@ -519,6 +615,11 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <div className="text-xs font-bold">{entry.latest.title}</div>
+                                            {entryIsBar && (
+                                                <span className="text-[9px] uppercase tracking-widest border border-neutral-300 px-1 py-0.5 text-neutral-500">
+                                                    Bar
+                                                </span>
+                                            )}
                                             {entry.count > 1 && !exerciseCat && !bookCat && (
                                                 <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
                                                     {entry.count}X
@@ -607,6 +708,25 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 )}
                                 </div>
                             </button>
+                            {showBarToggle && (
+                                <button
+                                    type="button"
+                                    onClick={() => { void toggleEntryBar(entry); }}
+                                    disabled={pendingBarKeys.has(entry.key)}
+                                    aria-pressed={entryIsBar}
+                                    title={entryIsBar ? 'Remove bar tag' : 'Tag as a bar'}
+                                    className={`flex flex-col items-center justify-center gap-1 px-2.5 border border-l-0 transition-colors ${entryIsBar
+                                        ? 'border-neutral-800 bg-neutral-800 text-white'
+                                        : 'border-neutral-200 text-neutral-400 hover:text-neutral-700 hover:border-neutral-400 bg-white'
+                                        } ${pendingBarKeys.has(entry.key) ? 'opacity-50' : ''}`}
+                                >
+                                    <span className={`w-3 h-3 border flex items-center justify-center text-[8px] leading-none ${entryIsBar ? 'border-white' : 'border-neutral-300'}`}>
+                                        {entryIsBar ? '✓' : ''}
+                                    </span>
+                                    <span className="text-[8px] uppercase tracking-widest">Bar</span>
+                                </button>
+                            )}
+                            </div>
                             {isRestaurantCategory && entry.count > 1 && expandedRestaurantKeys.has(entry.key) && (
                                 <div className="border-x border-b border-neutral-200 bg-neutral-50 px-3 py-2">
                                     <div className="space-y-1.5">
@@ -646,7 +766,8 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 </div>
                             )}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             ))}
 
@@ -665,6 +786,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         onSave={async (item) => {
                             if (onEditItem) {
                                 await onEditItem(selectedItem.id, item);
+                                await syncBarFlagAcrossVisits(selectedItem.id, item.image);
                             }
                             setSelectedItem(null);
                             setEditingItemId(null);

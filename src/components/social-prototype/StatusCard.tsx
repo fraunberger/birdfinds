@@ -418,6 +418,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 {linkHref && (
                                                     <a href={linkHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open hyperlink" aria-label="Open hyperlink">↗</a>
                                                 )}
+                                                {item.category === 'restaurant' && itemMeta.isBar && (
+                                                    <span className="text-[9px] uppercase tracking-widest text-neutral-500 flex-shrink-0">bar</span>
+                                                )}
                                                 {item.rating ? (
                                                     <span className="text-neutral-500 font-mono ml-1">{item.rating}<span className="text-[9px]">/10</span></span>
                                                 ) : null}
