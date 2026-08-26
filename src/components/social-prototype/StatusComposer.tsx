@@ -280,6 +280,13 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const isTableLinkingMode = hasTableItems && (isAtPrefixLinking || selectedPlainText.trim().length > 0);
 
     useEffect(() => {
+        if (tagging.selectedText) return;
+        if (!selectedPlainText) return;
+        setSelectedPlainText('');
+        recentSelectionRef.current = null;
+    }, [selectedPlainText, tagging.selectedText]);
+
+    useEffect(() => {
         const onBeforeUnload = (event: BeforeUnloadEvent) => {
             if (!hasUnsavedChanges) return;
             event.preventDefault();
