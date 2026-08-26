@@ -13,7 +13,7 @@ import type { SsotPattern, CouplingType, RatingScope, CategoryExtra } from '@/li
 export type Category = string;
 export type ProfileVisibility = 'public' | 'accounts' | 'private';
 
-export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'beer', 'cooking', 'podcast', 'book'];
+export const DEFAULT_CATEGORIES: Category[] = ['movie', 'tv', 'music', 'restaurant', 'location', 'beer', 'cooking', 'exercise', 'podcast', 'book'];
 export const ALL_CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 export const PILE_CATEGORY_STATUS_DATE = '1900-01-01';
 export const PILE_CATEGORY_STATUS_CONTENT = '__pile_category_item_bucket__';
@@ -29,6 +29,7 @@ export interface ConsumableItem {
     notes?: string;
     image?: string;
     createdAt: number;
+    statusDate?: string; // YYYY-MM-DD date of the parent daily post
     consumedDates?: number[]; // epoch ms for each time consumed; length = total times tagged
 }
 
@@ -41,6 +42,10 @@ export interface Status {
     userId?: string;
     published: boolean;
     createdAt: number;
+    bundledDates?: string[]; // other dates this status covers (YYYY-MM-DD), excluding the primary date
+    babyBirdUrl?: string; // when set, this status is a "baby bird" (single URL + commentary)
+    babyBirdLinkLabel?: string; // display label for the baby bird URL (hyperlink mask)
+    photoUrl?: string; // daily photo URL from Supabase Storage
 }
 
 export interface StatusComment {
@@ -83,6 +88,7 @@ export interface CategoryConfigOverride {
     ratingLabel?: string;
     notesLabel?: string;
     notesPlaceholder?: string;
+    color?: string;
 }
 
 export interface UserProfile {
@@ -119,6 +125,7 @@ export interface SavedItem {
     subtitle?: string;
     image?: string;
     notes?: string;
+    rating?: number;
     sourceUserId: string;
     createdAt: number;
 }
@@ -159,6 +166,9 @@ interface StatusRow {
     published?: boolean;
     created_at: string;
     deleted_at?: string | null;
+    bundled_dates?: unknown[] | null;
+    baby_bird_url?: string | null;
+    photo_url?: string | null;
 }
 
 interface MeResponse {
@@ -332,7 +342,7 @@ const toLabel = (value: string) => {
 const toShortLabel = (value: string) => {
     const cleaned = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     if (!cleaned) return 'CAT';
-    return cleaned.slice(0, 8);
+    return cleaned;
 };
 
 export function getCategoryConfig(category: Category): CategoryConfig {
@@ -356,14 +366,29 @@ export function getCategoryConfig(category: Category): CategoryConfig {
         extras: [],
     };
 
+    // Never apply user overrides to predefined categories — overrides are only
+    // meaningful for user-created custom categories. Applying them to predefined
+    // categories corrupts labels (e.g. "RESTAURA" / "Details") when the logged-in
+    // user happens to have a custom override stored under the same key.
+    if (predefined) return base;
+
     const override = ACTIVE_CATEGORY_CONFIG_OVERRIDES[category];
     if (!override) return base;
 
-    return {
+    const merged = {
         ...base,
         ...override,
         id: category,
     };
+
+    // Fix retroactive truncation: if the stored shortLabel is a prefix of the
+    // full derived label (i.e. it was previously .slice(0,8)'d), replace it.
+    const full = toShortLabel(category);
+    if (merged.shortLabel && merged.shortLabel.length < full.length && full.startsWith(merged.shortLabel)) {
+        merged.shortLabel = full;
+    }
+
+    return merged;
 }
 
 // ============================================================
@@ -380,12 +405,16 @@ interface SocialState {
     feedHasMore: boolean;
     feedCursor: string | null; // ISO timestamp of the oldest loaded feed status
     savedItems: SavedItem[];
+    allLinkedUserItems: ConsumableItem[];
+    linkedUserId: string | null;
 }
 
 class SocialStore {
     private state: SocialState = {
         statuses: [],
         allStatuses: [],
+        allLinkedUserItems: [],
+        linkedUserId: null,
         activeDate: getTodayDateString(),
         activeStatus: null,
         isLoaded: false,
@@ -447,6 +476,8 @@ class SocialStore {
         this.state = {
             statuses: [],
             allStatuses: [],
+            allLinkedUserItems: [],
+            linkedUserId: null,
             activeDate: getTodayDateString(),
             activeStatus: null,
             isLoaded: false,
@@ -470,16 +501,33 @@ class SocialStore {
         if (existing) {
             this.state.activeStatus = existing;
         } else {
-            this.state.activeStatus = {
-                id: 'temp-optimistic',
-                content: '',
-                date: activeDate,
-                items: [],
-                comments: [],
-                published: false,
-                createdAt: Date.now()
-            };
+            // Check if this date is bundled into another status
+            const bundleParent = statuses.find(s => s.bundledDates?.includes(activeDate));
+            if (bundleParent) {
+                this.state.activeDate = bundleParent.date;
+                this.state.activeStatus = bundleParent;
+            } else {
+                this.state.activeStatus = {
+                    id: 'temp-optimistic',
+                    content: '',
+                    date: activeDate,
+                    items: [],
+                    comments: [],
+                    published: false,
+                    createdAt: Date.now()
+                };
+            }
         }
+    }
+
+    /** Check if a date is bundled into another status. */
+    isDateBundled(date: string): { statusId: string; primaryDate: string } | null {
+        for (const s of this.state.statuses) {
+            if (s.bundledDates?.includes(date)) {
+                return { statusId: s.id, primaryDate: s.date };
+            }
+        }
+        return null;
     }
 
     async fetchStatuses(options?: { force?: boolean }) {
@@ -496,9 +544,9 @@ class SocialStore {
             try {
                 const me = await getLinkedMe();
                 const linkedUserId = me.linkedUserId;
-                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+                const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,photo_url';
 
-                const [journalResp, feedResp] = await Promise.all([
+                const [journalResp, feedResp, allUserStatusIdsResp] = await Promise.all([
                     linkedUserId
                         ? supabase
                             .from('social_statuses')
@@ -516,6 +564,13 @@ class SocialStore {
                         .order('created_at', { ascending: false })
                         // Slight over-fetch so filtering still yields a full first page.
                         .limit(FEED_FETCH_SIZE),
+                    linkedUserId
+                        ? supabase
+                            .from('social_statuses')
+                            .select('id')
+                            .is('deleted_at', null)
+                            .eq('user_id', linkedUserId)
+                        : Promise.resolve({ data: [] as { id: string }[], error: null }),
                 ]);
                 if (journalResp.error) throw journalResp.error;
                 if (feedResp.error) throw feedResp.error;
@@ -529,22 +584,33 @@ class SocialStore {
                 // Scope items + comments to only fetched status IDs
                 let itemData: Record<string, unknown>[] = [];
                 let comments: CommentRow[] = [];
+                const allUserStatusIds = (allUserStatusIdsResp.data || []).map((s: { id: string }) => s.id);
 
-                if (statusIds.length > 0) {
-                    const { data: items, error: itemError } = await supabase
-                        .from('social_items')
-                        .select('id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates')
-                        .in('status_id', statusIds);
-                    if (itemError) throw itemError;
-                    itemData = items || [];
+                const itemSelect = 'id,status_id,category,title,subtitle,rating,notes,image,created_at,consumed_dates';
 
-                    const { data: commentData, error: commentError } = await supabase
-                        .from('social_comments')
-                        .select('id,status_id,user_id,content,created_at,deleted_at')
-                        .is('deleted_at', null)
-                        .in('status_id', statusIds);
-                    comments = commentError ? [] : ((commentData || []) as CommentRow[]);
+                // Chunk allUserStatusIds to avoid URL length limits (~8 KB) on the
+                // .in() query parameter. Each UUID is ~37 chars; 100 per chunk ≈ 3.7 KB.
+                const ALL_ITEMS_CHUNK = 100;
+                const allUserStatusChunks: string[][] = [];
+                for (let i = 0; i < allUserStatusIds.length; i += ALL_ITEMS_CHUNK) {
+                    allUserStatusChunks.push(allUserStatusIds.slice(i, i + ALL_ITEMS_CHUNK));
                 }
+
+                const [displayItemsResp, commentsResp, ...allUserItemChunkResps] = await Promise.all([
+                    statusIds.length > 0
+                        ? supabase.from('social_items').select(itemSelect).in('status_id', statusIds)
+                        : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+                    statusIds.length > 0
+                        ? supabase.from('social_comments').select('id,status_id,user_id,content,created_at,deleted_at').is('deleted_at', null).in('status_id', statusIds)
+                        : Promise.resolve({ data: [] as CommentRow[], error: null }),
+                    ...allUserStatusChunks.map(chunk =>
+                        supabase.from('social_items').select(itemSelect).in('status_id', chunk)
+                    ),
+                ]);
+                if (displayItemsResp.error) throw displayItemsResp.error;
+                itemData = displayItemsResp.data || [];
+                comments = commentsResp.error ? [] : ((commentsResp.data || []) as CommentRow[]);
+                const allUserItemsRaw: Record<string, unknown>[] = allUserItemChunkResps.flatMap(r => r.data || []);
 
                 // Resolve comment author usernames
                 const commentUserIds = Array.from(new Set(comments.map((comment) => comment.user_id)));
@@ -583,6 +649,10 @@ class SocialStore {
                     userId: s.user_id,
                     published: s.published ?? false,
                     createdAt: new Date(s.created_at).getTime(),
+                    bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
+                    babyBirdUrl: s.baby_bird_url ? s.baby_bird_url.split('\n')[0] : undefined,
+                    babyBirdLinkLabel: s.baby_bird_url?.includes('\n') ? s.baby_bird_url.split('\n')[1] : undefined,
+                    photoUrl: s.photo_url || undefined,
                     items: (itemsByStatus.get(s.id) || [])
                         .map(i => ({
                             id: i.id as string,
@@ -593,6 +663,7 @@ class SocialStore {
                             notes: (i.notes as string | null) || undefined,
                             image: (i.image as string | null) || undefined,
                             createdAt: new Date(i.created_at as string).getTime(),
+                            statusDate: s.date,
                             consumedDates: Array.isArray(i.consumed_dates)
                                 ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
                                 : undefined,
@@ -623,7 +694,7 @@ class SocialStore {
                 if (linkedUserId) {
                     const { data: savedData } = await supabase
                         .from('saved_items')
-                        .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+                        .select('id,user_id,item_id,category,title,subtitle,image,notes,rating,source_user_id,created_at')
                         .eq('user_id', linkedUserId)
                         .order('created_at', { ascending: false });
                     savedItems = (savedData || []).map((row: Record<string, unknown>) => ({
@@ -635,6 +706,7 @@ class SocialStore {
                         subtitle: (row.subtitle as string | null) || undefined,
                         image: (row.image as string | null) || undefined,
                         notes: (row.notes as string | null) || undefined,
+                        rating: (row.rating as number | null) ?? undefined,
                         sourceUserId: row.source_user_id as string,
                         createdAt: new Date(row.created_at as string).getTime(),
                     }));
@@ -652,6 +724,22 @@ class SocialStore {
                     ? new Date(visibleStatuses[visibleStatuses.length - 1].createdAt).toISOString()
                     : null;
 
+                // Map all linked-user items (from ALL their statuses, no page limit) for
+                // accurate repeat counting and category aggregation.
+                const allLinkedUserItems: ConsumableItem[] = allUserItemsRaw.map(i => ({
+                    id: i.id as string,
+                    category: i.category as Category,
+                    title: i.title as string,
+                    subtitle: (i.subtitle as string | null) || undefined,
+                    rating: (i.rating as number | null) ?? undefined,
+                    notes: (i.notes as string | null) || undefined,
+                    image: (i.image as string | null) || undefined,
+                    createdAt: new Date(i.created_at as string).getTime(),
+                    consumedDates: Array.isArray(i.consumed_dates)
+                        ? (i.consumed_dates as string[]).map((d) => new Date(d).getTime())
+                        : undefined,
+                }));
+
                 this.state = {
                     ...this.state,
                     allStatuses: visibleStatuses,
@@ -661,6 +749,8 @@ class SocialStore {
                     isLoaded: true,
                     feedHasMore,
                     feedCursor,
+                    allLinkedUserItems,
+                    linkedUserId: linkedUserId ?? null,
                 };
                 this.syncActiveStatus();
                 this.emit();
@@ -708,7 +798,7 @@ class SocialStore {
 
         const me = await getLinkedMe();
         const mutedUsers: string[] = Array.isArray(me.profile?.muted_users) ? me.profile.muted_users : [];
-        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at';
+        const statusSelect = 'id,content,date,user_id,published,created_at,deleted_at,bundled_dates,baby_bird_url,baby_bird_link_label,photo_url';
 
         const { data: nextPage, error } = await supabase
             .from('social_statuses')
@@ -779,6 +869,9 @@ class SocialStore {
                 userId: s.user_id,
                 published: s.published ?? false,
                 createdAt: new Date(s.created_at).getTime(),
+                bundledDates: Array.isArray(s.bundled_dates) ? s.bundled_dates as string[] : undefined,
+                babyBirdUrl: s.baby_bird_url || undefined,
+                photoUrl: s.photo_url || undefined,
                 items: (itemsByStatus.get(s.id) || []).map(i => ({
                     id: i.id as string,
                     category: i.category as Category,
@@ -860,6 +953,7 @@ class SocialStore {
         const optimisticItem: ConsumableItem = {
             id: `temp-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             createdAt: Date.now(),
+            statusDate: this.state.activeDate,
             category: item.category,
             title: item.title,
             subtitle: item.subtitle,
@@ -980,30 +1074,7 @@ class SocialStore {
     }
 
     async addItemToPileCategory(item: Omit<ConsumableItem, 'id' | 'createdAt'>) {
-        try {
-            const response = await socialWrite('social.status.upsert', {
-                date: PILE_CATEGORY_STATUS_DATE,
-                content: PILE_CATEGORY_STATUS_CONTENT,
-            });
-            const statusId = response?.statusId as string | undefined;
-            if (!statusId) throw new Error('Failed to ensure pile category status');
-
-            await socialWrite('social.item.add', {
-                statusId,
-                item: {
-                    category: item.category,
-                    title: item.title,
-                    subtitle: item.subtitle,
-                    rating: item.rating,
-                    notes: item.notes,
-                    image: item.image,
-                }
-            });
-            this.schedulePostWriteRefresh();
-        } catch (error) {
-            console.error('Error adding item to pile category:', error);
-            throw error;
-        }
+        await this.addItemToActive(item);
     }
 
     async togglePublished(statusId: string, published: boolean) {
@@ -1019,12 +1090,22 @@ class SocialStore {
         // Optimistic: remove from local state immediately
         const prevStatuses = this.state.statuses;
         const prevAllStatuses = this.state.allStatuses;
+        const prevAllLinkedUserItems = this.state.allLinkedUserItems;
         const prevActiveStatus = this.state.activeStatus;
+
+        // Collect IDs of items belonging to this status so we can prune
+        // allLinkedUserItems too (prevents stale repeat counts).
+        const deletedItemIds = new Set(
+            (this.state.statuses.find(s => s.id === statusId)?.items ?? []).map(i => i.id)
+        );
 
         this.state = {
             ...this.state,
             statuses: this.state.statuses.filter(s => s.id !== statusId),
             allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+            allLinkedUserItems: deletedItemIds.size > 0
+                ? this.state.allLinkedUserItems.filter(i => !deletedItemIds.has(i.id))
+                : this.state.allLinkedUserItems,
         };
         if (this.state.activeStatus?.id === statusId) {
             this.syncActiveStatus();
@@ -1040,6 +1121,7 @@ class SocialStore {
                 ...this.state,
                 statuses: prevStatuses,
                 allStatuses: prevAllStatuses,
+                allLinkedUserItems: prevAllLinkedUserItems,
                 activeStatus: prevActiveStatus,
             };
             this.emit();
@@ -1048,16 +1130,87 @@ class SocialStore {
         }
     }
 
+    async setBundledDates(statusId: string, bundledDates: string[] | null) {
+        await socialWrite('social.status.setBundledDates', { statusId, bundledDates });
+        const update = (s: Status) =>
+            s.id === statusId ? { ...s, bundledDates: bundledDates?.length ? bundledDates : undefined } : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = { ...this.state.activeStatus, bundledDates: bundledDates?.length ? bundledDates : undefined };
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
+    async setBabyBirdUrl(statusId: string, url: string | null, linkLabel?: string | null) {
+        // Encode label into the url field as "url\nlabel" — URLs can't contain newlines
+        const encoded = url && linkLabel ? `${url}\n${linkLabel}` : url;
+        await socialWrite('social.status.setBabyBird', { statusId, url: encoded });
+        const update = (s: Status) =>
+            s.id === statusId
+                ? { ...s, babyBirdUrl: url || undefined, babyBirdLinkLabel: linkLabel || undefined, ...(url ? { bundledDates: undefined } : {}) }
+                : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = update(this.state.activeStatus);
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
+    async setPhotoUrl(statusId: string, photoUrl: string | null) {
+        await socialWrite('social.status.setPhoto', { statusId, photoUrl });
+        const update = (s: Status) =>
+            s.id === statusId ? { ...s, photoUrl: photoUrl || undefined } : s;
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.map(update),
+            allStatuses: this.state.allStatuses.map(update),
+        };
+        if (this.state.activeStatus?.id === statusId) {
+            this.state.activeStatus = update(this.state.activeStatus);
+        }
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
+    async moveStatusToDate(statusId: string, newDate: string) {
+        await socialWrite('social.status.changeDate', { statusId, newDate });
+        // Remove old status from local state and refresh
+        this.state = {
+            ...this.state,
+            statuses: this.state.statuses.filter(s => s.id !== statusId),
+            allStatuses: this.state.allStatuses.filter(s => s.id !== statusId),
+            activeDate: newDate,
+        };
+        this.syncActiveStatus();
+        this.emit();
+        this.schedulePostWriteRefresh();
+    }
+
     async removeItemFromActive(itemId: string) {
         try {
-            // Optimistic removal
+            // Optimistic removal — also prune allLinkedUserItems so the repeat
+            // counter doesn't show a deleted item as a previous visit.
             if (this.state.activeStatus && this.state.activeStatus.items) {
                 this.state.activeStatus = {
                     ...this.state.activeStatus,
                     items: this.state.activeStatus.items.filter(i => i.id !== itemId)
                 };
-                this.emit();
             }
+            this.state = {
+                ...this.state,
+                allLinkedUserItems: this.state.allLinkedUserItems.filter(i => i.id !== itemId),
+            };
+            this.emit();
 
             await socialWrite('social.item.delete', { itemId });
             this.schedulePostWriteRefresh();
@@ -1142,6 +1295,7 @@ class SocialStore {
                 subtitle: item.subtitle,
                 image: item.image,
                 notes: item.notes,
+                rating: item.rating,
                 sourceUserId,
                 createdAt: Date.now(),
             };
@@ -1161,6 +1315,7 @@ class SocialStore {
                     subtitle: item.subtitle,
                     image: item.image,
                     notes: item.notes,
+                    rating: item.rating,
                 },
             });
             this.schedulePostWriteRefresh();
@@ -1179,6 +1334,11 @@ class SocialStore {
 
     getUserItemsByCategory(category: Category, userId: string): ConsumableItem[] {
         if (NON_PILE_CATEGORIES.includes(category)) return [];
+        // Use the unlimited full-history set for the linked user; fall back to
+        // allStatuses (paginated) for other users' profiles.
+        if (userId === this.state.linkedUserId && this.state.allLinkedUserItems.length > 0) {
+            return this.state.allLinkedUserItems.filter(i => i.category === category);
+        }
         return this.state.allStatuses
             .filter(s => s.userId === userId)
             .flatMap(s => s.items)
@@ -1238,6 +1398,10 @@ export function useSocialStore() {
         softDeleteComment: (commentId: string, reason?: string) => socialStore.softDeleteComment(commentId, reason),
         togglePublished: (id: string, published: boolean) => socialStore.togglePublished(id, published),
         deleteStatus: (id: string) => socialStore.deleteStatus(id),
+        moveStatusToDate: (id: string, newDate: string) => socialStore.moveStatusToDate(id, newDate),
+        setBundledDates: (id: string, dates: string[] | null) => socialStore.setBundledDates(id, dates),
+        setBabyBirdUrl: (id: string, url: string | null, linkLabel?: string | null) => socialStore.setBabyBirdUrl(id, url, linkLabel),
+        setPhotoUrl: (id: string, photoUrl: string | null) => socialStore.setPhotoUrl(id, photoUrl),
         getAllItemsByCategory: (c: Category) => socialStore.getAllItemsByCategory(c),
         getUserItemsByCategory: (c: Category, uid: string) => socialStore.getUserItemsByCategory(c, uid),
         getUserStatuses: (uid: string) => socialStore.getUserStatuses(uid),
@@ -1396,6 +1560,41 @@ export function useUserProfile() {
         return data.publicUrl;
     };
 
+    const uploadPhoto = async (file: File) => {
+        const response = await fetch('/api/social/photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contentType: file.type || 'image/jpeg',
+            }),
+        });
+        const raw = await response.text();
+        let data: { error?: string; publicUrl?: string; path?: string; token?: string } = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch {
+            data = {};
+        }
+        if (!response.ok) {
+            const detail = data?.error || raw || `${response.status} ${response.statusText}`;
+            throw new Error(`Failed to prepare photo upload (${response.status}): ${detail}`);
+        }
+        if (!data?.path || !data?.token) {
+            throw new Error('Photo upload token missing');
+        }
+
+        const { error: uploadError } = await supabase.storage
+            .from('photos')
+            .uploadToSignedUrl(data.path, data.token, file);
+        if (uploadError) {
+            throw new Error(`Failed to upload photo: ${uploadError.message}`);
+        }
+        if (!data.publicUrl) {
+            throw new Error('Photo uploaded but public URL missing');
+        }
+        return data.publicUrl;
+    };
+
     const updateProfile = async (updates: Partial<UserProfile>) => {
         const resolvedUsername = (updates.username
             || profile?.username
@@ -1462,6 +1661,7 @@ export function useUserProfile() {
         updateProfile,
         saveProfile: updateProfile, // Alias for backward compat
         uploadAvatar,
+        uploadPhoto,
         refetch: fetchProfile
     };
 }
@@ -1499,16 +1699,10 @@ export function useHabits(userId?: string) {
             sortOrder: h.sort_order
         })));
 
-        // Fetch logs for the last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const since = thirtyDaysAgo.toISOString().split("T")[0];
-
         const { data: logsData } = await supabase
             .from('habit_logs')
             .select('habit_id,date,completed,notes')
-            .eq('user_id', targetId)
-            .gte('date', since);
+            .eq('user_id', targetId);
 
         setHabitLogs(logsData || []);
 
@@ -1671,7 +1865,7 @@ export function useSavedItems(userId: string) {
         setLoading(true);
         const { data } = await supabase
             .from('saved_items')
-            .select('id,user_id,item_id,category,title,subtitle,image,notes,source_user_id,created_at')
+            .select('id,user_id,item_id,category,title,subtitle,image,notes,rating,source_user_id,created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
         setSavedItems((data || []).map((row: Record<string, unknown>) => ({
@@ -1683,6 +1877,7 @@ export function useSavedItems(userId: string) {
             subtitle: (row.subtitle as string | null) || undefined,
             image: (row.image as string | null) || undefined,
             notes: (row.notes as string | null) || undefined,
+            rating: (row.rating as number | null) ?? undefined,
             sourceUserId: row.source_user_id as string,
             createdAt: new Date(row.created_at as string).getTime(),
         })));

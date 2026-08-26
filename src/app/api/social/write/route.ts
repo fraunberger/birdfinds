@@ -24,6 +24,39 @@ const MAX_AVATAR_URL = 2_000;
 const truncate = (value: string, max: number) =>
   value.length > max ? value.slice(0, max) : value;
 
+// ── Date validation helpers ──────────────────────────────────────────
+// UTC+14 (Line Islands) — world's earliest timezone — unlocks posts
+const EARLIEST_TZ_OFFSET = 14;
+// UTC-12 (Baker Island) — world's latest timezone — closes the edit window
+const LATEST_TZ_OFFSET = -12;
+
+/** Returns the current date as YYYY-MM-DD shifted by the given UTC offset (hours). */
+const getDateInOffset = (offsetHours: number) => {
+  const adjusted = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
+  return adjusted.toISOString().slice(0, 10);
+};
+
+/**
+ * Returns true if the given YYYY-MM-DD date is still in the future.
+ * Uses UTC+14 (Line Islands) — the world's earliest timezone — so a post
+ * unlocks the moment that date has arrived anywhere on Earth.
+ */
+const isFutureDate = (date: string) => date > getDateInOffset(EARLIEST_TZ_OFFSET);
+
+/**
+ * Returns true if the given YYYY-MM-DD date is more than 30 days ago.
+ * Uses UTC-12 (Baker Island) — the world's latest timezone — so the full
+ * 30-day edit window stays open until the day has ended everywhere on Earth.
+ */
+const PILE_BUCKET_DATE = "1900-01-01";
+
+const isOlderThan30Days = (date: string) => {
+  if (date === PILE_BUCKET_DATE) return false;
+  const nowInLatestTZ = new Date(Date.now() + LATEST_TZ_OFFSET * 60 * 60 * 1000);
+  nowInLatestTZ.setUTCDate(nowInLatestTZ.getUTCDate() - 30);
+  return date < nowInLatestTZ.toISOString().slice(0, 10);
+};
+
 // ── Rate limit: 60 writes per minute per user ───────────────────────
 const WRITE_RATE_LIMIT = 60;
 const WRITE_RATE_WINDOW_MS = 60_000;
@@ -47,7 +80,11 @@ type WriteAction =
   | "social.mute.toggle"
   | "social.habit.add"
   | "social.habit.remove"
-  | "social.habit.log.toggle";
+  | "social.habit.log.toggle"
+  | "social.status.changeDate"
+  | "social.status.setBundledDates"
+  | "social.status.setBabyBird"
+  | "social.status.setPhoto";
 
 interface WriteBody {
   action: WriteAction;
@@ -57,12 +94,13 @@ interface WriteBody {
 const ensureOwnStatus = async (supabaseAdmin: SupabaseClient, statusId: string, userId: string) => {
   const { data } = await supabaseAdmin
     .from("social_statuses")
-    .select("id,user_id")
+    .select("id,user_id,date,published,baby_bird_url,photo_url")
     .eq("id", statusId)
     .maybeSingle();
   if (!data || data.user_id !== userId) {
     throw new Error("Not authorized for status");
   }
+  return data as { id: string; user_id: string; date: string; published: boolean; baby_bird_url?: string | null; photo_url?: string | null };
 };
 
 const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, userId: string) => {
@@ -72,8 +110,7 @@ const ensureOwnItem = async (supabaseAdmin: SupabaseClient, itemId: string, user
     .eq("id", itemId)
     .maybeSingle();
   if (!data) throw new Error("Item not found");
-  await ensureOwnStatus(supabaseAdmin, data.status_id, userId);
-  return data.status_id;
+  return ensureOwnStatus(supabaseAdmin, data.status_id, userId);
 };
 
 const ensureOwnComment = async (supabaseAdmin: SupabaseClient, commentId: string, userId: string) => {
@@ -151,6 +188,12 @@ export async function POST(req: NextRequest) {
       const date = String(payload.date || "");
       const content = truncate(String(payload.content || ""), MAX_STATUS_CONTENT);
       if (!date) return NextResponse.json({ error: "Missing date" }, { status: 400 });
+      if (isOlderThan30Days(date)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
 
       const { data, error } = await supabaseAdmin
         .from("social_statuses")
@@ -167,19 +210,21 @@ export async function POST(req: NextRequest) {
     if (action === "social.status.publish") {
       const statusId = String(payload.statusId || "");
       const published = Boolean(payload.published);
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Block publishing posts whose date is in the future.
+      if (published && isFutureDate(current.date)) {
+        return NextResponse.json(
+          { error: "Cannot publish a post before its date arrives" },
+          { status: 403 }
+        );
+      }
+
       const updates: Record<string, unknown> = { published };
-      if (published) {
-        // Only set created_at on first publish — subsequent edits keep the
-        // original timestamp so the post's feed position doesn't change.
-        const { data: current } = await supabaseAdmin
-          .from("social_statuses")
-          .select("published")
-          .eq("id", statusId)
-          .maybeSingle();
-        if (!current?.published) {
-          updates.created_at = new Date().toISOString();
-        }
+      // Only set created_at on first publish — subsequent edits keep the
+      // original timestamp so the post's feed position doesn't change.
+      if (published && !current.published) {
+        updates.created_at = new Date().toISOString();
       }
       const { error } = await supabaseAdmin
         .from("social_statuses")
@@ -189,9 +234,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "social.status.setPhoto") {
+      const statusId = String(payload.statusId || "");
+      const photoUrl = payload.photoUrl ? String(payload.photoUrl) : null;
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // If replacing or removing, delete old file from storage
+      if (current.photo_url) {
+        try {
+          const url = new URL(current.photo_url);
+          const pathMatch = url.pathname.match(/\/photos\/(.+)$/);
+          if (pathMatch) {
+            await supabaseAdmin.storage.from("photos").remove([decodeURIComponent(pathMatch[1])]);
+          }
+        } catch { /* best-effort cleanup */ }
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ photo_url: photoUrl })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "social.status.delete") {
       const statusId = String(payload.statusId || "");
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const current = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Clean up photo from storage if present
+      if (current.photo_url) {
+        try {
+          const url = new URL(current.photo_url);
+          const pathMatch = url.pathname.match(/\/photos\/(.+)$/);
+          if (pathMatch) {
+            await supabaseAdmin.storage.from("photos").remove([decodeURIComponent(pathMatch[1])]);
+          }
+        } catch { /* best-effort cleanup */ }
+      }
+
       // Delete children before parent to respect FK constraints
       await supabaseAdmin.from("social_comments").delete().eq("status_id", statusId);
       await supabaseAdmin.from("social_items").delete().eq("status_id", statusId);
@@ -200,9 +281,114 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "social.status.changeDate") {
+      const statusId = String(payload.statusId || "");
+      const newDate = String(payload.newDate || "");
+      if (!statusId || !newDate) return NextResponse.json({ error: "Missing statusId or newDate" }, { status: 400 });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Check if target date already has an unpublished post
+      const { data: conflict } = await supabaseAdmin
+        .from("social_statuses")
+        .select("id,published")
+        .eq("user_id", linkedUserId)
+        .eq("date", newDate)
+        .neq("id", statusId)
+        .maybeSingle();
+
+      if (conflict) {
+        if (conflict.published) {
+          return NextResponse.json({ error: "Target date already has a published post" }, { status: 400 });
+        }
+        // Replace: delete the unpublished target's items/comments/status, then move source to that date
+        await supabaseAdmin.from("social_items").delete().eq("status_id", conflict.id);
+        await supabaseAdmin.from("social_comments").delete().eq("status_id", conflict.id);
+        await supabaseAdmin.from("social_statuses").delete().eq("id", conflict.id);
+      }
+
+      // No conflict — just update date
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ date: newDate })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.setBundledDates") {
+      const statusId = String(payload.statusId || "");
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      const bundleStatus = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+
+      // Baby birds cannot be date bundled
+      if (bundleStatus.baby_bird_url) {
+        return NextResponse.json({ error: "Baby birds cannot be date bundled" }, { status: 400 });
+      }
+
+      const rawDates = Array.isArray(payload.bundledDates) ? payload.bundledDates : null;
+      const bundledDates = rawDates
+        ? rawDates.map(d => String(d)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        : null;
+
+      // Max 2 bundled dates (3 total including the primary date)
+      if (bundledDates && bundledDates.length > 2) {
+        return NextResponse.json({ error: "Maximum 3 days per bundle" }, { status: 400 });
+      }
+
+      // Check that no bundled date already has its own separate status
+      if (bundledDates && bundledDates.length > 0) {
+        const { data: conflicts } = await supabaseAdmin
+          .from("social_statuses")
+          .select("id,date")
+          .eq("user_id", linkedUserId)
+          .in("date", bundledDates)
+          .neq("id", statusId);
+        if (conflicts && conflicts.length > 0) {
+          const conflictDates = conflicts.map((c: { date: string }) => c.date).join(", ");
+          return NextResponse.json({ error: `Posts already exist for: ${conflictDates}. Delete them first.` }, { status: 409 });
+        }
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ bundled_dates: bundledDates })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "social.status.setBabyBird") {
+      const statusId = String(payload.statusId || "");
+      const url = payload.url ? truncate(String(payload.url), MAX_STATUS_CONTENT) : null;
+      if (!statusId) return NextResponse.json({ error: "Missing statusId" }, { status: 400 });
+      const status = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
+        return NextResponse.json({ error: "Cannot edit posts older than 30 days" }, { status: 403 });
+      }
+
+      if (url) {
+        // Converting TO baby bird — clear bundled dates (baby birds are single-day only)
+        // Items are kept so they still appear in the user's profile piles
+      }
+
+      const { error } = await supabaseAdmin
+        .from("social_statuses")
+        .update({ baby_bird_url: url, ...(url ? { bundled_dates: null } : {}) })
+        .eq("id", statusId);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "social.item.add") {
       const statusId = String(payload.statusId || "");
-      await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      const status = await ensureOwnStatus(supabaseAdmin, statusId, linkedUserId);
+      if (isOlderThan30Days(status.date)) {
+        return NextResponse.json(
+          { error: "Cannot edit posts older than 30 days" },
+          { status: 403 }
+        );
+      }
       const item = (payload.item || {}) as Record<string, unknown>;
       const category = truncate(String(item.category || "movie"), MAX_ITEM_TITLE);
       const rawImage = item.image ? String(item.image) : undefined;
@@ -584,6 +770,9 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from("saved_items").delete().eq("id", existing.id);
         return NextResponse.json({ ok: true, saved: false });
       }
+      const ratingVal = typeof snapshot.rating === 'number' && snapshot.rating >= 1 && snapshot.rating <= 10
+        ? Math.round(snapshot.rating)
+        : null;
       const { error } = await supabaseAdmin.from("saved_items").insert({
         user_id: linkedUserId,
         item_id: itemId,
@@ -592,6 +781,7 @@ export async function POST(req: NextRequest) {
         subtitle: snapshot.subtitle ? truncate(String(snapshot.subtitle), MAX_ITEM_SUBTITLE) : null,
         image: snapshot.image ? truncate(String(snapshot.image), MAX_ITEM_IMAGE_URL) : null,
         notes: snapshot.notes ? truncate(String(snapshot.notes), MAX_ITEM_NOTES) : null,
+        rating: ratingVal,
         source_user_id: sourceUserId,
       });
       if (error) throw error;

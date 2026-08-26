@@ -13,6 +13,7 @@ interface AccountMenuProps {
     content: string;
     createdAt: string;
     statusDate?: string;
+    type?: "on_my_post" | "on_commented_post";
   }>;
   pileHref: string;
   username: string;
@@ -134,6 +135,11 @@ export function AccountMenu({
                         </div>
                       )}
                     </div>
+                    {notification.type === "on_commented_post" && (
+                      <div className="mt-0.5 text-[9px] uppercase tracking-widest text-neutral-400">
+                        also commented
+                      </div>
+                    )}
                     {notification.content && (
                       <div className="mt-0.5 text-[10px] text-neutral-500 truncate normal-case tracking-normal">
                         {notification.content.length > 55 ? `${notification.content.slice(0, 55)}…` : notification.content}

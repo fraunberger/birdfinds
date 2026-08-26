@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { Ban, UserCheck, UserPlus } from 'lucide-react';
+import { UserCheck, UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
     usePublicProfile,
@@ -12,7 +12,7 @@ import {
     getCategoryConfig,
     Category,
     ConsumableItem,
-    PILE_CATEGORY_STATUS_DATE
+    PILE_CATEGORY_STATUS_DATE,
 } from '@/lib/social-prototype/store';
 import { StatusCard } from './StatusCard';
 import { StatusComposer } from './StatusComposer';
@@ -33,7 +33,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { user } = useAuth();
     const { profile: myProfile, isAdmin } = useUserProfile();
     const { profile, loading: profileLoading } = usePublicProfile(userId);
-    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
+    const { getUserStatuses, getUserItemsByCategory, addItemToPileCategory, updateItemInActive, removeItemFromActive, toggleMute, mutedUsers, setActiveStatusForEdit, toggleSaveItem, savedItems: storeSavedItems } = useSocialStore();
     const { isFollowing, follow, unfollow } = useFollows();
     const [openCategory, setOpenCategory] = useState<Category | null>(null);
     const [showHabitCalendar, setShowHabitCalendar] = useState(false);
@@ -44,12 +44,12 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
     const { savedItems: fetchedSavedItems, loading: savedItemsLoading } = useSavedItems(userId);
     const [wantsCategoryFilter, setWantsCategoryFilter] = useState<'all' | Category>('all');
     const [showWants, setShowWants] = useState(false);
+    const [selectedSavedItem, setSelectedSavedItem] = useState<{ item: ConsumableItem; sourceUserId: string } | null>(null);
 
     const isOwnProfile = myProfile?.id === userId;
-    // On own profile, use the store's live savedItems (kept in sync by toggleSaveItem);
-    // on other profiles, use what was fetched by useSavedItems.
     const savedItems = isOwnProfile ? storeSavedItems : fetchedSavedItems;
     const userStatuses = getUserStatuses(userId);
+
     const sortedFilteredStatuses = useMemo(() => {
         const visibleStatuses = userStatuses.filter((status) => status.date !== PILE_CATEGORY_STATUS_DATE);
         const withCategory = visibleStatuses.filter((status) => {
@@ -70,6 +70,32 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
         });
     }, [userStatuses, statusSort, statusCategoryFilter]);
 
+    // All items grouped by category — built here so both the predefined grid
+    // and custom flat-list can reference the same data.
+    const categoryItems = useMemo(() => {
+        const result: Record<string, ConsumableItem[]> = {};
+        for (const cat of (profile?.categories || [])) {
+            result[cat] = getUserItemsByCategory(cat, userId);
+        }
+        return result;
+    }, [profile?.categories, getUserItemsByCategory, userId]);
+
+    // Deduped counts for predefined category pills and header stat.
+    const dedupedCategoryItems = useMemo(() => {
+        const result: Record<string, ConsumableItem[]> = {};
+        for (const [cat, raw] of Object.entries(categoryItems)) {
+            const map = new Map<string, ConsumableItem>();
+            for (const item of raw) {
+                const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
+                const existing = map.get(key);
+                if (!existing || item.createdAt > existing.createdAt) map.set(key, item);
+            }
+            result[cat] = Array.from(map.values());
+        }
+        return result;
+    }, [categoryItems]);
+
+    // ── Early returns (must come after all hooks) ──────────────────────
     if (profileLoading) {
         return (
             <div className="flex items-center justify-center py-20 font-mono">
@@ -101,26 +127,6 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 <p className="text-neutral-400 text-xs uppercase tracking-widest mb-4">Sign in to view this pile.</p>
             </div>
         );
-    }
-
-    const categoryItems: Record<string, ConsumableItem[]> = {};
-    const dedupedCategoryItems: Record<string, ConsumableItem[]> = {};
-    if (profile?.categories) {
-        profile.categories.forEach(cat => {
-            const raw = getUserItemsByCategory(cat, userId);
-            categoryItems[cat] = raw;
-            // Deduplicate for counts and sheets.
-            // Prefer the stable externalId for API-linked items; fall back to canonical slug.
-            const map = new Map<string, ConsumableItem>();
-            for (const item of raw) {
-                const key = getItemExternalIdentityKey(item.category, item.image) ?? getCanonicalItemKey(item);
-                const existing = map.get(key);
-                if (!existing || item.createdAt > existing.createdAt) {
-                    map.set(key, item);
-                }
-            }
-            dedupedCategoryItems[cat] = Array.from(map.values());
-        });
     }
 
     const toggleCategory = (cat: Category) => {
@@ -172,28 +178,16 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         </button>
                     )}
                     {!isOwnProfile && (
-                        <>
-                            <button
-                                onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
-                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${isFollowing(userId)
-                                    ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
-                                    : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
-                                    }`}
-                                title={isFollowing(userId) ? "Following" : "Follow"}
-                            >
-                                {isFollowing(userId) ? <UserCheck size={13} /> : <UserPlus size={13} />}
-                            </button>
-                            <button
-                                onClick={() => toggleMute(userId)}
-                                className={`h-7 w-7 inline-flex items-center justify-center border transition-colors ${mutedUsers?.includes(userId)
-                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                    : 'text-neutral-500 border-neutral-300 hover:bg-neutral-50 hover:text-neutral-700'
-                                    }`}
-                                title={mutedUsers?.includes(userId) ? "Unblock user" : "Block user"}
-                            >
-                                <Ban size={13} />
-                            </button>
-                        </>
+                        <button
+                            onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
+                            className={`h-7 inline-flex items-center gap-1.5 px-2.5 border transition-colors text-[10px] uppercase tracking-widest ${isFollowing(userId)
+                                ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
+                                : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
+                                }`}
+                        >
+                            {isFollowing(userId) ? <UserCheck size={12} /> : <UserPlus size={12} />}
+                            {isFollowing(userId) ? 'Following' : 'Follow'}
+                        </button>
                     )}
                     <button
                         onClick={() => setShowHabitCalendar(true)}
@@ -221,7 +215,6 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     </h3>
                     <div className="space-y-0.5">
                         {(() => {
-                            // Aggregate recent items across all categories
                             const allItems = (profile.categories || [])
                                 .flatMap(cat => (categoryItems[cat] || []).map(item => ({ ...item, cat })));
                             const sorted = allItems
@@ -250,7 +243,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
 
                 {/* Right: Main content */}
                 <div className="flex-1 min-w-0">
-                    {/* Category Dropdowns */}
+                    {/* Category grid — all categories, chip opens CategorySheet */}
                     {profile.categories && profile.categories.length > 0 && (
                         <div className="mb-6">
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -272,7 +265,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             } : undefined}
                                         >
                                             <span>{config.label}</span>
-                                            <span className={isOpen ? 'text-neutral-400' : 'text-neutral-400'}>{count}</span>
+                                            <span className="text-neutral-400">{count}</span>
                                         </button>
                                     );
                                 })}
@@ -280,7 +273,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         </div>
                     )}
 
-                    {/* Category Sheet — slides over profile content */}
+                    {/* CategorySheet — opens for any category */}
                     {openCategory && (
                         <CategorySheet
                             category={openCategory}
@@ -290,6 +283,12 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                             onAddItem={async (item) => {
                                 await addItemToPileCategory(item);
                             }}
+                            onEditItem={isOwnProfile ? async (itemId, item) => {
+                                await updateItemInActive(itemId, item);
+                            } : undefined}
+                            onDeleteItem={isOwnProfile ? async (itemId) => {
+                                await removeItemFromActive(itemId);
+                            } : undefined}
                         />
                     )}
 
@@ -305,14 +304,13 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 style={!showWants ? { borderLeftColor: '#a3a3a3', borderLeftWidth: '3px' } : undefined}
                             >
                                 <span>Want to Check Out</span>
-                                <span className={showWants ? 'text-neutral-400' : 'text-neutral-400'}>
+                                <span className="text-neutral-400">
                                     {savedItemsLoading ? '…' : savedItems.length}
                                 </span>
                             </button>
 
                             {showWants && (
                                 <div className="border border-t-0 border-neutral-200 p-3">
-                                    {/* Category filter */}
                                     {savedItems.length > 0 && (
                                         <div className="mb-3">
                                             <select
@@ -347,28 +345,47 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                     return (
                                                         <div
                                                             key={saved.id}
-                                                            className="flex items-center gap-2 px-2 py-1.5 border border-neutral-100 hover:border-neutral-300 transition-colors"
+                                                            className="flex items-center gap-2 border border-neutral-100 hover:border-neutral-300 transition-colors"
                                                             style={{ borderLeftColor: config.color || '#d4d4d4', borderLeftWidth: '3px' }}
                                                         >
-                                                            <div className="flex-1 min-w-0">
+                                                            <button
+                                                                type="button"
+                                                                className="flex-1 min-w-0 text-left px-2 py-1.5"
+                                                                onClick={() => {
+                                                                    const liveItem = getUserStatuses(saved.sourceUserId)
+                                                                        .flatMap(s => s.items)
+                                                                        .find(i => i.id === saved.itemId);
+                                                                    const item: ConsumableItem = liveItem ?? {
+                                                                        id: saved.itemId,
+                                                                        category: saved.category,
+                                                                        title: saved.title,
+                                                                        subtitle: saved.subtitle,
+                                                                        image: saved.image,
+                                                                        notes: saved.notes,
+                                                                        rating: saved.rating,
+                                                                        createdAt: saved.createdAt,
+                                                                    };
+                                                                    setSelectedSavedItem({ item, sourceUserId: saved.sourceUserId });
+                                                                }}
+                                                            >
                                                                 <div className="text-[11px] font-medium text-neutral-800 truncate">{saved.title}</div>
                                                                 {saved.subtitle && (
                                                                     <div className="text-[10px] text-neutral-500 truncate">{saved.subtitle}</div>
                                                                 )}
                                                                 <div className="text-[9px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
-                                                            </div>
+                                                            </button>
                                                             {isOwnProfile && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={async () => {
                                                                         try {
                                                                             await toggleSaveItem(
-                                                                                { id: saved.itemId, category: saved.category, title: saved.title, subtitle: saved.subtitle, image: saved.image, notes: saved.notes, createdAt: saved.createdAt },
+                                                                                { id: saved.itemId, category: saved.category, title: saved.title, subtitle: saved.subtitle, image: saved.image, notes: saved.notes, rating: saved.rating, createdAt: saved.createdAt },
                                                                                 saved.sourceUserId
                                                                             );
                                                                         } catch { /* ignore */ }
                                                                     }}
-                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-1"
+                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-2"
                                                                     title="Remove from Want to Check Out"
                                                                     aria-label="Remove saved item"
                                                                 >
@@ -477,6 +494,32 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     onClose={() => setSelectedTagItem(null)}
                     onSave={() => { }}
                 />
+            )}
+
+            {/* Saved Item Modal — opens source user's original tag */}
+            {selectedSavedItem && (
+                <ConsumableModal
+                    key={selectedSavedItem.item.id}
+                    isOpen={true}
+                    initialCategory={selectedSavedItem.item.category}
+                    existingItem={selectedSavedItem.item}
+                    readOnly
+                    sourceUserId={selectedSavedItem.sourceUserId}
+                    onClose={() => setSelectedSavedItem(null)}
+                    onSave={() => { }}
+                />
+            )}
+
+            {/* Block — intentionally buried at the bottom */}
+            {!isOwnProfile && (
+                <div className="mt-8 mb-4 text-center">
+                    <button
+                        onClick={() => toggleMute(userId)}
+                        className="text-[9px] uppercase tracking-widest text-neutral-300 hover:text-red-400 transition-colors"
+                    >
+                        {mutedUsers?.includes(userId) ? 'Unblock user' : 'Block user'}
+                    </button>
+                </div>
             )}
         </div>
     );
