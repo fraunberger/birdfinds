@@ -25,6 +25,7 @@ export function SocialLayout() {
     content: string;
     createdAt: string;
     statusDate?: string;
+    type?: "on_my_post" | "on_commented_post";
   };
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const clerkEnabled = Boolean(clerkPublishableKey) && !String(clerkPublishableKey).startsWith("YOUR_");
@@ -163,25 +164,10 @@ export function SocialLayout() {
     }
 
     let cancelled = false;
-    const storageKey = `birdfinds:comment-notifs:seen:${user.id}`;
-    const readSeen = () => {
-      if (typeof window === "undefined") return new Set<string>();
-      try {
-        const raw = window.localStorage.getItem(storageKey);
-        const parsed = raw ? (JSON.parse(raw) as string[]) : [];
-        return new Set(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        return new Set<string>();
-      }
-    };
-    const writeSeen = (ids: string[]) => {
-      if (typeof window === "undefined") return;
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(ids.slice(0, 300)));
-      } catch {
-        // ignore
-      }
-    };
+    // seenBeforeRef tracks the server-side timestamp so we can detect unseen
+    // notifications without relying on localStorage (cross-device safe).
+    const seenBeforeRef = { current: null as string | null };
+    const lastUnseenCountRef = { current: 0 };
 
     const readCommentNotifications = async () => {
       const controller = new AbortController();
@@ -191,17 +177,26 @@ export function SocialLayout() {
         if (!response.ok) return;
         const payload = await response.json();
         const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
-        const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
-        const seen = readSeen();
+        const serverSeenBefore: string | null = payload?.seenBefore ?? null;
 
-        if (seen.size === 0 && ids.length > 0) {
-          // First load baseline: do not notify for historical comments.
-          writeSeen(ids);
+        if (serverSeenBefore === null && notifications.length > 0 && seenBeforeRef.current === null) {
+          // First load with no server-side seen record: mark all current as seen
+          // so we don't retroactively notify for historical comments.
+          void fetch("/api/social/notifications", { method: "POST", cache: "no-store" });
+          seenBeforeRef.current = new Date().toISOString();
           setCommentNotificationCount(0);
           return;
         }
 
-        const unseen = notifications.filter((entry: { id?: unknown }) => !seen.has(String(entry?.id || "")));
+        seenBeforeRef.current = serverSeenBefore;
+
+        const unseen = serverSeenBefore
+          ? notifications.filter(
+              (entry: { createdAt?: string }) =>
+                entry.createdAt && entry.createdAt > serverSeenBefore,
+            )
+          : [];
+
         const allMapped: CommentNotification[] = (notifications as Record<string, unknown>[]).map((entry) => ({
           id: String(entry.id || ""),
           statusId: String(entry.statusId || ""),
@@ -209,18 +204,31 @@ export function SocialLayout() {
           content: String(entry.content || ""),
           createdAt: String(entry.createdAt || ""),
           statusDate: entry.statusDate ? String(entry.statusDate) : undefined,
+          type: (entry.type === "on_commented_post" ? "on_commented_post" : "on_my_post") as
+            | "on_my_post"
+            | "on_commented_post",
         })).filter((entry: CommentNotification) => Boolean(entry.id && entry.statusId));
-        if (!cancelled && unseen.length > 0) {
-          const newest = unseen[0] as { fromUsername?: string; content?: string };
+
+        // Only toast when the unseen count genuinely increases (new comments
+        // arrived since the last poll), not on every poll cycle.  This prevents
+        // the multi-pinging behaviour where the same notifications keep
+        // triggering toasts.
+        if (!cancelled && unseen.length > lastUnseenCountRef.current) {
+          const newest = unseen[0] as { fromUsername?: string; type?: string };
+          const isReply = newest.type === "on_commented_post";
           pushToast({
-            message: unseen.length === 1
-              ? `New comment from ${newest.fromUsername || "someone"}`
-              : `${unseen.length} new comments on your posts`,
+            message:
+              unseen.length === 1
+                ? isReply
+                  ? `New comment from ${newest.fromUsername || "someone"} on a post you commented on`
+                  : `New comment from ${newest.fromUsername || "someone"}`
+                : `${unseen.length} new comments`,
             tone: "info",
             href: "/",
           });
         }
         if (!cancelled) {
+          lastUnseenCountRef.current = unseen.length;
           setCommentNotificationCount(unseen.length);
           setCommentNotifications(allMapped);
         }
@@ -232,14 +240,13 @@ export function SocialLayout() {
     };
 
     const markVisibleAsSeen = async () => {
-      const response = await fetch("/api/social/notifications", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
-      const ids = notifications.map((entry: { id?: unknown }) => String(entry?.id || "")).filter(Boolean);
-      writeSeen(ids);
+      // Update server-side seen timestamp so all devices see this as cleared.
+      const res = await fetch("/api/social/notifications", { method: "POST", cache: "no-store" });
+      if (!res.ok) return;
+      const payload = await res.json();
+      seenBeforeRef.current = payload?.seenBefore ?? seenBeforeRef.current;
       if (!cancelled) {
-        // Zero the badge but preserve the notification list.
+        lastUnseenCountRef.current = 0;
         setCommentNotificationCount(0);
       }
     };
@@ -256,19 +263,15 @@ export function SocialLayout() {
 
     const onMarkSeen = () => { void markVisibleAsSeen(); };
     window.addEventListener("birdfinds:notifications-seen", onMarkSeen);
+
     const onOpenNotification = (event: Event) => {
       const customEvent = event as CustomEvent<{ notificationId?: string; statusId?: string }>;
-      const notificationId = String(customEvent.detail?.notificationId || "");
       const statusId = String(customEvent.detail?.statusId || "");
-      if (!notificationId || !statusId) return;
+      if (!statusId) return;
 
-      const seen = readSeen();
-      if (!seen.has(notificationId)) {
-        seen.add(notificationId);
-        writeSeen(Array.from(seen));
-        // Decrement badge but keep the notification in the list.
-        setCommentNotificationCount((prev) => Math.max(0, prev - 1));
-      }
+      // Mark all seen when any notification is clicked (keeps UX simple and
+      // ensures cross-device consistency).
+      void markVisibleAsSeen();
 
       // Persist intent so SocialFeed can pick it up on mount when navigating cross-page.
       window.sessionStorage.setItem("birdfinds:pending-thread", statusId);
@@ -433,7 +436,7 @@ export function SocialLayout() {
           {showOnboardingChecklist && (
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest">Getting Started</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest">Finish Setting Up</p>
                 <button
                   onClick={handleDismissOnboardingChecklist}
                   className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
@@ -441,9 +444,12 @@ export function SocialLayout() {
                   Hide
                 </button>
               </div>
+              <p className="mt-2 text-xs text-neutral-500 leading-relaxed">
+                Complete your profile setup so you can start posting. It only takes a minute.
+              </p>
               <ol className="mt-2 space-y-1 text-xs">
                 <li className={stepOneComplete ? "text-green-700" : "text-neutral-800"}>
-                  {stepOneComplete ? "✓" : "□"} 1. Username ready
+                  {stepOneComplete ? "✓" : "□"} 1. Confirm username
                 </li>
                 <li className={stepTwoComplete ? "text-green-700" : "text-neutral-800"}>
                   {stepTwoComplete ? "✓" : "□"} 2. Add avatar
@@ -453,8 +459,8 @@ export function SocialLayout() {
                 </li>
               </ol>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
-                <Link href="/settings/profile-setup" className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
-                  Get Started
+                <Link href="/settings/profile-setup" className="border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 font-bold">
+                  Continue Setup
                 </Link>
               </div>
             </div>
@@ -467,10 +473,8 @@ export function SocialLayout() {
                   <p className="text-[10px] font-bold uppercase tracking-widest">Your First Post</p>
                   <div className="mt-2 space-y-1.5 text-xs text-neutral-600">
                     <p>
-                      Add an item to your status by typing <span className="font-mono bg-neutral-200 px-0.5">@item</span> and
-                      then clicking the category. Click the table to open its card and add a rating or notes.
+                      Open the composer below to write your first daily status. A quick walkthrough will explain how to tag your finds, fill out cards, and link items to your text.
                     </p>
-                    <p>You can also add items without linking them to your status.</p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
                     <button
@@ -485,7 +489,7 @@ export function SocialLayout() {
                           window.dispatchEvent(new CustomEvent("birdpile:edit-entry", { detail: {} }));
                         }, 120);
                       }}
-                      className="border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+                      className="border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 font-bold"
                     >
                       Write First Post
                     </button>

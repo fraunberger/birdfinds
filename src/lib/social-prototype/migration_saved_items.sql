@@ -10,13 +10,21 @@ CREATE TABLE IF NOT EXISTS saved_items (
     subtitle TEXT,
     image TEXT,
     notes TEXT,
+    rating SMALLINT,
     source_user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     UNIQUE(user_id, item_id)
 );
 
+-- Add rating column to existing tables (idempotent)
+ALTER TABLE saved_items ADD COLUMN IF NOT EXISTS rating SMALLINT;
+
 -- Allow all authenticated users to read saved_items (for viewing other profiles' wants)
 -- Allow users to insert/delete only their own saved_items
+DROP POLICY IF EXISTS "saved_items_select_all" ON saved_items;
+DROP POLICY IF EXISTS "saved_items_insert_own" ON saved_items;
+DROP POLICY IF EXISTS "saved_items_delete_own" ON saved_items;
+
 CREATE POLICY "saved_items_select_all" ON saved_items FOR SELECT USING (true);
 CREATE POLICY "saved_items_insert_own" ON saved_items FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "saved_items_delete_own" ON saved_items FOR DELETE USING (user_id = auth.uid());

@@ -8,9 +8,17 @@ interface HabitChecklistProps {
     readOnly?: boolean;
     userId?: string;
     vertical?: boolean;
+    /** When provided, renders a multi-day grid (bundled mode). No notes in this mode. */
+    bundledDates?: string[];
 }
 
-export function HabitChecklist({ date, readOnly = false, userId, vertical = false }: HabitChecklistProps) {
+/** Short day-of-week label for a YYYY-MM-DD string. */
+const dayLabel = (d: string) => {
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+export function HabitChecklist({ date, readOnly = false, userId, vertical = false, bundledDates }: HabitChecklistProps) {
     const { habits, logs, toggleHabitLog, isHabitCompleted, loading } = useHabits(userId);
     const [editingNote, setEditingNote] = useState<string | null>(null);
     const [noteText, setNoteText] = useState('');
@@ -27,6 +35,51 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
 
     if (habits.length === 0) return null;
 
+    // ── Bundled multi-day grid mode ──────────────────────────────────
+    if (bundledDates && bundledDates.length > 0) {
+        const allDates = [...bundledDates, date].sort();
+        return (
+            <div className="space-y-1">
+                {/* Column headers */}
+                <div className="flex items-center">
+                    <div className="w-20 shrink-0" />
+                    {allDates.map(d => (
+                        <div key={d} className="flex-1 text-center text-[9px] uppercase tracking-wider text-neutral-400 font-mono">
+                            {dayLabel(d)}
+                        </div>
+                    ))}
+                </div>
+                {/* Habit rows */}
+                {habits.map(habit => (
+                    <div key={habit.id} className="flex items-center">
+                        <div className="w-20 shrink-0 text-[10px] font-mono text-neutral-600 truncate pr-1">
+                            {habit.name}
+                        </div>
+                        {allDates.map(d => {
+                            const completed = isHabitCompleted(habit.id, d);
+                            return (
+                                <div key={d} className="flex-1 flex justify-center">
+                                    <button
+                                        onClick={() => !readOnly && toggleHabitLog(habit.id, d, !completed)}
+                                        disabled={readOnly}
+                                        className={`w-6 h-6 flex items-center justify-center text-[10px] border rounded transition-colors ${
+                                            completed
+                                                ? 'bg-neutral-900 text-white border-neutral-900'
+                                                : 'bg-neutral-50 text-neutral-300 border-neutral-300 hover:border-neutral-500'
+                                        } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                                    >
+                                        {completed ? '+' : ''}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    // ── Standard single-day mode ─────────────────────────────────────
     const getHabitNote = (habitId: string): string => {
         const log = logs.find(l => l.habitId === habitId && l.date === date);
         return log?.notes || '';

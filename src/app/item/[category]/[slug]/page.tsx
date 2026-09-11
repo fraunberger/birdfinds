@@ -70,6 +70,7 @@ export default function ItemPage({
   const isTvPage = requestedCategory === "tv";
   const isPodcastPage = requestedCategory === "podcast";
   const isBreweryPage = requestedCategory === "beer" || requestedCategory === "brewery";
+  const isBookPage = requestedCategory === "book";
   const isParentChildPage = categoryConfig.ssotPattern === 'parent-child';
 
   useEffect(() => {
@@ -146,7 +147,7 @@ export default function ItemPage({
   // For Pattern A (single entity), show one SSOT card per user (best review wins).
   // For Pattern B (parent-child), all engagements are distinct children — no dedup.
   const displayReviews = useMemo(() => {
-    if (isParentChildPage) return reviews;
+    if (isParentChildPage || isBookPage) return reviews;
     const byUser = new Map<string, DisplayReview>();
     reviews.forEach((review) => {
       const key = getFriendReviewKey(review);
@@ -198,6 +199,9 @@ export default function ItemPage({
     if (isPodcastPage || isBreweryPage) {
       const parent = reviews.find((review) => review.item.subtitle?.trim())?.item.subtitle;
       return parent || reviews[0].item.title;
+    }
+    if (isBookPage) {
+      return reviews[0].item.title;
     }
     return reviews[0].item.title;
   }, [isBreweryPage, isPodcastPage, requestedSlug, reviews]);
@@ -321,23 +325,6 @@ export default function ItemPage({
       .sort((a, b) => b.latest - a.latest);
   }, [isParentChildPage, isTvPage, reviews]);
 
-  const artworkUrl = useMemo(() => {
-    for (const review of reviews) {
-      const meta = parseItemMeta(review.item.image);
-      if (meta.imageUrl) {
-        // Upscale iTunes/mzstatic thumbnails from 100px to 300px
-        if (meta.imageUrl.includes('mzstatic.com')) {
-          return meta.imageUrl.replace(/\d+x\d+bb(\.\w+)$/, '300x300bb$1');
-        }
-        return meta.imageUrl;
-      }
-      // Music via MusicBrainz — fetch cover art from Cover Art Archive
-      if (meta.externalSource === 'musicbrainz' && meta.externalId) {
-        return `https://coverartarchive.org/release-group/${meta.externalId}/front-250`;
-      }
-    }
-    return null;
-  }, [reviews]);
 
   const supported = hasItemAggregatePage(requestedCategory);
 
@@ -360,16 +347,7 @@ export default function ItemPage({
 
         <section className="border border-neutral-200 bg-white px-4 py-4 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '3px' }}>
           <div className="flex gap-4">
-            {artworkUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={artworkUrl}
-                alt=""
-                className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 object-cover border border-neutral-100"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              />
-            )}
-            <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
               <h1 className="text-xl font-bold uppercase tracking-tight">{title}</h1>
               {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
@@ -499,6 +477,71 @@ export default function ItemPage({
             )}
           </>
         )}
+
+        {/* Book reading progress graph */}
+        {isBookPage && displayReviews.length > 0 && (() => {
+          // Group by userId, each user gets their own progress chart
+          const byUser = new Map<string, { username: string; logs: { page: number; total: number | null; finished: boolean; date: string }[] }>();
+          displayReviews.forEach((review) => {
+            const meta = parseItemMeta(review.item.image);
+            if (meta.progressPage == null) return;
+            const key = review.userId;
+            if (!byUser.has(key)) byUser.set(key, { username: review.username, logs: [] });
+            byUser.get(key)!.logs.push({
+              page: meta.progressPage,
+              total: meta.totalPages ?? null,
+              finished: !!meta.finished,
+              date: review.createdAt,
+            });
+          });
+          const users = Array.from(byUser.values()).filter((u) => u.logs.length > 0);
+          if (users.length === 0) return null;
+
+          return users.map((u) => {
+            const sorted = [...u.logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const maxPage = Math.max(...sorted.map((l) => l.page), sorted.find((l) => l.total)?.total ?? 0, 1);
+            const W = 400, H = 80, PAD = { t: 8, r: 8, b: 20, l: 32 };
+            const innerW = W - PAD.l - PAD.r;
+            const innerH = H - PAD.t - PAD.b;
+            const xs = sorted.map((_, i) => PAD.l + (sorted.length === 1 ? innerW / 2 : (i / (sorted.length - 1)) * innerW));
+            const ys = sorted.map((l) => PAD.t + innerH - (l.page / maxPage) * innerH);
+            const polyline = xs.map((x, i) => `${x},${ys[i]}`).join(' ');
+
+            return (
+              <section key={u.username} className="border border-neutral-200 bg-white px-4 py-3 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
+                <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">@{u.username} — Reading Progress</p>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+                  {/* Grid line at max */}
+                  <line x1={PAD.l} y1={PAD.t} x2={W - PAD.r} y2={PAD.t} stroke="#e5e5e5" strokeWidth="1" />
+                  {/* Grid line at 0 */}
+                  <line x1={PAD.l} y1={PAD.t + innerH} x2={W - PAD.r} y2={PAD.t + innerH} stroke="#e5e5e5" strokeWidth="1" />
+                  {/* Y axis labels */}
+                  <text x={PAD.l - 3} y={PAD.t + 3} textAnchor="end" fontSize="8" fill="#a3a3a3">{maxPage}</text>
+                  <text x={PAD.l - 3} y={PAD.t + innerH + 3} textAnchor="end" fontSize="8" fill="#a3a3a3">0</text>
+                  {/* Progress line */}
+                  {sorted.length > 1 && (
+                    <polyline points={polyline} fill="none" stroke="#404040" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                  )}
+                  {/* Dots */}
+                  {sorted.map((l, i) => (
+                    <circle key={i} cx={xs[i]} cy={ys[i]} r={l.finished ? 4 : 3} fill={l.finished ? "#404040" : "#fff"} stroke="#404040" strokeWidth="1.5" />
+                  ))}
+                  {/* X axis dates */}
+                  {sorted.length > 1 && [0, sorted.length - 1].map((i) => (
+                    <text key={i} x={xs[i]} y={H - 2} textAnchor={i === 0 ? 'start' : 'end'} fontSize="8" fill="#a3a3a3">
+                      {new Date(sorted[i].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </text>
+                  ))}
+                </svg>
+                <div className="mt-1 flex gap-3 text-[10px] uppercase tracking-widest text-neutral-500">
+                  <span>{sorted.length} {sorted.length === 1 ? 'log' : 'logs'}</span>
+                  {sorted.at(-1)?.total && <span>of {sorted.at(-1)!.total} pages</span>}
+                  {sorted.some((l) => l.finished) && <span className="text-neutral-800">Finished</span>}
+                </div>
+              </section>
+            );
+          });
+        })()}
 
         {/* People You Follow — single-entity categories only */}
         {!isParentChildPage && followingIds.length > 0 && (

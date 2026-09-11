@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-async function deleteAvatarObjects(supabaseUserId: string) {
+async function deleteBucketObjects(bucketName: string, supabaseUserId: string) {
   const supabaseAdmin = getSupabaseAdmin();
-  const bucket = supabaseAdmin.storage.from("avatars");
+  const bucket = supabaseAdmin.storage.from(bucketName);
   let offset = 0;
   const paths: string[] = [];
 
@@ -32,6 +32,10 @@ async function deleteAvatarObjects(supabaseUserId: string) {
   }
 }
 
+async function deleteAvatarObjects(supabaseUserId: string) {
+  await deleteBucketObjects("avatars", supabaseUserId);
+}
+
 export async function DELETE() {
   try {
     const { userId: clerkUserId } = await auth();
@@ -51,6 +55,7 @@ export async function DELETE() {
 
     if (supabaseUserId) {
       await deleteAvatarObjects(supabaseUserId);
+      await deleteBucketObjects("photos", supabaseUserId);
 
       // 1. Clear soft-delete attribution on OTHER users' content first
       //    (must happen before we delete our own rows)
