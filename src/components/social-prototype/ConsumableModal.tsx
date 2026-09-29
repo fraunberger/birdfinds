@@ -6,7 +6,7 @@ import { Bookmark } from 'lucide-react';
 import { Category, DEFAULT_CATEGORIES, getCategoryConfig, useSocialStore, usePublicProfile } from '@/lib/social-prototype/store';
 import { useAuth } from '@/lib/auth';
 import { buildItemPath, getActivelyReadingBooks, getCanonicalItemKey, getItemPageSlug, getRecentTvShows, getRepeatTagVerb, hasItemAggregatePage } from '@/lib/social-prototype/items';
-import { getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
+import { RESTAURANT_SUBCATEGORIES, getItemExternalIdentityKey, parseItemMeta, serializeItemMeta, toGoogleMapsLink } from '@/lib/social-prototype/item-meta';
 import { useSearchPicker } from './useSearchPicker';
 import { SearchResultsPanel } from './SearchResultsPanel';
 import {
@@ -72,8 +72,8 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     // Gate — tracks whether the user has explicitly clicked "Review without linking"
     const [gateClicked, setGateClicked] = useState(false);
 
-    // Restaurant bar checkbox — once the user sets it by hand, stop auto-inheriting
-    const [barTouched, setBarTouched] = useState(false);
+    // Restaurant subcategory checkboxes — once the user sets them by hand, stop auto-inheriting
+    const [subcategoryTouched, setSubcategoryTouched] = useState(false);
 
     // Exercise combobox
     const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
@@ -253,7 +253,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
         setDraft(buildInitialDraft(initialCategory, existingItem));
         setPopulatedFromId(null);
         setGateClicked(false);
-        setBarTouched(false);
+        setSubcategoryTouched(false);
         setShowBookResults(false);
         books.setResults([]);
         setShowMusicResults(false);
@@ -321,24 +321,30 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [category, title, allUserItems, readOnly]);
 
-    // ── Restaurant: inherit the bar flag from previous visits to the same place ──
-    // Bar-ness belongs to the place, not the visit, so a new log of a place already
-    // tagged as a bar starts checked (until the user touches the checkbox themselves).
+    // ── Restaurant: inherit subcategory flags from previous visits to the same place ──
+    // Bar/coffee-ness belongs to the place, not the visit, so a new log of a place
+    // already tagged starts checked (until the user touches the checkboxes themselves).
     useEffect(() => {
-        if (category !== 'restaurant' || readOnly || existingItem || barTouched) return;
+        if (category !== 'restaurant' || readOnly || existingItem || subcategoryTouched) return;
         if (!allUserItems || !title.trim()) return;
         const placeKey = `restaurant::${getItemPageSlug('restaurant', title)}`;
         const previousVisits = allUserItems.filter(
             (item) => item.category === 'restaurant' && `restaurant::${getItemPageSlug('restaurant', item.title)}` === placeKey
         );
         if (previousVisits.length === 0) return;
-        const previouslyTaggedBar = previousVisits.some((item) => parseItemMeta(item.image).isBar);
+        const inherited = RESTAURANT_SUBCATEGORIES.map((sub) => ({
+            sub,
+            wasTagged: previousVisits.some((item) => parseItemMeta(item.image)[sub.metaKey]),
+        }));
         setDraft((prev) => {
             const meta = parseItemMeta(prev.image);
-            if (!!meta.isBar === previouslyTaggedBar) return prev;
-            return { ...prev, image: serializeItemMeta({ ...meta, isBar: previouslyTaggedBar || undefined }) };
+            const changed = inherited.filter(({ sub, wasTagged }) => !!meta[sub.metaKey] !== wasTagged);
+            if (changed.length === 0) return prev;
+            const nextMeta = { ...meta };
+            for (const { sub, wasTagged } of changed) nextMeta[sub.metaKey] = wasTagged || undefined;
+            return { ...prev, image: serializeItemMeta(nextMeta) };
         });
-    }, [category, title, allUserItems, readOnly, existingItem, barTouched]);
+    }, [category, title, allUserItems, readOnly, existingItem, subcategoryTouched]);
 
     // ── Handlers ───────────────────────────────────────────────────────
     const handleSave = useCallback((options?: { silent?: boolean }) => {
@@ -1440,36 +1446,40 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                             )}
                                         </div>
                                     )}
-                                    {/* Bar subcategory — a restaurant that is really a bar */}
+                                    {/* Restaurant subcategories — a place that is really a bar or a coffee shop */}
                                     {category === 'restaurant' && (
                                         readOnly ? (
-                                            parsedMeta.isBar ? (
-                                                <div className="mt-3">
-                                                    <span className="inline-block text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
-                                                        Bar
-                                                    </span>
+                                            RESTAURANT_SUBCATEGORIES.some((sub) => parsedMeta[sub.metaKey]) ? (
+                                                <div className="mt-3 flex items-center gap-1.5">
+                                                    {RESTAURANT_SUBCATEGORIES.filter((sub) => parsedMeta[sub.metaKey]).map((sub) => (
+                                                        <span key={sub.id} className="inline-block text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                            {sub.label}
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             ) : null
                                         ) : (
-                                            <label className="mt-3 flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-500 cursor-pointer select-none">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!parsedMeta.isBar}
-                                                    onChange={(e) => {
-                                                        const nextIsBar = e.target.checked;
-                                                        setBarTouched(true);
-                                                        setDraft((prev) => ({
-                                                            ...prev,
-                                                            image: serializeItemMeta({
-                                                                ...parseItemMeta(prev.image),
-                                                                isBar: nextIsBar || undefined,
-                                                            }),
-                                                        }));
-                                                    }}
-                                                    className="h-3.5 w-3.5 accent-neutral-800"
-                                                />
-                                                Bar
-                                            </label>
+                                            <div className="mt-3 flex items-center gap-4">
+                                                {RESTAURANT_SUBCATEGORIES.map((sub) => (
+                                                    <label key={sub.id} className="flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-500 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!parsedMeta[sub.metaKey]}
+                                                            onChange={(e) => {
+                                                                const nextChecked = e.target.checked;
+                                                                setSubcategoryTouched(true);
+                                                                setDraft((prev) => {
+                                                                    const meta = parseItemMeta(prev.image);
+                                                                    meta[sub.metaKey] = nextChecked || undefined;
+                                                                    return { ...prev, image: serializeItemMeta(meta) };
+                                                                });
+                                                            }}
+                                                            className="h-3.5 w-3.5 accent-neutral-800"
+                                                        />
+                                                        {sub.label}
+                                                    </label>
+                                                ))}
+                                            </div>
                                         )
                                     )}
                                 </div>
