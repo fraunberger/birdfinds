@@ -23,7 +23,26 @@ export interface ItemMetaData {
     finished?: boolean;      // true when the book is marked done
     stoppedReading?: boolean; // true when removed from the actively-reading list (without finishing)
     isBar?: boolean;         // restaurant subcategory — true when the place is a bar
+    isCoffeeShop?: boolean;  // restaurant subcategory — true when the place is a coffee shop
 }
+
+/**
+ * Restaurant subcategories — flags that split the restaurant pile without
+ * splitting the category. Adding one here wires up the card checkbox, the pile
+ * filter, the row toggle, and the feed marker.
+ */
+export interface RestaurantSubcategory {
+    id: string;
+    metaKey: 'isBar' | 'isCoffeeShop';
+    label: string;        // checkbox + badge label
+    shortLabel: string;   // compact row toggle label
+    pluralLabel: string;  // pile filter chip label
+}
+
+export const RESTAURANT_SUBCATEGORIES: RestaurantSubcategory[] = [
+    { id: 'bar', metaKey: 'isBar', label: 'Bar', shortLabel: 'Bar', pluralLabel: 'Bars' },
+    { id: 'coffee', metaKey: 'isCoffeeShop', label: 'Coffee Shop', shortLabel: 'Coffee', pluralLabel: 'Coffee' },
+];
 
 const META_PREFIX = 'meta:';
 
@@ -51,6 +70,7 @@ export const parseItemMeta = (raw?: string): ItemMetaData => {
             finished: typeof parsed.finished === 'boolean' ? parsed.finished : undefined,
             stoppedReading: typeof parsed.stoppedReading === 'boolean' ? parsed.stoppedReading : undefined,
             isBar: typeof parsed.isBar === 'boolean' ? parsed.isBar : undefined,
+            isCoffeeShop: typeof parsed.isCoffeeShop === 'boolean' ? parsed.isCoffeeShop : undefined,
         };
     } catch {
         return {};
@@ -65,8 +85,9 @@ export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
     const checklist = meta.checklist && meta.checklist.length > 0 ? meta.checklist : undefined;
     const externalSource = meta.externalSource?.trim();
     const externalId = meta.externalId?.trim();
-    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !releaseDate && !externalSource && !externalId && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.stoppedReading && !meta.progressMode && !meta.isBar) return undefined;
-    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && !releaseDate && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.stoppedReading && !meta.progressMode && !meta.isBar && meta.imageUrl) return meta.imageUrl;
+    const hasSubcategory = RESTAURANT_SUBCATEGORIES.some((sub) => meta[sub.metaKey]);
+    if (!meta.imageUrl && !meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !releaseDate && !externalSource && !externalId && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.stoppedReading && !meta.progressMode && !hasSubcategory) return undefined;
+    if (!meta.recipeUrl && !meta.linkUrl && !meta.restaurantLocation && aliases.length === 0 && !externalSource && !externalId && !releaseDate && !birdList && !checklist && meta.progressPage == null && meta.totalPages == null && !meta.finished && !meta.stoppedReading && !meta.progressMode && !hasSubcategory && meta.imageUrl) return meta.imageUrl;
     return `${META_PREFIX}${encodeURIComponent(JSON.stringify({
         imageUrl: meta.imageUrl,
         recipeUrl: meta.recipeUrl,
@@ -84,6 +105,7 @@ export const serializeItemMeta = (meta: ItemMetaData): string | undefined => {
         finished: meta.finished,
         stoppedReading: meta.stoppedReading,
         isBar: meta.isBar || undefined,
+        isCoffeeShop: meta.isCoffeeShop || undefined,
     }))}`;
 };
 
