@@ -1468,7 +1468,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                     }}
                                                     className="h-3.5 w-3.5 accent-neutral-800"
                                                 />
-                                                This is a bar
+                                                Bar
                                             </label>
                                         )
                                     )}
