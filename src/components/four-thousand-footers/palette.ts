@@ -9,8 +9,11 @@ export const AXIS = "#c3c2b7";
 
 export const SKY = "#fcfcfb";
 export const GROUND = "#f1f0ea";
-export const GROUND_EDGE = "#dcdad2";
-export const GRATICULE = "#e4e2da";
+/** The faint map under the peaks. */
+export const WATER = "#dfe7e9";
+export const WATER_EDGE = "#cad6da";
+export const ROAD = "#dcd8cd";
+export const BORDER = "#bfbcb0";
 
 export const TOGO_LIT = "#ffffff";
 export const TOGO_SHADE = "#e2e0d9";

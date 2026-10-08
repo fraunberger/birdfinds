@@ -12,7 +12,11 @@ import {
     buildScene,
     facingName,
     focusView,
+    getBasemap,
     naturalHeight,
+    panView,
+    REGION_NAME,
+    PLACE_FONT,
     zoomView,
     type Anchor,
     type Pt,
@@ -24,8 +28,13 @@ import * as C from "./palette";
 
 const MIN_TILT = 8;
 const MAX_TILT = 80;
-/** Degrees of turn per pixel dragged. */
+/** Degrees of turn, and of tilt, per pixel dragged with shift or the right button. */
 const DRAG_TURN = 0.35;
+const DRAG_TILT = 0.25;
+/** Pixels a press can wander and still count as a tap. */
+const TAP_SLOP = 5;
+/** Degrees two fingers must twist before the map turns, so pinches stay level. */
+const TWIST_START = 15;
 /** Zoom per pixel of wheel scroll; trackpad pinches arrive as small ctrl+wheel steps. */
 const WHEEL_ZOOM = 0.002;
 const PINCH_WHEEL_ZOOM = 0.01;
@@ -36,11 +45,23 @@ type Props = {
     onSelect: (id: string) => void;
 };
 
+/** One pointer down: a pan, or (shift, right or middle button) a turn and tilt. */
+type Drag = {
+    mode: "pan" | "turn";
+    start: Pt;
+    view: View;
+    /** What stays under the pointer while panning. */
+    anchor: Anchor;
+    moved: boolean;
+};
+
+/** Two fingers: zoom and pan together, and turn once they've twisted enough. */
 type Pinch = {
     view: View;
     anchor: Anchor;
     distance: number;
     angle: number;
+    turning: boolean;
 };
 
 function peakAt(target: EventTarget | null): string | null {
@@ -77,7 +98,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
     const [focus, setFocus] = useState<RangeId | null>(null);
     const [hoverId, setHoverId] = useState<string | null>(null);
     const pointers = useRef(new Map<number, Pt>());
-    const drag = useRef<{ x: number; azimuth: number; moved: boolean } | null>(null);
+    const drag = useRef<Drag | null>(null);
     const pinch = useRef<Pinch | null>(null);
     // useId output is not guaranteed to be a plain XML id, and url(#...) needs one.
     const clipId = `nh48-ground-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -147,7 +168,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
         const v = viewRef.current;
         const box = svg.getBoundingClientRect();
         const under = peakAt(document.elementFromPoint(box.left + mid.x, box.top + mid.y));
-        pinch.current = { view: v, anchor: anchorUnder(v, w, height, mid, under), distance, angle };
+        pinch.current = { view: v, anchor: anchorUnder(v, w, height, mid, under), distance, angle, turning: false };
         for (const id of pointers.current.keys()) {
             try {
                 svg.setPointerCapture(id);
@@ -157,11 +178,21 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
         }
     };
 
+    const startDrag = (mode: Drag["mode"], at: Pt, under: string | null, moved: boolean) => {
+        const v = viewRef.current;
+        drag.current = { mode, start: at, view: v, anchor: anchorUnder(v, w, height, at, under), moved };
+    };
+
     const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        pointers.current.set(e.pointerId, localPoint(e, e.currentTarget));
+        let mode: Drag["mode"] = "pan";
+        if (e.pointerType === "mouse") {
+            if (e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey)) mode = "turn";
+            else if (e.button !== 0) return;
+        }
+        const at = localPoint(e, e.currentTarget);
+        pointers.current.set(e.pointerId, at);
         if (pointers.current.size === 1) {
-            drag.current = { x: e.clientX, azimuth: viewRef.current.azimuth, moved: false };
+            startDrag(mode, at, peakAt(e.target), false);
         } else if (pointers.current.size === 2) {
             // A second finger turns the drag into a pinch; it's no longer a tap.
             drag.current = null;
@@ -175,28 +206,40 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
             if (e.pointerType === "mouse") setHoverId(peakAt(e.target));
             return;
         }
-        pointers.current.set(e.pointerId, localPoint(e, e.currentTarget));
+        const at = localPoint(e, e.currentTarget);
+        pointers.current.set(e.pointerId, at);
 
         const p = pinch.current;
         if (p && pointers.current.size >= 2) {
             const { mid, distance, angle } = twoFingers(pointers.current);
+            const twist = ((angle - p.angle + 540) % 360) - 180;
+            if (!p.turning && Math.abs(twist) > TWIST_START) {
+                // Start turning from here, so the map doesn't jump by the dead zone.
+                Object.assign(p, { view: viewRef.current, distance, angle, turning: true });
+                return;
+            }
             // Twisting the fingers clockwise turns the map clockwise.
-            const turn = -(((angle - p.angle + 540) % 360) - 180);
+            const turn = p.turning ? -twist : 0;
             setView(zoomView(p.view, w, height, distance / p.distance, p.anchor, mid, turn));
             return;
         }
 
         const d = drag.current;
         if (!d) return;
-        const dx = e.clientX - d.x;
+        const dx = at.x - d.start.x;
+        const dy = at.y - d.start.y;
         if (!d.moved) {
-            if (Math.abs(dx) < 5) return;
+            if (Math.hypot(dx, dy) < TAP_SLOP) return;
             d.moved = true;
             setHoverId(null);
             e.currentTarget.setPointerCapture(e.pointerId);
         }
-        // Grab the near side of the range and drag it round.
-        setView({ ...viewRef.current, azimuth: d.azimuth + dx * DRAG_TURN });
+        if (d.mode === "pan") {
+            setView(panView(d.view, w, height, d.anchor, at));
+        } else {
+            const tilt = Math.min(MAX_TILT, Math.max(MIN_TILT, d.view.tilt + dy * DRAG_TILT));
+            setView({ ...d.view, azimuth: d.view.azimuth + dx * DRAG_TURN, tilt });
+        }
     };
 
     const endPointer = (e: React.PointerEvent<SVGSVGElement>, tap: boolean) => {
@@ -207,37 +250,56 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
                 return;
             }
             pinch.current = null;
-            // The finger left behind carries on turning, from where the pinch left off.
+            // The finger left behind carries on panning from where the pinch left off.
             const rest = [...pointers.current.values()][0];
-            drag.current = rest
-                ? {
-                      x: rest.x + e.currentTarget.getBoundingClientRect().left,
-                      azimuth: viewRef.current.azimuth,
-                      moved: true,
-                  }
-                : null;
+            drag.current = null;
+            if (rest) startDrag("pan", rest, null, true);
             return;
         }
         const d = drag.current;
         drag.current = null;
-        if (!tap || !d || d.moved) return;
+        if (!tap || !d || d.moved || d.mode !== "pan") return;
         const id = peakAt(e.target);
         if (id) onSelect(id);
     };
 
+    const onDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+        const v = viewRef.current;
+        const at = localPoint(e, e.currentTarget);
+        const factor = e.shiftKey ? 0.5 : 2;
+        animateTo(zoomView(v, w, height, factor, anchorUnder(v, w, height, at, peakAt(e.target)), at), 300);
+    };
+
+    const panBy = (dx: number, dy: number) => {
+        const v = viewRef.current;
+        const center = { x: w / 2, y: height / 2 };
+        const anchor = anchorUnder(v, w, height, center);
+        animateTo(panView(v, w, height, anchor, { x: center.x + dx, y: center.y + dy }), 250);
+    };
+
     const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         const v = viewRef.current;
-        const moves: Record<string, () => void> = {
-            ArrowLeft: () => turnBy(-30),
-            ArrowRight: () => turnBy(30),
-            ArrowUp: () => tiltTo(v.tilt + 6),
-            ArrowDown: () => tiltTo(v.tilt - 6),
+        const step = Math.round(Math.min(w, height) / 4);
+        const moves: Record<string, () => void> = e.shiftKey
+            ? {
+                  ArrowLeft: () => turnBy(-30),
+                  ArrowRight: () => turnBy(30),
+                  ArrowUp: () => tiltTo(v.tilt - 6),
+                  ArrowDown: () => tiltTo(v.tilt + 6),
+              }
+            : {
+                  ArrowLeft: () => panBy(step, 0),
+                  ArrowRight: () => panBy(-step, 0),
+                  ArrowUp: () => panBy(0, step),
+                  ArrowDown: () => panBy(0, -step),
+              };
+        Object.assign(moves, {
             "+": () => zoomBy(1.5),
             "=": () => zoomBy(1.5),
             "-": () => zoomBy(1 / 1.5),
             "0": resetView,
             Home: resetView,
-        };
+        });
         const move = moves[e.key];
         if (!move || e.metaKey || e.ctrlKey || e.altKey) return;
         e.preventDefault();
@@ -276,7 +338,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
                 tabIndex={0}
                 onKeyDown={onKeyDown}
                 role="group"
-                aria-label="Range map. Drag or use the arrow keys to turn it; scroll, pinch, or press plus and minus to zoom."
+                aria-label="Range map. Drag or use the arrow keys to move it; scroll, pinch, or press plus and minus to zoom; shift-drag or shift and the arrow keys to turn and tilt it."
                 className="relative border border-black outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                 style={{ background: C.SKY }}
             >
@@ -288,7 +350,13 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
                         role="img"
                         aria-label={`The 48 four-thousand footers, ${bagged.size} bagged, seen facing ${facing}.`}
                         className="block cursor-grab select-none active:cursor-grabbing"
-                        style={{ touchAction: "pan-y", fontFamily: C.MONO_STACK }}
+                        style={{ touchAction: "none", fontFamily: C.MONO_STACK }}
+                        onContextMenu={(e) => e.preventDefault()}
+                        // Middle-button drags turn the map, not the browser's autoscroll.
+                        onMouseDown={(e) => {
+                            if (e.button === 1) e.preventDefault();
+                        }}
+                        onDoubleClick={onDoubleClick}
                         onPointerDown={onPointerDown}
                         onPointerMove={onPointerMove}
                         onPointerUp={(e) => endPointer(e, true)}
@@ -303,7 +371,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
                         {hovered && !hovered.selected && (
                             <Tooltip
                                 x={hovered.summit.x}
-                                y={hovered.summit.y - (hovered.bagged ? FLAG_HEIGHT : 4)}
+                                y={hovered.summit.y - (hovered.flag ? FLAG_HEIGHT : 4)}
                                 width={w}
                                 status={status.get(hovered.id)!}
                             />
@@ -350,7 +418,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
             </div>
 
             <p className="mt-2 text-[11px] text-neutral-500">
-                Drag to turn the range, scroll or pinch to zoom. Tap a peak to log it.
+                Drag to move, scroll or pinch to zoom, shift-drag or right-drag to turn. Tap a peak to log it.
                 {scene && scene.unlabeled > 0 && (
                     <> {scene.unlabeled} names are hidden at this size; zoom in or pick a range to see them.</>
                 )}
@@ -430,7 +498,9 @@ function Fade({ id, color, to }: { id: string; color: string; to: string | null 
 
 /** Everything the scene describes, as SVG. */
 function SceneArt({ scene, clipId }: { scene: Scene; clipId: string }) {
-    const { ground } = scene;
+    const map = getBasemap();
+    // Map lines keep their screen width however the ground is scaled and tilted.
+    const line = { fill: "none", vectorEffect: "non-scaling-stroke" as const, strokeLinejoin: "round" as const };
     // A paper-colored outline behind text keeps labels legible over the drawing.
     const halo = {
         stroke: C.SKY,
@@ -440,30 +510,40 @@ function SceneArt({ scene, clipId }: { scene: Scene; clipId: string }) {
     };
     return (
         <>
-            <defs>
-                <clipPath id={clipId}>
-                    <ellipse cx={ground.cx} cy={ground.cy} rx={ground.rx} ry={ground.ry} />
-                </clipPath>
-            </defs>
-
-            <ellipse
-                cx={ground.cx}
-                cy={ground.cy}
-                rx={ground.rx}
-                ry={ground.ry}
-                fill={C.GROUND}
-                stroke={C.GROUND_EDGE}
-            />
-            <g clipPath={`url(#${clipId})`} stroke={C.GRATICULE} strokeWidth={1}>
-                {scene.graticule.map((l, i) => (
-                    <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
-                ))}
+            <g transform={scene.groundTransform}>
+                <path d={map.land} fill={C.GROUND} />
+                <path d={map.water} fill={C.WATER} stroke={C.WATER_EDGE} strokeWidth={0.75} vectorEffect="non-scaling-stroke" />
+                <path d={map.borders} {...line} stroke={C.BORDER} strokeWidth={1} strokeDasharray="6 3 1.5 3" />
+                <path d={map.minorRoads} {...line} stroke={C.ROAD} strokeWidth={1} />
+                <path d={map.majorRoads} {...line} stroke={C.ROAD} strokeWidth={1.75} />
             </g>
-            {scene.graticuleLabels.map((l) => (
-                <text key={l.text} x={l.x} y={l.y - 3} fontSize={8} fill={C.MUTED}>
-                    {l.text}
+            {scene.haze > 0 && (
+                <>
+                    <defs>
+                        <linearGradient id={`${clipId}-haze`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stopColor={C.SKY} stopOpacity={0.95 * scene.haze} />
+                            <stop offset="0.6" stopColor={C.SKY} stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#${clipId}-haze)`} />
+                </>
+            )}
+
+            {scene.region && (
+                <text
+                    x={scene.region.x}
+                    y={scene.region.y}
+                    textAnchor="middle"
+                    fontSize={PLACE_FONT.city}
+                    fontStyle="italic"
+                    letterSpacing={2}
+                    fill={C.INK_SOFT}
+                    pointerEvents="none"
+                    {...halo}
+                >
+                    {REGION_NAME.toUpperCase()}
                 </text>
-            ))}
+            )}
 
             {scene.mounds.map((m) => (
                 <g key={m.id} data-peak={m.id} className="cursor-pointer">
@@ -482,7 +562,7 @@ function SceneArt({ scene, clipId }: { scene: Scene; clipId: string }) {
                         strokeLinejoin="round"
                         strokeLinecap="round"
                     />
-                    {m.bagged && (
+                    {m.flag && (
                         <>
                             <line
                                 x1={m.summit.x}
@@ -503,20 +583,25 @@ function SceneArt({ scene, clipId }: { scene: Scene; clipId: string }) {
                 </g>
             ))}
 
-            {scene.landmarks.map((l) => (
-                <g key={l.name} pointerEvents="none">
-                    <circle cx={l.x} cy={l.y} r={1.6} fill={C.MUTED} />
+            {scene.places.map((p) => (
+                <g key={p.name} pointerEvents="none">
+                    <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={p.kind === "city" ? 2.2 : 1.6}
+                        fill={p.kind === "city" ? C.INK_SOFT : C.MUTED}
+                    />
                     <text
-                        x={l.tx}
-                        y={l.y + 3}
-                        textAnchor={l.anchor}
-                        fontSize={8.5}
-                        fontStyle="italic"
-                        fill={C.MUTED}
+                        x={p.tx}
+                        y={p.y + PLACE_FONT[p.kind] * 0.35}
+                        textAnchor={p.anchor}
+                        fontSize={PLACE_FONT[p.kind]}
+                        fontStyle={p.kind === "notch" ? "italic" : undefined}
+                        fill={p.kind === "city" ? C.INK_SOFT : C.MUTED}
                         {...halo}
                         strokeWidth={2.5}
                     >
-                        {l.name}
+                        {p.name}
                     </text>
                 </g>
             ))}

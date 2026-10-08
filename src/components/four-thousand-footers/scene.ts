@@ -8,7 +8,8 @@
 // panorama, high tilts spread them out into a map. Each mound is then drawn
 // whole, far to near, so nearer peaks overlap the ones behind them.
 
-import { LANDMARKS, PEAKS, formatFeet, type Peak, type RangeId } from "./peaks";
+import { PEAKS, formatFeet, type Peak, type RangeId } from "./peaks";
+import { BORDERS, LAKES, OCEAN, PLACES, ROADS, type LatLon, type PlaceKind } from "./geography";
 import {
     BAGGED_LIT,
     BAGGED_SHADE,
@@ -507,7 +508,6 @@ function frame(peaks: readonly Peak[]): { cx: number; cy: number; radius: number
 }
 
 const ALL_FRAME = frame(PEAKS);
-const GROUND_RADIUS = ALL_FRAME.radius + 5;
 
 export const DEFAULT_TILT = 38;
 
@@ -523,17 +523,25 @@ export function focusView(range: RangeId | null, from: View): View {
 
 /** Closest the camera gets: a few km of ground across the view. */
 export const MIN_RADIUS = 1.5;
-/** Farthest out: a little more than the whole range. */
-export const MAX_RADIUS = ALL_FRAME.radius * 1.3;
+/** Farthest out: Boston, Burlington, Montréal and the Maine coast all in view. */
+export const MAX_RADIUS = 230;
+/** How far (km) from the 48 the view's center may wander. */
+export const WORLD_REACH = 190;
 
 /** Keep the view's center on the map, however far the cursor reached. */
 function keepOnMap(view: View): View {
     const de = view.cx - ALL_FRAME.cx;
     const dn = view.cy - ALL_FRAME.cy;
     const d = Math.hypot(de, dn);
-    if (d <= ALL_FRAME.radius) return view;
-    const k = ALL_FRAME.radius / d;
+    if (d <= WORLD_REACH) return view;
+    const k = WORLD_REACH / d;
     return { ...view, cx: ALL_FRAME.cx + de * k, cy: ALL_FRAME.cy + dn * k };
+}
+
+/** The view slid so `anchor` sits at the screen point `at`, at the same zoom: a drag. */
+export function panView(view: View, width: number, height: number, anchor: Anchor, at: Pt): View {
+    const off = offsetAt(makeCamera(view, width, height), at, anchor.z);
+    return keepOnMap({ ...view, cx: anchor.e - off.e, cy: anchor.n - off.n });
 }
 
 /** A point to zoom around: km east/north, and km up. */
@@ -714,6 +722,8 @@ export type SceneMound = {
     stroke: string;
     summit: Pt;
     bagged: boolean;
+    /** Bagged and close enough for its flag to read (far out, flags would swamp the range). */
+    flag: boolean;
     selected: boolean;
     dim: boolean;
 };
@@ -728,8 +738,9 @@ export type SceneLabel = {
     dim: boolean;
 };
 
-export type SceneLandmark = {
+export type ScenePlace = {
     name: string;
+    kind: PlaceKind;
     x: number;
     y: number;
     /** Where the label text starts (or ends, when `anchor` is "end"). */
@@ -738,12 +749,18 @@ export type SceneLandmark = {
 };
 
 export type Scene = {
-    ground: { cx: number; cy: number; rx: number; ry: number };
-    graticule: Array<{ x1: number; y1: number; x2: number; y2: number }>;
-    graticuleLabels: Array<{ x: number; y: number; text: string }>;
+    /**
+     * SVG transform taking the flat map (BASEMAP's km east, km north) to the
+     * screen. The ground is a plane, so the camera maps it with one matrix.
+     */
+    groundTransform: string;
     mounds: SceneMound[];
     labels: SceneLabel[];
-    landmarks: SceneLandmark[];
+    places: ScenePlace[];
+    /** Zoomed out too far for peak names: the range gets one name instead. */
+    region: Pt | null;
+    /** 0–1: how much the distant ground fades into sky, for the stacked panorama look. */
+    haze: number;
     /** Peaks on screen without a label because there was no room. */
     unlabeled: number;
     scale: number;
@@ -760,6 +777,12 @@ export type SceneInput = {
 
 /** Label metrics; the SVG pins its text to a monospace stack so these hold. */
 export const LABEL_FONT = { name: 10, elevation: 9, landmark: 8.5, charWidth: 0.6, tracking: 0.6 };
+/** Place label sizes, by kind. */
+export const PLACE_FONT: Record<PlaceKind, number> = { city: 10, town: 9, notch: 8.5, village: 8.5 };
+/** Pixels per km at which each kind of place starts to show. */
+const PLACE_MIN_SCALE: Record<PlaceKind, number> = { city: 0, town: 2.2, notch: 7, village: 9 };
+/** Below this many pixels per km, peak names give way to "White Mountains". */
+export const PEAK_LABEL_MIN_SCALE = 3.5;
 const LABEL_HEIGHT = 23;
 export const FLAG_HEIGHT = 12;
 const HAZE = 0.5;
@@ -787,41 +810,21 @@ export function buildScene(input: SceneInput): Scene {
     const lift = cam.cosP * EXAGGERATION;
     const orientation: Orientation = { cosT: cam.cosT, sinT: cam.sinT, sinP: cam.sinP, lift };
     const onScreen = (p: Pt) => p.x > 4 && p.x < width - 4 && p.y > 4 && p.y < height - 4;
+    const farOut = s < PEAK_LABEL_MIN_SCALE;
 
-    // Ground, with a faint lat/lon graticule so the map reads as a map.
-    const center = project(cam, 0, 0);
-    const ground = {
-        cx: center.x,
-        cy: center.y,
-        rx: GROUND_RADIUS * s,
-        ry: Math.max(0.5, GROUND_RADIUS * cam.sinP * s),
-    };
-    const graticule: Scene["graticule"] = [];
-    const graticuleLabels: Scene["graticuleLabels"] = [];
-    for (let tenths = 438; tenths <= 447; tenths++) {
-        const n = (tenths / 10 - ORIGIN_LAT) * KM_PER_DEG_LAT;
-        if (Math.abs(n) >= GROUND_RADIUS) continue;
-        const half = Math.sqrt(GROUND_RADIUS ** 2 - n ** 2);
-        const a = project(cam, -half, n);
-        const b = project(cam, half, n);
-        graticule.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
-        const end = a.x < b.x ? a : b;
-        if (tenths % 2 === 0 && onScreen(end) && end.x < width - 40) {
-            graticuleLabels.push({ x: end.x, y: end.y, text: `${(tenths / 10).toFixed(1)}°N` });
-        }
-    }
-    for (let tenths = 709; tenths <= 720; tenths++) {
-        const e = (-tenths / 10 - ORIGIN_LON) * KM_PER_DEG_LON;
-        if (Math.abs(e) >= GROUND_RADIUS) continue;
-        const half = Math.sqrt(GROUND_RADIUS ** 2 - e ** 2);
-        const a = project(cam, e, -half);
-        const b = project(cam, e, half);
-        graticule.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
-        const end = a.y > b.y ? a : b;
-        if (tenths % 2 === 0 && onScreen(end) && end.x < width - 40) {
-            graticuleLabels.push({ x: end.x, y: end.y, text: `${(tenths / 10).toFixed(1)}°W` });
-        }
-    }
+    // The flat map under the peaks: x = a·e + c·n + tx, y = b·e + d·n + ty.
+    const origin = project(cam, 0, 0);
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    const groundTransform = `matrix(${[
+        s * cam.cosT,
+        -s * cam.sinP * cam.sinT,
+        -s * cam.sinT,
+        -s * cam.sinP * cam.cosT,
+        origin.x,
+        origin.y,
+    ]
+        .map(r3)
+        .join(" ")})`;
 
     // Mounds, far to near.
     const near = -view.radius;
@@ -864,6 +867,7 @@ export function buildScene(input: SceneInput): Scene {
             stroke: mix(stroke, SKY, selected ? 0 : fade * 0.85),
             summit: toScreen(shape.summit),
             bagged: isBagged,
+            flag: isBagged && !farOut,
             selected,
             dim,
         });
@@ -903,45 +907,106 @@ export function buildScene(input: SceneInput): Scene {
     const markers = mounds.map((m) => ({
         id: m.id,
         x0: m.summit.x - 3,
-        y0: m.summit.y - (m.bagged ? FLAG_HEIGHT : 3),
-        x1: m.summit.x + (m.bagged ? 9 : 3),
+        y0: m.summit.y - (m.flag ? FLAG_HEIGHT : 3),
+        x1: m.summit.x + (m.flag ? 9 : 3),
         y1: m.summit.y + 3,
     }));
     const bounds = { x0: 2, y0: 2, x1: width - 2, y1: height - 2 };
-    const placements = layoutLabels(requests, markers, bounds);
+    const placements = farOut ? [] : layoutLabels(requests, markers, bounds);
     const labels: SceneLabel[] = placements.map((p) => {
         const m = byId.get(p.id)!;
         return { id: p.id, box: p.box, leader: p.leader, ...texts.get(p.id)!, selected: m.selected, dim: m.dim };
     });
 
-    // Landmarks: only where the ground is actually in view, and only where
-    // their label fits around the peak labels.
+    // The range's own name, when it's too small for peak names.
     const taken: Box[] = [...labels.map((l) => l.box), ...markers];
-    const landmarks: SceneLandmark[] = [];
-    for (const l of LANDMARKS) {
-        const { e, n } = toLocal(l.lat, l.lon);
+    let region: Pt | null = null;
+    if (farOut) {
+        const top = Math.min(...mounds.map((m) => m.summit.y), Infinity);
+        const center = project(cam, ALL_FRAME.cx, ALL_FRAME.cy);
+        const at = { x: center.x, y: Math.min(center.y, top) - 8 };
+        const half = (REGION_NAME.length * (PLACE_FONT.city * LABEL_FONT.charWidth + 2)) / 2;
+        const box = { x0: at.x - half, y0: at.y - 11, x1: at.x + half, y1: at.y + 3 };
+        if (mounds.length > 0 && inside(box, bounds)) {
+            region = at;
+            taken.push(box);
+        }
+    }
+
+    // Places: only where the ground is actually in view, only those that
+    // matter at this zoom, and only where their label fits around the rest.
+    const places: ScenePlace[] = [];
+    for (const place of PLACES) {
+        if (s < PLACE_MIN_SCALE[place.kind]) continue;
+        const { e, n } = toLocal(place.lat, place.lon);
         const p = project(cam, e, n);
         if (!onScreen(p)) continue;
         if (outlines.some((o) => o.depth < p.depth && contains(o.points, p.x, p.y))) continue;
-        const w = l.name.length * LABEL_FONT.landmark * LABEL_FONT.charWidth;
-        const options: Array<[Box, SceneLandmark]> = [
-            [{ x0: p.x + 4, y0: p.y - 6, x1: p.x + 4 + w, y1: p.y + 4 }, { ...l, x: p.x, y: p.y, tx: p.x + 4, anchor: "start" }],
-            [{ x0: p.x - 4 - w, y0: p.y - 6, x1: p.x - 4, y1: p.y + 4 }, { ...l, x: p.x, y: p.y, tx: p.x - 4, anchor: "end" }],
+        const size = PLACE_FONT[place.kind];
+        const w = place.name.length * size * LABEL_FONT.charWidth;
+        const options: Array<[Box, ScenePlace]> = [
+            [
+                { x0: p.x + 4, y0: p.y - size * 0.7, x1: p.x + 4 + w, y1: p.y + size * 0.45 },
+                { name: place.name, kind: place.kind, x: p.x, y: p.y, tx: p.x + 4, anchor: "start" },
+            ],
+            [
+                { x0: p.x - 4 - w, y0: p.y - size * 0.7, x1: p.x - 4, y1: p.y + size * 0.45 },
+                { name: place.name, kind: place.kind, x: p.x, y: p.y, tx: p.x - 4, anchor: "end" },
+            ],
         ];
         const fit = options.find(([box]) => inside(box, bounds) && !taken.some((t) => overlaps(t, box)));
         if (!fit) continue;
         taken.push(fit[0]);
-        landmarks.push({ name: l.name, x: p.x, y: p.y, tx: fit[1].tx, anchor: fit[1].anchor });
+        places.push(fit[1]);
     }
 
     return {
-        ground,
-        graticule,
-        graticuleLabels,
+        groundTransform,
         mounds,
         labels,
-        landmarks,
+        places,
+        region,
+        haze: clamp((30 - view.tilt) / 22, 0, 1),
         unlabeled: mounds.length - labels.length,
         scale: s,
     };
+}
+
+// --- The flat map ---
+
+export const REGION_NAME = "White Mountains";
+
+function ring(points: readonly LatLon[], closed: boolean): string {
+    let d = "";
+    points.forEach(([lat, lon], i) => {
+        const { e, n } = toLocal(lat, lon);
+        d += `${i === 0 ? "M" : "L"}${Math.round(e * 100) / 100} ${Math.round(n * 100) / 100}`;
+    });
+    return closed ? `${d}Z` : d;
+}
+
+export type Basemap = {
+    /** Everything the map covers, as land; water is drawn over it. */
+    land: string;
+    water: string;
+    borders: string;
+    majorRoads: string;
+    minorRoads: string;
+};
+
+let basemap: Basemap | null = null;
+
+/** The flat map's paths, in km east (x) and north (y) of the origin. Built once. */
+export function getBasemap(): Basemap {
+    if (!basemap) {
+        const edge = WORLD_REACH + MAX_RADIUS * 2;
+        basemap = {
+            land: `M${-edge} ${-edge}H${edge}V${edge}H${-edge}Z`,
+            water: [OCEAN, ...LAKES].map((r) => ring(r, true)).join(""),
+            borders: BORDERS.map((b) => ring(b, false)).join(""),
+            majorRoads: ROADS.filter((r) => r.major).map((r) => ring(r.points, false)).join(""),
+            minorRoads: ROADS.filter((r) => !r.major).map((r) => ring(r.points, false)).join(""),
+        };
+    }
+    return basemap;
 }

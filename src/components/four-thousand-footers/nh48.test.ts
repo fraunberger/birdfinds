@@ -31,12 +31,16 @@ import {
     MAX_RADIUS,
     MIN_RADIUS,
     anchorUnder,
+    WORLD_REACH,
     focusView,
+    getBasemap,
     layoutLabels,
     makeCamera,
     naturalHeight,
     profileShape,
+    panView,
     project,
+    toLocal,
     zoomView,
     type Box,
 } from "./scene";
@@ -303,9 +307,54 @@ test("zoom stops at its limits and the view stays on the map", () => {
     assert.equal(out.radius, MAX_RADIUS);
     // The sky above the horizon maps to the far edge of the map, not to infinity.
     const sky = anchorUnder({ ...OVERVIEW, tilt: 8 }, w, h, { x: 450, y: 0 });
-    assert.ok(Math.hypot(sky.e - OVERVIEW.cx, sky.n - OVERVIEW.cy) <= OVERVIEW.radius + 1e-9);
+    assert.ok(Math.hypot(sky.e - OVERVIEW.cx, sky.n - OVERVIEW.cy) <= WORLD_REACH + 1e-9);
     const far = zoomView(OVERVIEW, w, h, 4, sky, { x: 0, y: h });
-    assert.ok(Math.hypot(far.cx - OVERVIEW.cx, far.cy - OVERVIEW.cy) <= OVERVIEW.radius + 1e-9);
+    assert.ok(Math.hypot(far.cx - OVERVIEW.cx, far.cy - OVERVIEW.cy) <= WORLD_REACH + 1e-9);
+});
+
+test("dragging keeps the grabbed point under the pointer", () => {
+    const [w, h] = [900, 560];
+    const from = { x: 300, y: 350 };
+    const to = { x: 520, y: 240 };
+    const anchor = anchorUnder(OVERVIEW, w, h, from);
+    const moved = panView(OVERVIEW, w, h, anchor, to);
+    assert.equal(moved.radius, OVERVIEW.radius);
+    assert.equal(moved.azimuth, OVERVIEW.azimuth);
+    const p = project(makeCamera(moved, w, h), anchor.e, anchor.n);
+    assert.ok(Math.hypot(p.x - to.x, p.y - to.y) < 1e-6);
+});
+
+test("the flat map lines up with the peaks, and zooming out brings in the region", () => {
+    const [w, h] = [900, 560];
+    const view = { ...OVERVIEW, azimuth: 40, tilt: 55 };
+    const scene = buildScene({ view, width: w, height: h, bagged: new Set(), focus: null, selectedId: null });
+    const [a, b, c, d, tx, ty] = scene.groundTransform.slice(7, -1).split(" ").map(Number);
+    const ground = toLocal(44.2705, -71.3033);
+    const p = project(makeCamera(view, w, h), ground.e, ground.n);
+    assert.ok(Math.abs(a * ground.e + c * ground.n + tx - p.x) < 0.01);
+    assert.ok(Math.abs(b * ground.e + d * ground.n + ty - p.y) < 0.01);
+
+    // Close in: notches, no cities (they're off screen), peak names.
+    const close = buildScene({ view: OVERVIEW, width: w, height: h, bagged: new Set(), focus: null, selectedId: null });
+    assert.ok(close.places.some((pl) => pl.kind === "notch"));
+    assert.equal(close.region, null);
+    assert.ok(close.labels.length > 0);
+
+    // All the way out: the cities, one name for the range, and no peak names.
+    const out = zoomView(OVERVIEW, w, h, 0.001, { e: OVERVIEW.cx, n: OVERVIEW.cy, z: 0 }, { x: w / 2, y: h / 2 });
+    const wide = buildScene({ view: { ...out, tilt: 60 }, width: w, height: h, bagged: new Set(), focus: null, selectedId: null });
+    const names = wide.places.map((pl) => pl.name);
+    for (const city of ["Boston", "Portland", "Burlington", "Hanover"]) assert.ok(names.includes(city), city);
+    assert.ok(wide.places.every((pl) => pl.kind === "city" || pl.kind === "town"));
+    assert.equal(wide.labels.length, 0);
+    assert.ok(wide.region);
+    assert.equal(wide.mounds.length, 48);
+
+    const map = getBasemap();
+    for (const path of [map.water, map.borders, map.majorRoads, map.minorRoads]) {
+        assert.match(path, /^M-?\d/);
+        assert.doesNotMatch(path, /NaN/);
+    }
 });
 
 test("label layout never overlaps and drops what cannot fit", () => {
