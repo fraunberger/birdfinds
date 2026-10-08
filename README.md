@@ -13,6 +13,7 @@ BirdFinds is a Next.js App Router project that uses bird slugs as routes for a s
   - Restaurant voting/election flow
   - Social prototype
   - Bird log views
+  - NH 4000 Footers log at `/dark_eyed_junco` (`src/components/four-thousand-footers`): range map, checklist and progress views. One of birdpile.com's apps, served here so signed-in hikers' logs save to their account (`/api/nh48/ascents`, table from `data/sql/create_nh48_ascents.sql`); signed out, the log stays in the browser. `npm test` runs its tests.
 
 ## Tech Stack
 
