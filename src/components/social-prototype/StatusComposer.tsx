@@ -767,9 +767,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                             className="block w-full text-left px-3 py-1.5 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50"
                                                             onClick={async () => {
                                                                 setShowComposerMenu(false);
-                                                                const warning = hasUnposted
-                                                                    ? `Move this post to ${label}? The existing draft on that date will be replaced.`
-                                                                    : `Move this post to ${label}?`;
+                                                                const warning = `Move this post to ${label}?`
+                                                                    + (currentBundle.length ? ' It will become a single-day entry.' : '')
+                                                                    + (hasUnposted ? ' The existing draft on that date will be replaced.' : '');
                                                                 if (!confirm(warning)) return;
                                                                 try {
                                                                     await moveStatusToDate(activeStatus.id, date);

@@ -307,10 +307,11 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from("social_statuses").delete().eq("id", conflict.id);
       }
 
-      // No conflict — just update date
+      // Moving a post makes it a single-day entry — the old bundled dates were
+      // relative to the old date and would otherwise overlap or trail the new one
       const { error } = await supabaseAdmin
         .from("social_statuses")
-        .update({ date: newDate })
+        .update({ date: newDate, bundled_dates: null })
         .eq("id", statusId);
       if (error) throw error;
       return NextResponse.json({ ok: true });
