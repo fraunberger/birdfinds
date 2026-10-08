@@ -13,6 +13,7 @@ const isProtectedRoute = createRouteMatcher([
   "/api/social/avatar(.*)",
   "/api/social/reports(.*)",
   "/api/social/notifications(.*)",
+  "/api/nh48(.*)",
   "/settings(.*)",
   "/moderation(.*)",
 ]);
