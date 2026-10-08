@@ -36,7 +36,7 @@ import {
     getBasemap,
     layoutLabels,
     makeCamera,
-    naturalHeight,
+    mapHeight,
     profileShape,
     panView,
     project,
@@ -382,8 +382,9 @@ test("profiles, heights and headings are well formed", () => {
         assert.ok(Math.max(...shape.outline.map((pt) => pt.y)) <= 1 + 1e-9, p.id);
         assert.ok(Math.min(...shape.outline.map((pt) => pt.y)) >= 0, p.id);
     }
-    assert.ok(naturalHeight({ ...OVERVIEW, tilt: 10 }, 990, 600) < naturalHeight(OVERVIEW, 990, 600));
-    assert.ok(naturalHeight(OVERVIEW, 990, 600) <= 600);
+    assert.equal(mapHeight(1000), 600);
+    assert.equal(mapHeight(343), 300, "phones get a usable minimum");
+    assert.equal(mapHeight(2000), 620, "wide screens are capped");
     assert.equal(facingName(0), "N");
     assert.equal(facingName(-90), "W");
     assert.equal(facingName(405), "NE");

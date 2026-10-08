@@ -13,7 +13,10 @@ import {
     facingName,
     focusView,
     getBasemap,
-    naturalHeight,
+    mapHeight,
+    MAP_ASPECT,
+    MAP_MAX_HEIGHT,
+    MAP_MIN_HEIGHT,
     panView,
     REGION_NAME,
     PLACE_FONT,
@@ -109,9 +112,7 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
     );
 
     const w = width ?? 0;
-    const maxHeight = Math.round(Math.min(620, Math.max(300, w * 0.66)));
-    // Sized for the whole range at this tilt, so zooming never resizes the box.
-    const height = Math.max(220, naturalHeight({ ...view, radius: OVERVIEW.radius }, w, maxHeight));
+    const height = mapHeight(w);
     const scene = useMemo(
         () => (w > 0 ? buildScene({ view, width: w, height, bagged, focus, selectedId }) : null),
         [view, w, height, bagged, focus, selectedId]
@@ -378,7 +379,14 @@ export function RangeView({ status, selectedId, onSelect }: Props) {
                         )}
                     </svg>
                 ) : (
-                    <div style={{ height: 300 }} />
+                    // Same size as the map will be, so nothing jumps once it's measured.
+                    <div
+                        style={{
+                            aspectRatio: `1 / ${MAP_ASPECT}`,
+                            minHeight: MAP_MIN_HEIGHT,
+                            maxHeight: MAP_MAX_HEIGHT,
+                        }}
+                    />
                 )}
 
                 <div

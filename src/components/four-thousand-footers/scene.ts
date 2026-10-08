@@ -486,15 +486,18 @@ export function project(cam: Camera, e: number, n: number, z = 0): { x: number; 
     };
 }
 
+/** The map's height is a fixed share of its width. */
+export const MAP_ASPECT = 0.6;
+export const MAP_MIN_HEIGHT = 300;
+export const MAP_MAX_HEIGHT = 620;
+
 /**
- * How tall the view wants to be at a given width: a wide, stacked panorama
- * needs only a strip, a spread-out map needs more. Never more than `max`.
+ * How tall the map is at a given width. It depends on nothing else, so
+ * tilting, zooming and panning never resize the box; the camera fits the
+ * scene to it instead.
  */
-export function naturalHeight(view: View, width: number, max: number): number {
-    const p = clamp(view.tilt, 0, 90) * DEG;
-    const extent = 2 * view.radius * Math.sin(p) + MAX_RELIEF * EXAGGERATION * Math.cos(p);
-    const scale = Math.max(1, width - 2 * PAD_X) / (2 * view.radius);
-    return Math.round(Math.min(max, PAD_TOP + PAD_BOTTOM + extent * scale + 8));
+export function mapHeight(width: number): number {
+    return Math.round(clamp(width * MAP_ASPECT, MAP_MIN_HEIGHT, MAP_MAX_HEIGHT));
 }
 
 function frame(peaks: readonly Peak[]): { cx: number; cy: number; radius: number } {
