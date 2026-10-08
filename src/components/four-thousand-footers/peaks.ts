@@ -101,18 +101,6 @@ export const PEAKS: readonly Peak[] = [
     { id: "tecumseh", name: "Tecumseh", label: "Tecumseh", elevation: 4003, lat: 43.9673, lon: -71.5581, range: "sandwich", note: "A 2019 USGS survey marker reads 3,997 ft. Tecumseh stays on the list under a grandfather rule." },
 ];
 
-/** Notches and towns drawn faintly on the ground, for orientation only. */
-export const LANDMARKS: ReadonlyArray<{ name: string; lat: number; lon: number }> = [
-    { name: "Franconia Notch", lat: 44.165, lon: -71.683 },
-    { name: "Crawford Notch", lat: 44.2187, lon: -71.4108 },
-    { name: "Pinkham Notch", lat: 44.2571, lon: -71.2531 },
-    { name: "Kinsman Notch", lat: 44.0398, lon: -71.792 },
-    { name: "Lincoln", lat: 44.0456, lon: -71.6703 },
-    { name: "North Conway", lat: 44.0537, lon: -71.1284 },
-    { name: "Gorham", lat: 44.3876, lon: -71.1731 },
-    { name: "Twin Mountain", lat: 44.2731, lon: -71.5428 },
-];
-
 export const PEAK_BY_ID: ReadonlyMap<string, Peak> = new Map(PEAKS.map((p) => [p.id, p]));
 
 export const RANGE_BY_ID: ReadonlyMap<RangeId, Range> = new Map(RANGES.map((r) => [r.id, r]));
