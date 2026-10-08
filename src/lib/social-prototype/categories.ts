@@ -24,6 +24,7 @@ export type CategoryExtra =
     | 'progressTracking'  // Per-session numeric progress (books: page/chapter)
     | 'dishList'          // Accumulating list of dishes tried (restaurants)
     | 'likedSignal'       // Binary 👍/👎 instead of star rating (recipes)
+    | 'wishlistScoring'   // Wishlist-style scoring
     | 'notes';            // Freeform notes per engagement (recipes, links)
 
 export interface CategoryDefinition {
@@ -59,7 +60,7 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         ssotPattern: 'single', coupling: 'api',
         hasRating: true, ratingScope: 'entity',
         childLabel: null, extras: [],
-        titleLabel: 'Film Title', subtitleLabel: 'Director', subtitlePlaceholder: 'Director',
+        titleLabel: 'Film Title', subtitleLabel: 'Starring', subtitlePlaceholder: 'Lead actors',
         ratingLabel: 'Score', color: '#f5d142', icon: '',
     },
     tv: {
@@ -107,8 +108,8 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
         label: 'Recipe', shortLabel: 'RECIPE',
         verb: 'cooked',
         ssotPattern: 'single', coupling: 'url',
-        hasRating: false, ratingScope: null,
-        childLabel: null, extras: ['likedSignal', 'notes'],
+        hasRating: true, ratingScope: 'entity',
+        childLabel: null, extras: ['notes'],
         titleLabel: 'Dish Name', subtitleLabel: 'Ingredients', subtitlePlaceholder: 'One per line',
         ratingLabel: 'Rating',
         notesLabel: 'Instructions', notesPlaceholder: 'Step-by-step instructions...',
@@ -136,15 +137,51 @@ export const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
     },
     link: {
         id: 'link',
-        label: 'Link', shortLabel: 'LINK',
+        label: 'URL', shortLabel: 'URL',
         verb: 'shared',
         ssotPattern: 'none', coupling: 'url',
         hasRating: false, ratingScope: null,
         childLabel: null, extras: ['notes'],
-        titleLabel: 'Link Title', subtitleLabel: 'Context', subtitlePlaceholder: 'Optional context',
+        titleLabel: 'Title', subtitleLabel: 'Context', subtitlePlaceholder: 'Optional context',
         ratingLabel: 'Rating',
         notesLabel: 'Notes', notesPlaceholder: 'Add notes about this link...',
         color: '#94a3b8', icon: '',
+    },
+    location: {
+        id: 'location',
+        label: 'Location', shortLabel: 'PLACE',
+        verb: 'visited',
+        ssotPattern: 'single', coupling: 'api',
+        hasRating: true, ratingScope: 'entity',
+        childLabel: null, extras: ['notes'],
+        titleLabel: 'Place Name', subtitleLabel: 'Type', subtitlePlaceholder: 'e.g. park, museum',
+        ratingLabel: 'Rating',
+        notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
+        color: '#7be0c3', icon: '',
+    },
+    exercise: {
+        id: 'exercise',
+        label: 'Exercise', shortLabel: 'EXERCISE',
+        verb: 'did',
+        ssotPattern: 'none', coupling: 'none',
+        hasRating: true, ratingScope: 'entity',
+        childLabel: null, extras: ['notes'],
+        titleLabel: 'Exercise', subtitleLabel: 'Duration', subtitlePlaceholder: 'e.g. 45 min',
+        ratingLabel: 'Effort',
+        notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
+        color: '#f7a55a', icon: '',
+    },
+    bird: {
+        id: 'bird',
+        label: 'Bird', shortLabel: 'BIRD',
+        verb: 'spotted',
+        ssotPattern: 'none', coupling: 'none',
+        hasRating: false, ratingScope: null,
+        childLabel: null, extras: ['notes'],
+        titleLabel: 'Session', subtitleLabel: 'Location', subtitlePlaceholder: 'Where spotted',
+        ratingLabel: 'Rating',
+        notesLabel: 'Notes', notesPlaceholder: 'Add notes...',
+        color: '#34d399', icon: '',
     },
 };
 

@@ -81,7 +81,7 @@ async function searchItunes(query: string) {
         .map((item) => ({
             id: String(item.trackId || ''),
             title: item.trackName || item.trackCensoredName || '',
-            subtitle: item.artistName || '',
+            subtitle: '',
             genre: item.primaryGenreName || '',
             image: item.artworkUrl100 || '',
             releaseDate: item.releaseDate || '',

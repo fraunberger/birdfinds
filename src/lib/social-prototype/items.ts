@@ -1,5 +1,6 @@
 import type { Category, ConsumableItem } from "@/lib/social-prototype/store";
 import { getCategoryDef } from "@/lib/social-prototype/categories";
+import { parseItemMeta } from "@/lib/social-prototype/item-meta";
 
 const normalizePart = (value: string) =>
   value
@@ -64,8 +65,30 @@ export const getCanonicalItemSlug = (
   return buildItemSlug(title, subtitle);
 };
 
+/**
+ * Slug used for the item aggregate page URL.
+ * For parent-child categories (tv, podcast) this is always the parent/show level
+ * so that all episodes share one page. Deduplication keys (getCanonicalItemSlug)
+ * remain episode-level — only the public URL is coarser.
+ */
+export const getItemPageSlug = (
+  category: Category,
+  title: string,
+  subtitle?: string
+): string => {
+  if (category === "tv") {
+    // Show-level page: slug is the show name (title) only
+    return normalizePart(title) || "item";
+  }
+  if (category === "beer") {
+    // Brewery-level page: slug is the brewery name (subtitle) only
+    return normalizePart(subtitle || title) || "item";
+  }
+  return getCanonicalItemSlug(category, title, subtitle);
+};
+
 export const buildItemPath = (item: Pick<ConsumableItem, "category" | "title" | "subtitle">) => {
-  return `/item/${encodeURIComponent(item.category)}/${encodeURIComponent(getCanonicalItemSlug(item.category, item.title, item.subtitle))}`;
+  return `/item/${encodeURIComponent(item.category)}/${encodeURIComponent(getItemPageSlug(item.category, item.title, item.subtitle))}`;
 };
 
 export const matchesItemRoute = (
@@ -74,9 +97,10 @@ export const matchesItemRoute = (
   item: Pick<ConsumableItem, "category" | "title" | "subtitle">
 ) => {
   if (item.category !== category) return false;
+  const pageSlug = getItemPageSlug(item.category, item.title, item.subtitle);
   const canonical = getCanonicalItemSlug(item.category, item.title, item.subtitle);
   const legacy = buildItemSlug(item.title, item.subtitle);
-  return canonical === slug || legacy === slug;
+  return pageSlug === slug || canonical === slug || legacy === slug;
 };
 
 export const hasItemAggregatePage = (category: Category) => {
@@ -97,3 +121,79 @@ export const getCanonicalItemKey = (
 /** Return the appropriate past-tense verb for a category (e.g. "watched" for movie). */
 export const getRepeatTagVerb = (category: Category): string =>
   getCategoryDef(category)?.verb ?? "tagged";
+
+/**
+ * Books the user is actively reading. Groups all book logs by title and keeps a
+ * book only when none of its logs mark it done. "Done" mirrors the profile's
+ * CategorySheet logic so the chips and the profile stay in sync:
+ *   - any log explicitly finished (or a finished `book-review`), OR
+ *   - an old-style entry with a rating but no progress tracking on any log.
+ * A book is also dropped when its most recent log was removed from the reading
+ * list (`stoppedReading`). Returns one representative (latest) log per book,
+ * newest first.
+ */
+export const getActivelyReadingBooks = (
+  items: ConsumableItem[]
+): ConsumableItem[] => {
+  const groups = new Map<string, ConsumableItem[]>();
+  for (const item of items) {
+    if (item.category !== "book") continue;
+    const key = normalizePart(item.title);
+    if (!key) continue;
+    const arr = groups.get(key);
+    if (arr) arr.push(item);
+    else groups.set(key, [item]);
+  }
+  const result: ConsumableItem[] = [];
+  for (const logs of groups.values()) {
+    const metas = logs.map((l) => parseItemMeta(l.image));
+    const anyFinished = metas.some((m) => m.finished || m.externalSource === "book-review");
+    const hasProgress = metas.some((m) => m.progressPage != null);
+    const ratedNoProgress = !hasProgress && logs.some((l) => !!l.rating);
+    if (anyFinished || ratedNoProgress) continue;
+    const latest = logs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+    if (parseItemMeta(latest.image).stoppedReading) continue;
+    result.push(latest);
+  }
+  return result.sort((a, b) => b.createdAt - a.createdAt);
+};
+
+export interface RecentTvShow {
+  id: string;
+  name: string;
+  image?: string;
+  releaseDate?: string;
+}
+
+/**
+ * The user's most recently tagged TV shows (distinct by show), newest first.
+ * Reconstructs show identity from episode/show metadata so a chip can re-open
+ * the episode picker for that show.
+ */
+export const getRecentTvShows = (
+  items: ConsumableItem[],
+  limit = 3
+): RecentTvShow[] => {
+  const sorted = [...items]
+    .filter((i) => i.category === "tv")
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const seen = new Map<string, RecentTvShow>();
+  for (const item of sorted) {
+    const meta = parseItemMeta(item.image);
+    const showId =
+      meta.externalSource === "tvmaze-episode"
+        ? meta.externalId?.split(":")[0] || ""
+        : meta.externalSource === "tvmaze-show"
+        ? meta.externalId || ""
+        : "";
+    if (!showId || seen.has(showId) || !item.title.trim()) continue;
+    seen.set(showId, {
+      id: showId,
+      name: item.title.trim(),
+      image: meta.imageUrl,
+      releaseDate: meta.releaseDate,
+    });
+    if (seen.size >= limit) break;
+  }
+  return Array.from(seen.values());
+};

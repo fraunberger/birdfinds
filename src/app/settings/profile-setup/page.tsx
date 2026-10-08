@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { UserSetup } from "@/components/social-prototype/UserSetup";
+import { OnboardingWizard } from "@/components/social-prototype/OnboardingWizard";
 import { HeaderSearch } from "@/components/social-prototype/HeaderSearch";
 import { AccountMenu } from "@/components/social-prototype/AccountMenu";
 import { useUserProfile } from "@/lib/social-prototype/store";
@@ -54,33 +55,47 @@ export default function ProfileSetupPage() {
             <Link href="/" className="relative w-16 h-10 block hover:opacity-80 transition-opacity">
               <Image src="/logo.svg" alt="BirdFinds" fill className="object-contain" priority />
             </Link>
-            <Link
-              href="/"
-              className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
-            >
-              Back to Feed
-            </Link>
+            {!isOnboarding && (
+              <Link
+                href="/"
+                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+              >
+                Back to Feed
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            <HeaderSearch />
-            <AccountMenu
-              pileHref={pileHref}
-              username={username}
-              avatarUrl={profile?.avatarUrl}
-            />
+            {!isOnboarding && <HeaderSearch />}
+            {!isOnboarding && (
+              <AccountMenu
+                pileHref={pileHref}
+                username={username}
+                avatarUrl={profile?.avatarUrl}
+              />
+            )}
           </div>
         </header>
         <main className="flex-grow">
-          <h1 className="mb-4 text-xs uppercase tracking-widest text-neutral-500">
-            {`${username}'s`} Profile Setup
-          </h1>
-          <UserSetup
-            isOnboarding={isOnboarding}
-            showPrivacy={isOnboarding}
-            onComplete={() => {
-              router.push("/");
-            }}
-          />
+          {isOnboarding ? (
+            <OnboardingWizard
+              onComplete={() => {
+                router.push("/");
+              }}
+            />
+          ) : (
+            <>
+              <h1 className="mb-4 text-xs uppercase tracking-widest text-neutral-500">
+                {`${username}'s`} Profile Setup
+              </h1>
+              <UserSetup
+                isOnboarding={false}
+                showPrivacy={true}
+                onComplete={() => {
+                  router.push("/");
+                }}
+              />
+            </>
+          )}
         </main>
       </div>
     </div>

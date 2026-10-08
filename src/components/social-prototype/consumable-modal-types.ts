@@ -1,4 +1,6 @@
+import React from 'react';
 import { Category, ConsumableItem } from '@/lib/social-prototype/store';
+import { serializeItemMeta } from '@/lib/social-prototype/item-meta';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -7,13 +9,32 @@ export interface ConsumableModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave?: (item: Omit<ConsumableItem, 'id' | 'createdAt'>) => void;
+    onSaveBatch?: (items: Omit<ConsumableItem, 'id' | 'createdAt'>[]) => void;
     onDelete?: () => void;
+    onEdit?: () => void;
     initialCategory?: Category;
     initialTitle?: string;
     existingItem?: ConsumableItem;
     readOnly?: boolean;
     allUserItems?: ConsumableItem[];
     sourceUserId?: string;
+    /** When true, saving does not auto-close the modal (used for TV group browsing). */
+    stayOpenAfterSave?: boolean;
+    /** Imperative handle ref — exposes triggerSave() for external callers (e.g. TV group arrows). */
+    modalRef?: React.Ref<ConsumableModalHandle>;
+    /** TV group carousel state — when provided, arrows render in the modal footer. */
+    tvGroup?: {
+        index: number;
+        total: number;
+        episodeLabel: string;
+        onPrev: () => void;
+        onNext: () => void;
+    };
+}
+
+export interface ConsumableModalHandle {
+    /** Trigger a save of the current draft (no-op if title is empty). */
+    triggerSave: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +124,14 @@ export interface BrewerySearchResult {
     location: string;
 }
 
+export interface BirdSearchResult {
+    id: string;       // eBird species code
+    comName: string;  // common name
+    sciName: string;  // scientific name
+    familyComName: string;
+    orderComName: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -117,12 +146,19 @@ export function buildInitialDraft(initialCategory: Category, existingItem?: Cons
             image: existingItem.image,
         };
     }
+    // Exercise/bird/book: inject a unique session ID so each log creates a distinct
+    // item in the DB. They group visually by title but never SSOT-merge.
+    const image = initialCategory === 'exercise' || initialCategory === 'bird'
+        ? serializeItemMeta({ externalSource: `${initialCategory}-sighting`, externalId: new Date().toISOString() })
+        : initialCategory === 'book'
+        ? serializeItemMeta({ externalSource: 'book-progress', externalId: new Date().toISOString() })
+        : undefined;
     return {
         category: initialCategory,
         title: initialTitle || '',
         subtitle: '',
         rating: undefined,
         notes: '',
-        image: undefined,
+        image,
     };
 }

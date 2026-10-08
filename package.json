@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --test --experimental-strip-types --import ./test/register-ts.mjs src/components/four-thousand-footers/nh48.test.ts src/components/four-thousand-footers/log-sync.test.ts",
     "test:highlight": "node --test src/lib/social-prototype/highlighting.test.mjs",
     "clerk:csv-to-sql": "node scripts/clerk-csv-to-sql.mjs"
   },
