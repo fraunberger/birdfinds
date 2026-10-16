@@ -198,7 +198,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
             </div>
 
             {user && mode === 'all' && (
-                <div className="mb-4 border border-neutral-200 bg-neutral-50 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-500">
+                <div className="mb-4 border border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-500">
                     {followingPostCountToday > 0
                         ? `${followingPostCountToday} posts today from people you follow`
                         : 'No new posts today from people you follow'}
@@ -219,7 +219,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
 
                 {mode === 'following' && user && visibleFeedStatuses.length === 0 && suggestedUsers.length > 0 && (
                     <div className="border border-neutral-200 p-3 bg-neutral-50">
-                        <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">Suggested People</h3>
+                        <h3 className="text-[11px] uppercase tracking-widest text-neutral-500 mb-2">Suggested People</h3>
                         <div className="space-y-2">
                             {suggestedUsers.map((profile) => (
                                 <div key={profile.id} className="flex items-center justify-between border border-neutral-200 bg-white px-2 py-2">
@@ -231,7 +231,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                                     </button>
                                     <button
                                         onClick={() => follow(profile.id)}
-                                        className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:bg-neutral-100"
+                                        className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:bg-neutral-100"
                                     >
                                         Follow
                                     </button>
@@ -269,7 +269,7 @@ export function SocialFeed({ onClickProfile }: SocialFeedProps) {
                         <button
                             type="button"
                             onClick={() => setVisibleCount((current) => current + FEED_PAGE_SIZE)}
-                            className="w-full border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-600 hover:bg-neutral-100"
+                            className="w-full border border-neutral-300 px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-600 hover:bg-neutral-100"
                         >
                             View more
                         </button>

@@ -125,7 +125,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                                         className="inline-block w-2.5 h-2.5 rounded-full"
                                         style={{ backgroundColor: HABIT_COLORS[idx % HABIT_COLORS.length] }}
                                     />
-                                    <span className="text-[10px] text-neutral-600">{habit.name}</span>
+                                    <span className="text-[11px] text-neutral-600">{habit.name}</span>
                                 </div>
                             ))}
                         </div>
@@ -135,7 +135,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                             {/* Day of week headers */}
                             <div className="grid grid-cols-7 bg-neutral-50 border-b border-neutral-200">
                                 {DAY_LABELS.map(label => (
-                                    <div key={label} className="text-center text-[10px] uppercase tracking-wider text-neutral-500 py-2 font-bold">
+                                    <div key={label} className="text-center text-[11px] uppercase tracking-wider text-neutral-500 py-2 font-bold">
                                         {label}
                                     </div>
                                 ))}
@@ -155,7 +155,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                                             >
                                                 {day && (
                                                     <>
-                                                        <div className={`text-[10px] mb-1 ${isToday ? 'font-bold text-neutral-900' : 'text-neutral-400'
+                                                        <div className={`text-[11px] mb-1 ${isToday ? 'font-bold text-neutral-900' : 'text-neutral-400'
                                                             }`}>
                                                             {day}
                                                         </div>
@@ -176,7 +176,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                                                                                         e.stopPropagation();
                                                                                         setSelectedNote({ text: note, habitName: h.name, date: getDateStr(day) });
                                                                                     }}
-                                                                                    className="text-[8px] leading-none text-neutral-400 hover:text-black border border-neutral-200 hover:border-neutral-400 px-0.5 rounded flex items-center justify-center bg-white h-3 w-3"
+                                                                                    className="text-[9px] leading-none text-neutral-400 hover:text-black border border-neutral-200 hover:border-neutral-400 px-0.5 rounded flex items-center justify-center bg-white h-3 w-3"
                                                                                     title="View Note"
                                                                                 >
                                                                                     +
@@ -208,7 +208,7 @@ export function HabitCalendar({ userId, onClose }: HabitCalendarProps) {
                             className="bg-white border border-neutral-300 w-full max-w-sm shadow-xl p-6 relative"
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">
+                            <div className="text-[11px] uppercase tracking-widest text-neutral-400 mb-2">
                                 NOTE — {selectedNote.date}
                             </div>
                             <div className="text-xs font-bold mb-4">

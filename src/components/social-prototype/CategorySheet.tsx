@@ -315,7 +315,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                 <div className="flex items-center gap-2">
                     <span className="text-base">{config.icon}</span>
                     <h3 className="text-xs font-bold uppercase tracking-widest">{config.label}</h3>
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-wider">
+                    <span className="text-[11px] text-neutral-400 uppercase tracking-wider">
                         {aggregatedItems.length} {aggregatedItems.length === 1 ? 'entry' : 'entries'} • {totalTaggedCount} total tags
                     </span>
                 </div>
@@ -323,7 +323,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     {canAddItem && (
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 text-neutral-600 hover:text-neutral-800 hover:border-neutral-500"
+                            className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-0.5 text-neutral-600 hover:text-neutral-800 hover:border-neutral-500"
                         >
                             Add Find
                         </button>
@@ -331,7 +331,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     {hasThisYearFilter && (
                         <button
                             onClick={() => setThisYearOnly(prev => !prev)}
-                            className={`text-[10px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${thisYearOnly
+                            className={`text-[11px] uppercase tracking-widest border px-2 py-0.5 transition-colors ${thisYearOnly
                                 ? 'bg-neutral-800 text-white border-neutral-800'
                                 : 'border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500'
                                 }`}
@@ -340,7 +340,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         </button>
                     )}
                     {/* Sort Toggle */}
-                    <div className="flex text-[10px] border border-neutral-300">
+                    <div className="flex text-[11px] border border-neutral-300">
                         <button
                             onClick={() => setSortMode('latest')}
                             className={`px-2 py-0.5 uppercase tracking-wider transition-colors ${sortMode === 'latest'
@@ -362,7 +362,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 ml-1"
+                        className="text-[11px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 ml-1"
                     >
                         x
                     </button>
@@ -374,7 +374,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     <select
                         value={episodeSeriesFilter}
                         onChange={(e) => setEpisodeSeriesFilter(e.target.value)}
-                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
+                        className="w-full text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
                     >
                         <option value="all">All Series</option>
                         {episodeSeriesOptions.map((series) => (
@@ -388,7 +388,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         value={episodeTextFilter}
                         onChange={(e) => setEpisodeTextFilter(e.target.value)}
                         placeholder={category === 'tv' ? 'Filter episodes...' : 'Filter podcast episodes...'}
-                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-700 placeholder:text-neutral-400"
+                        className="w-full text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-700 placeholder:text-neutral-400"
                     />
                 </div>
             )}
@@ -397,7 +397,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     <select
                         value={exerciseNameFilter}
                         onChange={(e) => setExerciseNameFilter(e.target.value)}
-                        className="w-full text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
+                        className="w-full text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 bg-white text-neutral-600"
                     >
                         <option value="all">{category === 'bird' ? 'All Species' : 'All Exercises'}</option>
                         {exerciseNameOptions.map(name => (
@@ -409,7 +409,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
 
             {isRestaurantCategory && (
                 <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex text-[10px] border border-neutral-300">
+                    <div className="flex text-[11px] border border-neutral-300">
                         {subcategoryFilterOptions.map(({ value, label, count }, i) => (
                             <button
                                 key={value}
@@ -424,7 +424,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                         ))}
                     </div>
                     {onEditItem && (
-                        <span className="text-[9px] uppercase tracking-widest text-neutral-400">
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-400">
                             Tick a tag to label a place
                         </span>
                     )}
@@ -437,7 +437,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     {/* In-progress section */}
                     {inProgressBooks.length > 0 && (
                         <div className="mb-6">
-                            <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-2">In Progress</div>
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">In Progress</div>
 
                             {/* SVG line graph */}
                             {hasGraph && (() => {
@@ -512,14 +512,14 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                     <div className="w-2 h-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: color }} />
                                                     <div className="flex-1 min-w-0">
                                                         <div className="text-xs font-bold truncate">{entry.latest.title}</div>
-                                                        {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
+                                                        {entry.latest.subtitle && <div className="text-[11px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
                                                         {pct != null && (
                                                             <div className="mt-1 h-0.5 bg-neutral-100">
                                                                 <div className="h-full" style={{ width: `${Math.min(100, pct).toFixed(1)}%`, backgroundColor: color }} />
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div className="text-[10px] text-neutral-400 flex-shrink-0">{progressLabel}</div>
+                                                    <div className="text-[11px] text-neutral-400 flex-shrink-0">{progressLabel}</div>
                                                 </div>
                                             </button>
                                             {onEditItem && (
@@ -539,7 +539,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                     {/* Finished books */}
                     {finishedBooks.length > 0 && (
                         <div>
-                            <div className="text-[9px] uppercase tracking-widest text-neutral-400 mb-2">Finished</div>
+                            <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">Finished</div>
                             <div className="space-y-1">
                                 {finishedBooks.map((entry, idx) => {
                                     const finishedVisit = getFinishedVisit(entry);
@@ -550,20 +550,20 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                         <button key={entry.key} type="button" onClick={() => finishedVisit && setSelectedItem(finishedVisit)} className="w-full text-left">
                                             <div className="flex items-center gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 bg-white transition-colors">
                                                 {sortMode === 'top' && (
-                                                    <span className="text-[10px] text-neutral-400 font-bold w-4 flex-shrink-0">{idx + 1}</span>
+                                                    <span className="text-[11px] text-neutral-400 font-bold w-4 flex-shrink-0">{idx + 1}</span>
                                                 )}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-xs font-bold truncate">{entry.latest.title}</div>
-                                                    {entry.latest.subtitle && <div className="text-[10px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
-                                                    {finishDate && <div className="text-[10px] text-neutral-300 mt-0.5 uppercase tracking-widest">{finishDate}</div>}
+                                                    {entry.latest.subtitle && <div className="text-[11px] text-neutral-500 truncate">{entry.latest.subtitle}</div>}
+                                                    {finishDate && <div className="text-[11px] text-neutral-300 mt-0.5 uppercase tracking-widest">{finishDate}</div>}
                                                 </div>
                                                 {finishedVisit?.rating ? (
                                                     <div className="flex-shrink-0 text-right">
                                                         <span className="text-sm font-bold text-neutral-800">{finishedVisit.rating}</span>
-                                                        <span className="text-[9px] text-neutral-400">/10</span>
+                                                        <span className="text-[10px] text-neutral-400">/10</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[9px] text-neutral-300 uppercase tracking-widest flex-shrink-0">✓</span>
+                                                    <span className="text-[10px] text-neutral-300 uppercase tracking-widest flex-shrink-0">✓</span>
                                                 )}
                                             </div>
                                         </button>
@@ -626,7 +626,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 <div className={`flex items-start gap-2.5 px-3 py-2.5 border border-neutral-200 hover:border-neutral-400 transition-colors bg-white ${showSubcategoryToggles ? 'h-full' : ''}`}>
                                 {/* Rank number for top mode */}
                                 {sortMode === 'top' && (
-                                    <span className="text-[10px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
+                                    <span className="text-[11px] text-neutral-400 font-bold mt-0.5 w-4 flex-shrink-0">
                                         {idx + 1}
                                     </span>
                                 )}
@@ -639,31 +639,31 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                         <div className="flex items-center gap-2">
                                             <div className="text-xs font-bold">{entry.latest.title}</div>
                                             {entrySubcategories.map((sub) => (
-                                                <span key={sub.id} className="text-[9px] uppercase tracking-widest border border-neutral-300 px-1 py-0.5 text-neutral-500">
+                                                <span key={sub.id} className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1 py-0.5 text-neutral-500">
                                                     {sub.label}
                                                 </span>
                                             ))}
                                             {entry.count > 1 && !exerciseCat && !bookCat && (
-                                                <span className="text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                <span className="text-[11px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
                                                     {entry.count}X
                                                 </span>
                                             )}
                                             {exerciseCat && (
-                                                <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                                                <span className="text-[11px] text-neutral-400 uppercase tracking-widest">
                                                     {new Date(entry.latest.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                 </span>
                                             )}
                                             {bookCat && (bookMeta?.finished || entry.visits.some(v => parseItemMeta(v.image).finished)) && (
-                                                <span className="text-[9px] uppercase tracking-widest px-1 py-0.5 bg-neutral-800 text-white">✓</span>
+                                                <span className="text-[10px] uppercase tracking-widest px-1 py-0.5 bg-neutral-800 text-white">✓</span>
                                             )}
                                         </div>
                                         {entry.count > 1 && !exerciseCat && !bookCat && (
-                                            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mt-0.5">
+                                            <div className="text-[11px] uppercase tracking-widest text-neutral-500 mt-0.5">
                                                 {repeatVerb} {entry.count} times
                                             </div>
                                         )}
                                         {entry.latest.subtitle && (
-                                            <div className="text-[11px] text-neutral-600 mt-0.5">
+                                            <div className="text-[12px] text-neutral-600 mt-0.5">
                                                 {entry.latest.subtitle.split('\n')[0]}
                                             </div>
                                         )}
@@ -679,7 +679,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                     : null);
                                             return (
                                                 <div className="mt-1">
-                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-widest">
+                                                    <span className="text-[11px] text-neutral-500 uppercase tracking-widest">
                                                         {isPercent
                                                             ? (displayMeta?.progressPage != null ? `${displayMeta.progressPage}%` : 'No progress')
                                                             : (displayMeta?.progressPage != null ? `p. ${displayMeta.progressPage}` : 'No progress')}
@@ -694,7 +694,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                             );
                                         })()}
                                         {!bookCat && entry.latest.notes && (
-                                            <div className="text-[10px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
+                                            <div className="text-[11px] text-neutral-500 mt-1 whitespace-pre-wrap leading-relaxed">
                                                 {entry.latest.notes}
                                             </div>
                                         )}
@@ -706,7 +706,7 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 {entry.latest.rating && entry.latest.rating > 0 && !bookCat && (
                                     <div className="flex-shrink-0 text-right">
                                         <span className="text-sm font-bold text-neutral-800">{entry.latest.rating}</span>
-                                        <span className="text-[9px] text-neutral-400">/10</span>
+                                        <span className="text-[10px] text-neutral-400">/10</span>
                                     </div>
                                 )}
                                 {bookCat && (() => {
@@ -715,17 +715,17 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                     return (
                                         <div className="flex-shrink-0 text-right">
                                             <span className="text-sm font-bold text-neutral-800">{finishedVisit.rating}</span>
-                                            <span className="text-[9px] text-neutral-400">/10</span>
+                                            <span className="text-[10px] text-neutral-400">/10</span>
                                         </div>
                                     );
                                 })()}
                                 {isRestaurantCategory && entry.count > 1 && (
-                                    <div className="flex-shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
+                                    <div className="flex-shrink-0 text-[11px] uppercase tracking-widest text-neutral-400">
                                         {expandedRestaurantKeys.has(entry.key) ? 'Hide' : 'Show'}
                                     </div>
                                 )}
                                 {bookCat && entry.count > 1 && (
-                                    <div className="flex-shrink-0 text-[10px] uppercase tracking-widest text-neutral-400">
+                                    <div className="flex-shrink-0 text-[11px] uppercase tracking-widest text-neutral-400">
                                         {expandedBookKeys.has(entry.key) ? 'Hide' : `${entry.count} logs`}
                                     </div>
                                 )}
@@ -749,10 +749,10 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                                     : 'border-neutral-200 text-neutral-400 hover:text-neutral-700 hover:border-neutral-400 bg-white'
                                                     } ${pending ? 'opacity-50' : ''}`}
                                             >
-                                                <span className={`w-2.5 h-2.5 border flex items-center justify-center text-[7px] leading-none ${tagged ? 'border-white' : 'border-neutral-300'}`}>
+                                                <span className={`w-2.5 h-2.5 border flex items-center justify-center text-[8px] leading-none ${tagged ? 'border-white' : 'border-neutral-300'}`}>
                                                     {tagged ? '✓' : ''}
                                                 </span>
-                                                <span className="text-[8px] uppercase tracking-widest">{sub.shortLabel}</span>
+                                                <span className="text-[9px] uppercase tracking-widest">{sub.shortLabel}</span>
                                             </button>
                                         );
                                     })}
@@ -763,11 +763,11 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                 <div className="border-x border-b border-neutral-200 bg-neutral-50 px-3 py-2">
                                     <div className="space-y-1.5">
                                         {entry.visits.map((visit) => (
-                                            <div key={visit.id} className="flex items-center justify-between gap-2 text-[11px]">
+                                            <div key={visit.id} className="flex items-center justify-between gap-2 text-[12px]">
                                                 <div className="text-neutral-700 truncate">
                                                     {visit.subtitle?.trim() || 'No dish listed'}
                                                 </div>
-                                                <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
+                                                <div className="text-neutral-500 uppercase tracking-widest text-[11px] whitespace-nowrap">
                                                     {new Date(visit.createdAt).toLocaleDateString()}
                                                 </div>
                                             </div>
@@ -782,8 +782,8 @@ export function CategorySheet({ category, items, onClose, canAddItem = false, on
                                             const vm = parseItemMeta(visit.image);
                                             return (
                                                 <button key={visit.id} type="button" onClick={() => setSelectedItem(visit)}
-                                                    className="w-full flex items-center justify-between gap-2 text-[11px] hover:bg-neutral-100 px-1 py-0.5 rounded">
-                                                    <div className="text-neutral-500 uppercase tracking-widest text-[10px] whitespace-nowrap">
+                                                    className="w-full flex items-center justify-between gap-2 text-[12px] hover:bg-neutral-100 px-1 py-0.5 rounded">
+                                                    <div className="text-neutral-500 uppercase tracking-widest text-[11px] whitespace-nowrap">
                                                         {new Date(visit.statusDate ? visit.statusDate + 'T12:00:00' : visit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                     </div>
                                                     <div className="text-neutral-700 text-right">

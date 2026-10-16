@@ -60,6 +60,13 @@
   }
 }
 
+/* Birdfinds pages read one step larger than Tailwind's default small sizes.
+   Scoped to page roots so the side apps keep the stock scale. */
+.bf-type {
+  --text-xs: 0.8125rem; /* 13px, default 12px */
+  --text-sm: 0.9375rem; /* 15px, default 14px */
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

@@ -479,19 +479,19 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         );
                                     })}
                                 </select>
-                                <span className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-neutral-500">
+                                <span className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-[9px] text-neutral-500">
                                     ▼
                                 </span>
                             </div>
                         )}
                         {(config.coupling !== 'none' || category === 'bird') && (
                             isLinkedForDisplay ? (
-                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded"
+                                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
                                     style={{ backgroundColor: (config.color ?? '#d4d4d4') + '60', color: '#444' }}>
                                     filled
                                 </span>
                             ) : !readOnly ? (
-                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
                                     {category === 'bird' ? 'search birds to fill' : config.coupling === 'api' ? 'search to fill' : 'add detail to fill'}
                                 </span>
                             ) : null
@@ -525,7 +525,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                 {/* Attribution — shown when viewing another user's saved tag */}
                 {readOnly && sourceUserId && existingItem && sourceProfile && (
                     <div className="px-4 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center gap-2">
-                        <span className="text-[10px] text-neutral-500">
+                        <span className="text-[11px] text-neutral-500">
                             Tagged by{' '}
                             <span className="font-semibold text-neutral-700">@{sourceProfile.username}</span>
                             {' · '}
@@ -589,7 +589,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         />
                                         <div className="mt-2 flex justify-end">
                                             <button type="button" onClick={() => { setShowBreweryResults(true); setBrewerySearchToken((p) => p + 1); }}
-                                                className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
+                                                className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                 Search Breweries
                                             </button>
                                         </div>
@@ -635,7 +635,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                     image: serializeItemMeta({ ...parseItemMeta(prev.image), externalSource: 'manual' }),
                                                 }));
                                             }}
-                                                className="mt-2 text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-2 hover:text-neutral-700 hover:border-neutral-500">
+                                                className="mt-2 text-[11px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-2 hover:text-neutral-700 hover:border-neutral-500">
                                                 Continue without linking
                                             </button>
                                         )}
@@ -716,7 +716,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                         </div>
                                         {topBeers.length > 0 && (
                                             <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                                <span className="text-[9px] uppercase tracking-wider text-neutral-400">Common:</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-neutral-400">Common:</span>
                                                 {topBeers.map(name => (
                                                     <button key={name} type="button"
                                                         onMouseDown={(e) => {
@@ -724,7 +724,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                             setDraft(prev => ({ ...prev, title: name }));
                                                             setShowBeerDropdown(false);
                                                         }}
-                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${title.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
+                                                        className={`text-[11px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${title.trim() === name ? 'border-neutral-500 bg-neutral-100 font-semibold' : 'border-neutral-300 text-neutral-600'}`}>
                                                         {name}
                                                     </button>
                                                 ))}
@@ -812,7 +812,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                 />
                                 )}
                                 {repeatInfo && title.trim() && (
-                                    <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-700">
+                                    <div className="mt-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] uppercase tracking-wider text-emerald-700">
                                         {repeatInfo.verb} × {repeatInfo.count}{repeatInfo.latestPrevious && !existingItem && !['exercise', 'bird', 'beer'].includes(category) ? ' • previous review loaded' : ''}
                                     </div>
                                 )}
@@ -825,7 +825,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     if (inProgressBooks.length === 0) return null;
                                     return (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Reading:</span>
+                                            <span className="text-[10px] uppercase tracking-wider text-neutral-400">Reading:</span>
                                             {inProgressBooks.map(book => {
                                                 const m = parseItemMeta(book.image);
                                                 const isActive = title.trim().toLowerCase() === book.title.trim().toLowerCase();
@@ -851,7 +851,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                             }));
                                                             setPopulatedFromId(null);
                                                         }}
-                                                        className={`text-[10px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${isActive ? 'border-neutral-500 bg-neutral-100 font-semibold text-neutral-800' : 'border-neutral-300 text-neutral-600'}`}>
+                                                        className={`text-[11px] border px-1.5 py-0.5 hover:border-neutral-500 hover:bg-neutral-50 ${isActive ? 'border-neutral-500 bg-neutral-100 font-semibold text-neutral-800' : 'border-neutral-300 text-neutral-600'}`}>
                                                         {book.title}
                                                     </button>
                                                 );
@@ -867,7 +867,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     if (recentShows.length === 0) return null;
                                     return (
                                         <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                            <span className="text-[9px] uppercase tracking-wider text-neutral-400">Recent:</span>
+                                            <span className="text-[10px] uppercase tracking-wider text-neutral-400">Recent:</span>
                                             {recentShows.map(show => (
                                                 <button key={show.id} type="button"
                                                     onMouseDown={(e) => {
@@ -894,7 +894,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                         setShowTvPicker(true);
                                                         setTvEpisodeSearchToken(p => p + 1);
                                                     }}
-                                                    className="text-[10px] border border-neutral-300 px-1.5 py-0.5 text-neutral-600 hover:border-neutral-500 hover:bg-neutral-50">
+                                                    className="text-[11px] border border-neutral-300 px-1.5 py-0.5 text-neutral-600 hover:border-neutral-500 hover:bg-neutral-50">
                                                     {show.name}
                                                 </button>
                                             ))}
@@ -904,7 +904,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                 {!readOnly && ['music', 'movie', 'podcast', 'tv', 'restaurant', 'location', 'book'].includes(category) && !(category === 'tv' && selectedTvShow) && (
                                     <div className="mt-2 flex justify-end">
                                         <button type="button" onClick={triggerSearch}
-                                            className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
+                                            className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                             {searchButtonLabel}
                                         </button>
                                     </div>
@@ -1022,16 +1022,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                             <>
                                                 <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
                                                     <div className="min-w-0">
-                                                        <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
+                                                        <div className="text-[11px] uppercase tracking-wider text-neutral-500">Show</div>
                                                         <div className="text-xs text-neutral-800 truncate">{selectedPodcast.name}</div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <button type="button" onClick={() => setPodcastEpisodeSearchToken((p) => p + 1)}
-                                                            className="text-[10px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
+                                                            className="text-[11px] uppercase tracking-wider border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500">
                                                             Load Episodes
                                                         </button>
                                                         <button type="button" onClick={() => { setSelectedPodcast(null); setPodcastEpisodes([]); setPodcastEpisodeSearchToken(0); setDraft((prev) => ({ ...prev, title: '' })); }}
-                                                            className="text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
+                                                            className="text-[11px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900">
                                                             Change
                                                         </button>
                                                     </div>
@@ -1178,16 +1178,16 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                     {/* Header: show + change */}
                                                     <div className="px-3 py-2 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between gap-2">
                                                         <div className="min-w-0">
-                                                            <div className="text-[10px] uppercase tracking-wider text-neutral-500">Show</div>
+                                                            <div className="text-[11px] uppercase tracking-wider text-neutral-500">Show</div>
                                                             <div className="text-xs text-neutral-800 truncate">{selectedTvShow.name}</div>
                                                         </div>
                                                         <button type="button" onClick={changeShow}
-                                                            className="text-[10px] uppercase tracking-wider text-neutral-500 hover:text-neutral-900">
+                                                            className="text-[11px] uppercase tracking-wider text-neutral-500 hover:text-neutral-900">
                                                             Change
                                                         </button>
                                                     </div>
                                                     {/* Mode toggle: Single | Binge */}
-                                                    <div className="flex border-b border-neutral-200 text-[10px] uppercase tracking-widest">
+                                                    <div className="flex border-b border-neutral-200 text-[11px] uppercase tracking-widest">
                                                         <button type="button"
                                                             onClick={() => { setTvBingeMode(false); setTvBingeSelected(new Set()); setTvBingeReview(false); }}
                                                             className={`flex-1 px-3 py-2 transition-colors ${!tvBingeMode ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
@@ -1200,7 +1200,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                         </button>
                                                     </div>
                                                     {/* Hint */}
-                                                    <div className="px-3 py-1.5 text-[9px] uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
+                                                    <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
                                                         {tvBingeMode ? 'Tap every episode you watched' : 'Tap the episode you watched'}
                                                     </div>
                                                     {/* Episode list */}
@@ -1212,7 +1212,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                             return (
                                                                 <button key={ep.id} type="button" onClick={() => toggleBinge(ep.id)}
                                                                     className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 flex items-center gap-2.5 ${isChecked ? 'bg-neutral-100' : 'hover:bg-neutral-50'}`}>
-                                                                    <span className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center text-[10px] ${isChecked ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300'}`}>
+                                                                    <span className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center text-[11px] ${isChecked ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300'}`}>
                                                                         {isChecked && '✓'}
                                                                     </span>
                                                                     <div className="min-w-0">
@@ -1234,18 +1234,18 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                     {tvBingeMode && tvBingeSelected.size > 0 && !tvBingeReview && (
                                                         <div className="px-3 py-2 border-t border-neutral-300 bg-white">
                                                             <button type="button" onClick={() => setTvBingeReview(true)}
-                                                                className="w-full px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                className="w-full px-3 py-2 text-[11px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
                                                                 Review {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
                                                             </button>
                                                         </div>
                                                     )}
                                                     {tvBingeMode && tvBingeReview && (
                                                         <div className="border-t border-neutral-300 bg-white px-3 py-3 space-y-2">
-                                                            <div className="text-[9px] uppercase tracking-widest text-neutral-400">
+                                                            <div className="text-[10px] uppercase tracking-widest text-neutral-400">
                                                                 One rating & note for all {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''} — refine each next
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] uppercase tracking-wider text-neutral-500 shrink-0">Rating</span>
+                                                                <span className="text-[11px] uppercase tracking-wider text-neutral-500 shrink-0">Rating</span>
                                                                 <input
                                                                     type="number" min={0} max={10} step="0.1"
                                                                     value={draft.rating ?? ''}
@@ -1262,11 +1262,11 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                             />
                                                             <div className="flex gap-2">
                                                                 <button type="button" onClick={() => setTvBingeReview(false)}
-                                                                    className="flex-1 px-3 py-2 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
+                                                                    className="flex-1 px-3 py-2 text-[11px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
                                                                     Back
                                                                 </button>
                                                                 <button type="button" onClick={saveBinge}
-                                                                    className="flex-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
+                                                                    className="flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-700">
                                                                     Save {tvBingeSelected.size} episode{tvBingeSelected.size !== 1 ? 's' : ''}
                                                                 </button>
                                                             </div>
@@ -1452,7 +1452,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                             RESTAURANT_SUBCATEGORIES.some((sub) => parsedMeta[sub.metaKey]) ? (
                                                 <div className="mt-3 flex items-center gap-1.5">
                                                     {RESTAURANT_SUBCATEGORIES.filter((sub) => parsedMeta[sub.metaKey]).map((sub) => (
-                                                        <span key={sub.id} className="inline-block text-[10px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
+                                                        <span key={sub.id} className="inline-block text-[11px] uppercase tracking-widest border border-neutral-300 px-1.5 py-0.5 text-neutral-600">
                                                             {sub.label}
                                                         </span>
                                                     ))}
@@ -1607,7 +1607,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                         {config.hasRating && !config.extras.includes('likedSignal') && !config.extras.includes('wishlistScoring') && !showReviewGate && !tvPickerActive && !(category === 'book' && !parsedMeta.finished) && !(category === 'beer' && !parsedMeta.externalSource && !gateClicked) && (
                         <div className={`flex-shrink-0 flex flex-col items-center gap-1 ${isParentChildCategory && isEpisodeLinked ? '' : 'pt-6'}`}>
                             {isParentChildCategory && isEpisodeLinked && (
-                                <div className="text-[9px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral-400 text-center">Ep. Score</div>
                             )}
                             {readOnly ? (
                                 <div className="w-16 h-16 border-2 border-neutral-200 flex items-center justify-center bg-neutral-50/50">
@@ -1626,7 +1626,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                     />
                                 </div>
                             )}
-                            <span className="text-[9px] text-neutral-400 uppercase tracking-widest">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
+                            <span className="text-[10px] text-neutral-400 uppercase tracking-widest">{config.ratingLabel !== 'Rating' ? config.ratingLabel.toUpperCase() : '/ 10'}</span>
                         </div>
                         )}
                         {/* Liked/disliked signal for recipes */}
@@ -1684,7 +1684,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                             <div className="flex items-center justify-between mb-2">
                                 <label className="text-xs uppercase tracking-widest text-neutral-500">Progress</label>
                                 {!readOnly && (
-                                    <div className="flex border border-neutral-200 text-[9px] uppercase tracking-widest">
+                                    <div className="flex border border-neutral-200 text-[10px] uppercase tracking-widest">
                                         <button type="button"
                                             onClick={() => setDraft(prev => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), progressMode: undefined }) }))}
                                             className={`px-2 py-0.5 transition-colors ${parsedMeta.progressMode !== 'percent' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}>
@@ -1731,7 +1731,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                 const stableId = [norm(title), norm(subtitle.split(',')[0] || '')].filter(Boolean).join('-');
                                                 setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: true, externalSource: 'book-review', externalId: stableId }) }));
                                             }}
-                                            className="ml-auto text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
+                                            className="ml-auto text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
                                             ✓ Mark Finished
                                         </button>
                                     )}
@@ -1790,7 +1790,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                                                 const stableId = [norm(title), norm(subtitle.split(',')[0] || '')].filter(Boolean).join('-');
                                                 setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: true, externalSource: 'book-review', externalId: stableId }) }));
                                             }}
-                                            className="ml-auto text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
+                                            className="ml-auto text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-colors">
                                             ✓ Mark Finished
                                         </button>
                                     )}
@@ -1821,7 +1821,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                             {!readOnly && (
                                 <button type="button"
                                     onClick={() => setDraft((prev) => ({ ...prev, image: serializeItemMeta({ ...parseItemMeta(prev.image), finished: undefined, externalSource: 'book-progress', externalId: new Date().toISOString() }) }))}
-                                    className="text-[9px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
+                                    className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700">
                                     undo
                                 </button>
                             )}
@@ -1884,7 +1884,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                         </div>
                     ) : showReviewGate ? (
                         <button type="button" onClick={() => setGateClicked(true)}
-                            className="text-[10px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
+                            className="text-[11px] uppercase tracking-widest text-neutral-400 border border-dashed border-neutral-300 w-full py-3 hover:text-neutral-700 hover:border-neutral-500">
                             Review without linking
                         </button>
                     ) : category === 'book' && !parsedMeta.finished ? (
@@ -1922,7 +1922,7 @@ export function ConsumableModal({ isOpen, onClose, onSave, onSaveBatch, onDelete
                             >
                                 ‹
                             </button>
-                            <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-bold">
+                            <span className="text-[11px] uppercase tracking-widest text-neutral-500 font-bold">
                                 {tvGroup.index + 1} / {tvGroup.total} — {tvGroup.episodeLabel}
                             </span>
                             <button

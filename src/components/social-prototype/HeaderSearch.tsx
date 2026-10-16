@@ -219,7 +219,7 @@ export function HeaderSearch() {
           </div>
           <button
             onClick={() => { setOpen(false); setQuery(""); }}
-            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700"
+            className="text-[11px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700"
           >
             close
           </button>
@@ -228,14 +228,14 @@ export function HeaderSearch() {
 
       {open && query.trim().length >= 2 && (
         <div className="absolute right-0 mt-2 w-[22rem] max-w-[90vw] border border-neutral-300 bg-white shadow-sm z-50">
-          <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-500 border-b border-neutral-200 flex items-center justify-between">
+          <div className="px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-500 border-b border-neutral-200 flex items-center justify-between">
             <span>Search</span>
             <div className="flex items-center border border-neutral-200">
               {(["all", "users", "items"] as const).map((candidate) => (
                 <button
                   key={candidate}
                   onClick={() => setTab(candidate)}
-                  className={`px-2 py-1 text-[9px] uppercase tracking-widest border-l first:border-l-0 ${tab === candidate ? "bg-neutral-800 text-white border-neutral-800" : "text-neutral-500 hover:bg-neutral-100 border-neutral-200"}`}
+                  className={`px-2 py-1 text-[10px] uppercase tracking-widest border-l first:border-l-0 ${tab === candidate ? "bg-neutral-800 text-white border-neutral-800" : "text-neutral-500 hover:bg-neutral-100 border-neutral-200"}`}
                 >
                   {candidate}
                 </button>
@@ -244,20 +244,20 @@ export function HeaderSearch() {
           </div>
 
           {loading && (
-            <div className="px-3 py-3 text-[10px] uppercase tracking-widest text-neutral-400">
+            <div className="px-3 py-3 text-[11px] uppercase tracking-widest text-neutral-400">
               Searching...
             </div>
           )}
 
           {!loading && !hasResults && (
-            <div className="px-3 py-3 text-[10px] uppercase tracking-widest text-neutral-400">
+            <div className="px-3 py-3 text-[11px] uppercase tracking-widest text-neutral-400">
               No matches
             </div>
           )}
 
           {!loading && showUsers && users.length > 0 && (
             <div className="border-b border-neutral-200">
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-neutral-400">Users</div>
+              <div className="px-3 py-1.5 text-[11px] uppercase tracking-widest text-neutral-400">Users</div>
               {users.map((u) => (
                 <Link
                   key={u.id}
@@ -273,7 +273,7 @@ export function HeaderSearch() {
 
           {!loading && showItems && items.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-neutral-400">Items</div>
+              <div className="px-3 py-1.5 text-[11px] uppercase tracking-widest text-neutral-400">Items</div>
               {items.map((item) => (
                 <Link
                   key={item.key}
@@ -286,7 +286,7 @@ export function HeaderSearch() {
                   className="block px-3 py-2 hover:bg-neutral-100"
                 >
                   <div className="text-xs text-neutral-800">{item.displayTitle}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-neutral-400">
+                  <div className="text-[11px] uppercase tracking-widest text-neutral-400">
                     {item.category} {item.count > 1 ? `• ${item.count} ratings` : ""}
                   </div>
                 </Link>

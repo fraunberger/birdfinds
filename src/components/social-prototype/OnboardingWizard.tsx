@@ -245,8 +245,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             {/* Progress Bar */}
             <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-widest text-neutral-400">Step {step} of 6</span>
-                    <span className="text-[10px] uppercase tracking-widest text-neutral-400">{progress}%</span>
+                    <span className="text-[11px] uppercase tracking-widest text-neutral-400">Step {step} of 6</span>
+                    <span className="text-[11px] uppercase tracking-widest text-neutral-400">{progress}%</span>
                 </div>
                 <div className="w-full h-1 bg-neutral-200">
                     <div className="h-1 bg-neutral-800 transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -379,7 +379,7 @@ function StepAvatar({ avatarUrl, avatarUploading, fileInputRef, onAvatarChange, 
                 ) : (
                     <div className="flex flex-col items-center gap-1">
                         <span className="text-neutral-400 text-3xl">+</span>
-                        <span className="text-[9px] uppercase tracking-widest text-neutral-400">Tap to add</span>
+                        <span className="text-[10px] uppercase tracking-widest text-neutral-400">Tap to add</span>
                     </div>
                 )}
                 {avatarUploading && (
@@ -390,7 +390,7 @@ function StepAvatar({ avatarUrl, avatarUploading, fileInputRef, onAvatarChange, 
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
             {avatarUrl && (
-                <span className="text-[10px] text-green-700 mt-3 uppercase tracking-widest">Avatar set</span>
+                <span className="text-[11px] text-green-700 mt-3 uppercase tracking-widest">Avatar set</span>
             )}
         </div>
     );
@@ -411,7 +411,7 @@ function StepUsername({ username, onChange }: { username: string; onChange: (v: 
                 autoFocus
             />
             {username.trim() && (
-                <div className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                <div className="text-[11px] text-neutral-400 uppercase tracking-widest">
                     Your profile will be at <span className="text-neutral-700 font-bold">birdfinds.com/pile/{username.trim()}</span>
                 </div>
             )}
@@ -436,7 +436,7 @@ function StepCategories({ selectedCategories, onToggle, newCategoryName, onNewCa
                         <button
                             key={cat}
                             onClick={() => onToggle(cat)}
-                            className={`text-left px-2 py-1.5 border text-[10px] uppercase tracking-wider transition-all ${isActive ? 'text-neutral-900' : 'border-neutral-300 text-neutral-400 hover:border-neutral-400'}`}
+                            className={`text-left px-2 py-1.5 border text-[11px] uppercase tracking-wider transition-all ${isActive ? 'text-neutral-900' : 'border-neutral-300 text-neutral-400 hover:border-neutral-400'}`}
                             style={isActive ? { backgroundColor: `${config.color}30`, borderColor: config.color || '#404040', borderLeftWidth: '3px' } : undefined}
                         >
                             {config.label}
@@ -458,7 +458,7 @@ function StepCategories({ selectedCategories, onToggle, newCategoryName, onNewCa
                     +
                 </button>
             </div>
-            <div className="text-[10px] text-neutral-400 uppercase tracking-widest">
+            <div className="text-[11px] text-neutral-400 uppercase tracking-widest">
                 {selectedCategories.length} categor{selectedCategories.length === 1 ? 'y' : 'ies'} selected
             </div>
         </div>
@@ -484,7 +484,7 @@ function StepHabit({ habits, newHabitName, onNewHabitNameChange, onAddHabit, onR
                 {habits.length === 0 && (
                     <div className="border border-dashed border-neutral-300 p-6 text-center">
                         <p className="text-xs text-neutral-400 uppercase tracking-widest mb-1">No habits yet</p>
-                        <p className="text-[10px] text-neutral-400">Try: meditate, read, exercise, journal, stretch</p>
+                        <p className="text-[11px] text-neutral-400">Try: meditate, read, exercise, journal, stretch</p>
                     </div>
                 )}
             </div>
@@ -528,7 +528,7 @@ function StepPrivacy({ visibility, onChange }: { visibility: ProfileVisibility; 
                         <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${visibility === opt.value ? 'border-white bg-white' : 'border-neutral-400'}`} />
                         <div>
                             <span className="text-xs font-bold uppercase tracking-widest">{opt.label}</span>
-                            <p className={`text-[10px] mt-1 leading-relaxed ${visibility === opt.value ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                            <p className={`text-[11px] mt-1 leading-relaxed ${visibility === opt.value ? 'text-neutral-300' : 'text-neutral-400'}`}>
                                 {opt.desc}
                             </p>
                         </div>
@@ -549,7 +549,7 @@ function StepGetStarted({ avatarUrl, username, categoriesCount, habitsCount, vis
     return (
         <div className="space-y-6">
             <div className="border border-neutral-200 p-4">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-3">Your Profile Summary</div>
+                <div className="text-[11px] uppercase tracking-widest text-neutral-400 mb-3">Your Profile Summary</div>
                 <div className="space-y-3">
                     <div className="flex items-center gap-3">
                         {avatarUrl ? (
@@ -562,10 +562,10 @@ function StepGetStarted({ avatarUrl, username, categoriesCount, habitsCount, vis
                         )}
                         <div>
                             <div className="text-sm font-bold">{username || 'No username'}</div>
-                            <div className="text-[10px] text-neutral-400 uppercase tracking-widest">{visibility} profile</div>
+                            <div className="text-[11px] text-neutral-400 uppercase tracking-widest">{visibility} profile</div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-widest">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] uppercase tracking-widest">
                         <div className="border border-neutral-200 px-3 py-2">
                             <span className="text-neutral-400">Categories:</span>{' '}
                             <span className="text-neutral-800 font-bold">{categoriesCount}</span>
@@ -578,7 +578,7 @@ function StepGetStarted({ avatarUrl, username, categoriesCount, habitsCount, vis
                 </div>
             </div>
             <div className="border border-neutral-200 p-4">
-                <div className="text-[10px] uppercase tracking-widest text-neutral-400 mb-2">What happens next</div>
+                <div className="text-[11px] uppercase tracking-widest text-neutral-400 mb-2">What happens next</div>
                 <div className="space-y-2 text-xs text-neutral-600 leading-relaxed">
                     <p>You'll land on the feed where you can write your first daily status. Each day gets one post — think of it as a journal entry with tagged finds.</p>
                     <p>When you write your first status, a quick walkthrough will show you how to tag items, fill out cards, and link finds to your text.</p>

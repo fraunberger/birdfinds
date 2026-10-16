@@ -105,7 +105,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
         <div className="text-neutral-400 text-xs uppercase tracking-widest">Loading...</div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-xs uppercase tracking-widest text-neutral-400 mb-3">Sign in to open settings</p>
           <Link href="/" className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900">
@@ -125,7 +125,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-mono text-neutral-900">
+    <div className="bf-type min-h-screen bg-white font-mono text-neutral-900">
       <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
         <header className="flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
           <div className="flex items-center gap-3">
@@ -134,7 +134,7 @@ export default function SettingsPage() {
             </Link>
             <Link
               href="/"
-              className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+              className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
             >
               Back to Feed
             </Link>
@@ -154,12 +154,12 @@ export default function SettingsPage() {
             href="/settings/profile-setup"
             className="block border border-neutral-300 p-3 hover:bg-neutral-50"
           >
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Profile Setup</p>
+            <p className="text-[11px] uppercase tracking-widest text-neutral-500">Profile Setup</p>
             <p className="text-xs mt-1">Edit username, avatar, categories, profile visibility, and habits.</p>
           </Link>
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Profile Visibility</p>
+            <p className="text-[11px] uppercase tracking-widest text-neutral-500">Profile Visibility</p>
             <div className="mt-2 space-y-2">
               {([
                 { value: "public", label: "Public", description: "Anyone can view your profile." },
@@ -176,21 +176,21 @@ export default function SettingsPage() {
                     : "border-neutral-300 hover:bg-neutral-50"
                     } ${savingVisibility ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  <p className="text-[10px] uppercase tracking-widest">{option.label}</p>
+                  <p className="text-[11px] uppercase tracking-widest">{option.label}</p>
                   <p className="text-xs text-neutral-600 mt-1">{option.description}</p>
                 </button>
               ))}
             </div>
             {visibilityError ? (
-              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-600">{visibilityError}</p>
+              <p className="mt-2 text-[11px] uppercase tracking-widest text-red-600">{visibilityError}</p>
             ) : null}
           </div>
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
+            <p className="text-[11px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
               onClick={() => (canManageEmail ? openAccountSettings("email-addresses") : openAccountSettings())}
-              className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+              className="mt-2 text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Change Login Username/Email
             </button>
@@ -202,10 +202,10 @@ export default function SettingsPage() {
           </div>
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
+            <p className="text-[11px] uppercase tracking-widest text-neutral-500">Login Credentials</p>
             <button
               onClick={() => (canManagePassword ? openAccountSettings("security") : openAccountSettings())}
-              className="mt-2 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+              className="mt-2 text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Change Password
             </button>
@@ -217,23 +217,23 @@ export default function SettingsPage() {
           </div>
 
           {credentialsError ? (
-            <p className="text-[10px] uppercase tracking-widest text-red-600">{credentialsError}</p>
+            <p className="text-[11px] uppercase tracking-widest text-red-600">{credentialsError}</p>
           ) : null}
 
           <div className="border border-neutral-300 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-neutral-500">Delete Account</p>
+            <p className="text-[11px] uppercase tracking-widest text-neutral-500">Delete Account</p>
             <p className="mt-2 text-xs text-neutral-600">
               Permanently delete your account and all your data.
             </p>
             <button
               onClick={handleDeleteAccount}
               disabled={deletingAccount}
-              className="mt-3 text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50"
+              className="mt-3 text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50"
             >
               {deletingAccount ? "Deleting..." : "Delete Account"}
             </button>
             {deleteAccountError ? (
-              <p className="mt-2 text-[10px] uppercase tracking-widest text-red-600">{deleteAccountError}</p>
+              <p className="mt-2 text-[11px] uppercase tracking-widest text-red-600">{deleteAccountError}</p>
             ) : null}
           </div>
         </main>
