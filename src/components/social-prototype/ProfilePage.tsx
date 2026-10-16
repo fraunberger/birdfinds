@@ -172,7 +172,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     {isOwnProfile && onSettings && (
                         <button
                             onClick={onSettings}
-                            className="text-[10px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
+                            className="text-[11px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
                         >
                             Settings
                         </button>
@@ -180,7 +180,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     {!isOwnProfile && (
                         <button
                             onClick={() => isFollowing(userId) ? unfollow(userId) : follow(userId)}
-                            className={`h-7 inline-flex items-center gap-1.5 px-2.5 border transition-colors text-[10px] uppercase tracking-widest ${isFollowing(userId)
+                            className={`h-7 inline-flex items-center gap-1.5 px-2.5 border transition-colors text-[11px] uppercase tracking-widest ${isFollowing(userId)
                                 ? 'bg-neutral-800 text-white border-neutral-800 hover:bg-neutral-700'
                                 : 'text-neutral-600 border-neutral-400 hover:bg-neutral-100'
                                 }`}
@@ -191,13 +191,13 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                     )}
                     <button
                         onClick={() => setShowHabitCalendar(true)}
-                        className="text-[10px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
+                        className="text-[11px] uppercase tracking-widest px-3 py-1 border border-neutral-300 text-neutral-600 hover:bg-neutral-100"
                     >
                         Habits
                     </button>
                 </div>
 
-                <div className="mt-3 text-[10px] uppercase tracking-widest text-neutral-400">
+                <div className="mt-3 text-[11px] uppercase tracking-widest text-neutral-400">
                     <span>{userStatuses.length} posts</span>
                     <span className="mx-2">•</span>
                     <span>{Object.values(dedupedCategoryItems).flat().length} tagged items</span>
@@ -210,7 +210,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
             <div className="flex gap-4">
                 {/* Left: Recent Tags */}
                 <div className="hidden sm:block w-36 flex-shrink-0">
-                    <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 border-b border-neutral-200 pb-1">
+                    <h3 className="text-[11px] uppercase tracking-widest text-neutral-500 mb-2 border-b border-neutral-200 pb-1">
                         Recent Tags
                     </h3>
                     <div className="space-y-0.5">
@@ -221,7 +221,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                 .sort((a, b) => b.createdAt - a.createdAt)
                                 .slice(0, 20);
                             if (sorted.length === 0) {
-                                return <div className="text-[10px] text-neutral-300 py-2">No items yet</div>;
+                                return <div className="text-[11px] text-neutral-300 py-2">No items yet</div>;
                             }
                             return sorted.map(item => {
                                 const config = getCategoryConfig(item.category);
@@ -229,7 +229,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     <button
                                         key={item.id}
                                         onClick={() => setSelectedTagItem(item)}
-                                        className="block w-full text-left text-[10px] font-mono truncate py-0.5 px-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
+                                        className="block w-full text-left text-[11px] font-mono truncate py-0.5 px-1.5 hover:bg-neutral-100 transition-colors cursor-pointer"
                                         title={`${config?.label}: ${item.title}`}
                                         style={{ borderLeft: `2px solid ${config?.color || '#d4d4d4'}` }}
                                     >
@@ -255,7 +255,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                         <button
                                             key={cat}
                                             onClick={() => toggleCategory(cat)}
-                                            className={`text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${isOpen
+                                            className={`text-left px-2.5 py-1.5 border text-[11px] uppercase tracking-wider transition-colors flex items-center justify-between ${isOpen
                                                 ? 'bg-neutral-800 text-white border-neutral-800'
                                                 : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
                                                 }`}
@@ -297,7 +297,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                         <div className="mb-6">
                             <button
                                 onClick={() => setShowWants(prev => !prev)}
-                                className={`w-full text-left px-2.5 py-1.5 border text-[10px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
+                                className={`w-full text-left px-2.5 py-1.5 border text-[11px] uppercase tracking-wider transition-colors flex items-center justify-between ${showWants
                                     ? 'bg-neutral-800 text-white border-neutral-800'
                                     : 'border-neutral-300 text-neutral-600 hover:border-neutral-500'
                                     }`}
@@ -316,7 +316,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                             <select
                                                 value={wantsCategoryFilter}
                                                 onChange={e => setWantsCategoryFilter(e.target.value as Category | 'all')}
-                                                className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                                className="px-2 py-1 text-[11px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
                                             >
                                                 <option value="all">All Categories</option>
                                                 {Array.from(new Set(savedItems.map(s => s.category))).map(cat => (
@@ -329,7 +329,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     )}
 
                                     {savedItemsLoading ? (
-                                        <div className="text-[10px] text-neutral-400 uppercase tracking-widest py-2">Loading…</div>
+                                        <div className="text-[11px] text-neutral-400 uppercase tracking-widest py-2">Loading…</div>
                                     ) : savedItems.length === 0 ? (
                                         <div className="text-center py-6 text-neutral-400 text-xs uppercase tracking-widest border border-dashed border-neutral-200">
                                             {isOwnProfile
@@ -368,11 +368,11 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                                     setSelectedSavedItem({ item, sourceUserId: saved.sourceUserId });
                                                                 }}
                                                             >
-                                                                <div className="text-[11px] font-medium text-neutral-800 truncate">{saved.title}</div>
+                                                                <div className="text-[12px] font-medium text-neutral-800 truncate">{saved.title}</div>
                                                                 {saved.subtitle && (
-                                                                    <div className="text-[10px] text-neutral-500 truncate">{saved.subtitle}</div>
+                                                                    <div className="text-[11px] text-neutral-500 truncate">{saved.subtitle}</div>
                                                                 )}
-                                                                <div className="text-[9px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
+                                                                <div className="text-[10px] text-neutral-400 uppercase tracking-wider mt-0.5">{config.label}</div>
                                                             </button>
                                                             {isOwnProfile && (
                                                                 <button
@@ -385,7 +385,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                                                             );
                                                                         } catch { /* ignore */ }
                                                                     }}
-                                                                    className="flex-shrink-0 text-[10px] text-neutral-400 hover:text-red-500 px-2"
+                                                                    className="flex-shrink-0 text-[11px] text-neutral-400 hover:text-red-500 px-2"
                                                                     title="Remove from Want to Check Out"
                                                                     aria-label="Remove saved item"
                                                                 >
@@ -415,26 +415,26 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                                     <StatusComposer userCategories={profile.categories || []} />
                                 </div>
                             )}
-                            <h3 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
+                            <h3 className="text-[11px] uppercase tracking-widest text-neutral-500 mb-3 border-b border-neutral-200 pb-1">
                                 Posts
                             </h3>
                             <div className="mb-3 flex flex-wrap gap-2">
                                 <button
                                     onClick={() => setStatusSort('recent')}
-                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${statusSort === 'recent' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                    className={`px-2 py-1 text-[11px] uppercase tracking-widest border ${statusSort === 'recent' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
                                 >
                                     Recent
                                 </button>
                                 <button
                                     onClick={() => setStatusSort('top')}
-                                    className={`px-2 py-1 text-[10px] uppercase tracking-widest border ${statusSort === 'top' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
+                                    className={`px-2 py-1 text-[11px] uppercase tracking-widest border ${statusSort === 'top' ? 'bg-neutral-800 text-white border-neutral-800' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100'}`}
                                 >
                                     Highest Rated
                                 </button>
                                 <select
                                     value={statusCategoryFilter}
                                     onChange={(event) => setStatusCategoryFilter(event.target.value as Category | 'all')}
-                                    className="px-2 py-1 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
+                                    className="px-2 py-1 text-[11px] uppercase tracking-widest border border-neutral-300 text-neutral-600 bg-white"
                                 >
                                     <option value="all">All Categories</option>
                                     {(profile.categories || []).map((category) => (
@@ -515,7 +515,7 @@ export function ProfilePage({ userId, onBack, onClickProfile, onSettings }: Prof
                 <div className="mt-8 mb-4 text-center">
                     <button
                         onClick={() => toggleMute(userId)}
-                        className="text-[9px] uppercase tracking-widest text-neutral-300 hover:text-red-400 transition-colors"
+                        className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-400 transition-colors"
                     >
                         {mutedUsers?.includes(userId) ? 'Unblock user' : 'Block user'}
                     </button>

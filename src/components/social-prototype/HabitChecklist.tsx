@@ -26,7 +26,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
     if (loading) {
         return (
             <div className={vertical ? 'flex flex-col gap-1 min-h-[30px]' : 'min-h-[34px] flex items-center'}>
-                <div className="text-[10px] uppercase tracking-widest text-neutral-300">
+                <div className="text-[11px] uppercase tracking-widest text-neutral-300">
                     Loading habits...
                 </div>
             </div>
@@ -44,7 +44,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                 <div className="flex items-center">
                     <div className="w-20 shrink-0" />
                     {allDates.map(d => (
-                        <div key={d} className="flex-1 text-center text-[9px] uppercase tracking-wider text-neutral-400 font-mono">
+                        <div key={d} className="flex-1 text-center text-[10px] uppercase tracking-wider text-neutral-400 font-mono">
                             {dayLabel(d)}
                         </div>
                     ))}
@@ -52,7 +52,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                 {/* Habit rows */}
                 {habits.map(habit => (
                     <div key={habit.id} className="flex items-center">
-                        <div className="w-20 shrink-0 text-[10px] font-mono text-neutral-600 truncate pr-1">
+                        <div className="w-20 shrink-0 text-[11px] font-mono text-neutral-600 truncate pr-1">
                             {habit.name}
                         </div>
                         {allDates.map(d => {
@@ -62,7 +62,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                     <button
                                         onClick={() => !readOnly && toggleHabitLog(habit.id, d, !completed)}
                                         disabled={readOnly}
-                                        className={`w-6 h-6 flex items-center justify-center text-[10px] border rounded transition-colors ${
+                                        className={`w-6 h-6 flex items-center justify-center text-[11px] border rounded transition-colors ${
                                             completed
                                                 ? 'bg-neutral-900 text-white border-neutral-900'
                                                 : 'bg-neutral-50 text-neutral-300 border-neutral-300 hover:border-neutral-500'
@@ -103,17 +103,17 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                                 onClick={() => !readOnly && toggleHabitLog(habit.id, date, !completed)}
                                 disabled={readOnly}
                                 className={`inline-flex items-center font-mono transition-all rounded-sm ${vertical
-                                    ? `gap-2 px-2 py-1.5 text-[10px] min-h-[30px] border-none ${completed ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`
-                                    : `gap-1.5 px-2.5 py-1.5 text-[10px] border rounded-full min-h-[28px] ${completed ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm' : 'bg-neutral-50 text-neutral-500 border-neutral-300 hover:border-neutral-500'}`
+                                    ? `gap-2 px-2 py-1.5 text-[11px] min-h-[30px] border-none ${completed ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`
+                                    : `gap-1.5 px-2.5 py-1.5 text-[11px] border rounded-full min-h-[28px] ${completed ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm' : 'bg-neutral-50 text-neutral-500 border-neutral-300 hover:border-neutral-500'}`
                                     } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
                             >
                                 {vertical ? (
-                                    <span className={`text-[10px] w-4 text-center ${completed ? 'text-neutral-900' : 'text-neutral-300'}`}>
+                                    <span className={`text-[11px] w-4 text-center ${completed ? 'text-neutral-900' : 'text-neutral-300'}`}>
                                         {completed ? '●' : '○'}
                                     </span>
                                 ) : (
                                     <span className={`inline-block w-2.5 h-2.5 border rounded-full ${completed ? 'border-white bg-white/30' : 'border-neutral-300'
-                                        } flex items-center justify-center text-[8px] leading-none`}>
+                                        } flex items-center justify-center text-[9px] leading-none`}>
                                         {completed && '+'}
                                     </span>
                                 )}
@@ -123,7 +123,7 @@ export function HabitChecklist({ date, readOnly = false, userId, vertical = fals
                             {completed && !readOnly && !vertical && (
                                 <button
                                     onClick={() => { setEditingNote(habit.id); setNoteText(note); }}
-                                    className="text-[10px] text-neutral-400 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-full px-2 py-1 min-w-[24px] flex items-center justify-center transition-colors"
+                                    className="text-[11px] text-neutral-400 hover:text-neutral-800 bg-neutral-100 hover:bg-neutral-200 rounded-full px-2 py-1 min-w-[24px] flex items-center justify-center transition-colors"
                                     title="Add note"
                                 >
                                     +

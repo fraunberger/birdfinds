@@ -115,8 +115,8 @@ export function ComposerOnboardingChecklist({ userId, items, content, onComplete
             {/* Checklist */}
             <div className="flex items-center gap-3">
                 {steps.map(({ id, done }) => (
-                    <label key={id} className={`flex items-center gap-1 text-[9px] uppercase tracking-widest cursor-default select-none transition-colors ${done ? 'text-green-700' : id === activeStep ? 'text-neutral-800 font-bold' : 'text-neutral-400'}`}>
-                        <span className={`inline-flex items-center justify-center w-3.5 h-3.5 border text-[8px] leading-none ${done ? 'border-green-700 bg-green-700 text-white' : id === activeStep ? 'border-neutral-800' : 'border-neutral-300'}`}>
+                    <label key={id} className={`flex items-center gap-1 text-[10px] uppercase tracking-widest cursor-default select-none transition-colors ${done ? 'text-green-700' : id === activeStep ? 'text-neutral-800 font-bold' : 'text-neutral-400'}`}>
+                        <span className={`inline-flex items-center justify-center w-3.5 h-3.5 border text-[9px] leading-none ${done ? 'border-green-700 bg-green-700 text-white' : id === activeStep ? 'border-neutral-800' : 'border-neutral-300'}`}>
                             {done ? '✓' : ''}
                         </span>
                         {STEP_LABELS[id]}
@@ -125,7 +125,7 @@ export function ComposerOnboardingChecklist({ userId, items, content, onComplete
                 <button
                     type="button"
                     onClick={handleSkip}
-                    className="text-[8px] uppercase tracking-widest text-neutral-300 hover:text-neutral-500 ml-1"
+                    className="text-[9px] uppercase tracking-widest text-neutral-300 hover:text-neutral-500 ml-1"
                 >
                     skip
                 </button>
@@ -133,12 +133,12 @@ export function ComposerOnboardingChecklist({ userId, items, content, onComplete
 
             {/* Active hint */}
             {activeStep && !allDone && (
-                <div className="text-[9px] text-neutral-400 leading-snug">
+                <div className="text-[10px] text-neutral-400 leading-snug">
                     {STEP_HINTS[activeStep]}
                 </div>
             )}
             {allDone && (
-                <div className="text-[9px] text-green-700 leading-snug font-bold">
+                <div className="text-[10px] text-green-700 leading-snug font-bold">
                     You&apos;re ready to post!
                 </div>
             )}

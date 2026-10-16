@@ -32,7 +32,7 @@ function PhotoToggle({ url }: { url: string }) {
             <button
                 type="button"
                 onClick={() => setShow(v => !v)}
-                className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors mb-1"
+                className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors mb-1"
             >
                 {show ? 'HIDE PHOTO' : 'SHOW PHOTO'}
             </button>
@@ -182,16 +182,16 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                             {profile.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-neutral-400 text-[8px] font-bold">
+                                <div className="w-full h-full flex items-center justify-center text-neutral-400 text-[9px] font-bold">
                                     {profile.username?.[0]?.toUpperCase() || '?'}
                                 </div>
                             )}
                         </div>
-                        <span className="text-[11px] font-bold text-neutral-700 truncate">
+                        <span className="text-[12px] font-bold text-neutral-700 truncate">
                             {profile.username}
                         </span>
                         {status.babyBirdUrl && (
-                            <span className="text-[9px] uppercase tracking-widest text-neutral-400 ml-1">baby bird</span>
+                            <span className="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">baby bird</span>
                         )}
                     </button>
                 )}
@@ -218,7 +218,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 setShowHabits((prev) => !prev);
                                                 setShowMenu(false);
                                             }}
-                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
+                                            className="block w-full text-left px-2.5 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
                                         >
                                             {showHabits ? 'Hide Habits' : 'Show Habits'}
                                         </button>
@@ -229,7 +229,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 onEdit();
                                                 setShowMenu(false);
                                             }}
-                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+                                            className="block w-full text-left px-2.5 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
                                         >
                                             Edit
                                         </button>
@@ -237,7 +237,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     {isOwn && (
                                         <button
                                             onClick={handleDeletePost}
-                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
+                                            className="block w-full text-left px-2.5 py-2 text-[11px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
                                         >
                                             Delete
                                         </button>
@@ -245,7 +245,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     {isAdmin && !isOwn && (
                                         <button
                                             onClick={handleHidePost}
-                                            className="block w-full text-left px-2.5 py-2 text-[10px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
+                                            className="block w-full text-left px-2.5 py-2 text-[11px] uppercase tracking-widest text-red-600 hover:bg-red-50 border-t border-neutral-200"
                                         >
                                             Hide
                                         </button>
@@ -253,7 +253,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                     {showPostReportButton && !isOwn && user && (
                                         <button
                                             onClick={handleReportPost}
-                                            className="block w-full text-left px-2.5 py-1.5 text-[9px] uppercase tracking-widest text-neutral-300 hover:text-red-400 border-t border-dashed border-neutral-100 mt-2"
+                                            className="block w-full text-left px-2.5 py-1.5 text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-400 border-t border-dashed border-neutral-100 mt-2"
                                         >
                                             Report
                                         </button>
@@ -262,7 +262,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                             )}
                         </div>
                     )}
-                    <span className="text-[10px] text-neutral-400">
+                    <span className="text-[11px] text-neutral-400">
                         {status.bundledDates && status.bundledDates.length > 0
                             ? (() => {
                                 const startDate = new Date([...status.bundledDates].sort()[0]);
@@ -357,7 +357,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                             return (
                                                 <div
                                                     key={`tv-group:${showName}`}
-                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full flex-wrap"
+                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[12px] border min-w-0 max-w-full flex-wrap"
                                                     style={{
                                                         backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
                                                         borderColor: config.color || '#e5e5e5',
@@ -368,7 +368,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                     {hasItemAggregatePage('tv') && (
                                                         <Link
                                                             href={buildItemPath(firstEp)}
-                                                            className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
+                                                            className="inline-flex items-center justify-center h-4 w-4 text-[11px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500"
                                                             title="Open show details"
                                                         >
                                                             ↗
@@ -398,7 +398,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         return (
                                             <div
                                                 key={item.id}
-                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] border min-w-0 max-w-full"
+                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[12px] border min-w-0 max-w-full"
                                                 style={{
                                                     backgroundColor: config.color ? `${config.color}33` : '#f5f5f5',
                                                     borderColor: config.color || '#e5e5e5',
@@ -413,18 +413,18 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                     {item.title}
                                                 </button>
                                                 {isLinked && hasItemAggregatePage(item.category) && (
-                                                    <Link href={buildItemPath(item)} className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open item details" aria-label="Open item details">↗</Link>
+                                                    <Link href={buildItemPath(item)} className="inline-flex items-center justify-center h-4 w-4 text-[11px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open item details" aria-label="Open item details">↗</Link>
                                                 )}
                                                 {linkHref && (
-                                                    <a href={linkHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-4 w-4 text-[10px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open hyperlink" aria-label="Open hyperlink">↗</a>
+                                                    <a href={linkHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-4 w-4 text-[11px] border border-neutral-300 text-neutral-500 hover:text-neutral-800 hover:border-neutral-500" title="Open hyperlink" aria-label="Open hyperlink">↗</a>
                                                 )}
                                                 {item.category === 'restaurant' && RESTAURANT_SUBCATEGORIES.filter((sub) => itemMeta[sub.metaKey]).map((sub) => (
-                                                    <span key={sub.id} className="text-[9px] uppercase tracking-widest text-neutral-500 flex-shrink-0">
+                                                    <span key={sub.id} className="text-[10px] uppercase tracking-widest text-neutral-500 flex-shrink-0">
                                                         {sub.shortLabel.toLowerCase()}
                                                     </span>
                                                 ))}
                                                 {item.rating ? (
-                                                    <span className="text-neutral-500 font-mono ml-1">{item.rating}<span className="text-[9px]">/10</span></span>
+                                                    <span className="text-neutral-500 font-mono ml-1">{item.rating}<span className="text-[10px]">/10</span></span>
                                                 ) : null}
                                             </div>
                                         );
@@ -433,7 +433,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                         <button
                                             type="button"
                                             onClick={() => setShowAllItems(true)}
-                                            className="inline-flex items-center px-1.5 py-0.5 text-[11px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
+                                            className="inline-flex items-center px-1.5 py-0.5 text-[12px] border border-dashed border-neutral-300 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400"
                                         >
                                             +{totalDisplayCount - ITEM_LIMIT} more
                                         </button>
@@ -460,7 +460,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
             <div className="mt-2 pt-2 border-t border-neutral-100">
                 <button
                     onClick={() => setShowComments((prev) => !prev)}
-                    className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                    className="text-[11px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
                 >
                     {showComments ? 'Hide Comments' : `Comments (${status.comments?.length || 0})`}
                 </button>
@@ -470,9 +470,9 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                         {(status.comments || []).map((comment) => (
                             <div key={comment.id} className="border border-neutral-200 p-2">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] uppercase tracking-widest text-neutral-500">{comment.username}</span>
+                                    <span className="text-[11px] uppercase tracking-widest text-neutral-500">{comment.username}</span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-neutral-300">
+                                        <span className="text-[11px] text-neutral-300">
                                             {new Date(comment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                         </span>
                                         {user && (currentUserId === comment.userId || isOwn) && (
@@ -480,7 +480,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                 onClick={async () => {
                                                     await deleteComment(comment.id);
                                                 }}
-                                                className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-red-500"
+                                                className="text-[11px] uppercase tracking-widest text-neutral-300 hover:text-red-500"
                                             >
                                                 Del
                                             </button>
@@ -496,7 +496,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                         pushToast({ message: error instanceof Error ? error.message : 'Failed to report comment', tone: 'error' });
                                                     }
                                                 }}
-                                                className="text-[10px] uppercase tracking-widest text-neutral-300 hover:text-neutral-700"
+                                                className="text-[11px] uppercase tracking-widest text-neutral-300 hover:text-neutral-700"
                                             >
                                                 Report
                                             </button>
@@ -512,7 +512,7 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                                         pushToast({ message: error instanceof Error ? error.message : 'Failed to hide comment', tone: 'error' });
                                                     }
                                                 }}
-                                                className="text-[10px] uppercase tracking-widest text-red-300 hover:text-red-500"
+                                                className="text-[11px] uppercase tracking-widest text-red-300 hover:text-red-500"
                                             >
                                                 Hide
                                             </button>
@@ -549,13 +549,13 @@ export function StatusCard({ status, profile, onClickProfile, isOwn = false, isA
                                 <button
                                     type="submit"
                                     disabled={!commentDraft.trim() || commentSubmitting}
-                                    className="px-3 py-1.5 text-[10px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40"
+                                    className="px-3 py-1.5 text-[11px] uppercase tracking-widest border border-neutral-300 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40"
                                 >
                                     Send
                                 </button>
                             </form>
                         ) : (
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-300">
+                            <div className="text-[11px] uppercase tracking-widest text-neutral-300">
                                 Sign in to comment.
                             </div>
                         )}

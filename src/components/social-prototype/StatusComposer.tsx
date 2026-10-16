@@ -18,9 +18,10 @@ interface StatusComposerProps {
     onEntryModeChange?: (isEntryMode: boolean) => void;
 }
 
-const MAX_TOOLBAR_CATEGORIES = 6;
-const MIN_LOGGED_CATEGORIES_FOR_BAR = 3;
-const TOOLBAR_BUTTON_CLASS = 'shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-neutral-200 transition-colors disabled:opacity-40';
+// Rarely used categories that always sit under MORE (custom ids compared without dashes)
+const MORE_ONLY_CATEGORIES = new Set(['bird', 'wishlist']);
+const isMoreOnlyCategory = (id: string) => MORE_ONLY_CATEGORIES.has(id.toLowerCase().replace(/[^a-z0-9]/g, ''));
+const TOOLBAR_BUTTON_CLASS = 'shrink-0 px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap border-neutral-200 transition-colors disabled:opacity-40';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
@@ -76,8 +77,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     const activeCategories = useMemo(() => userCategories && userCategories.length > 0
         ? userCategories
         : Object.keys(CATEGORY_CONFIGS) as Category[], [userCategories]);
-    // Toolbar shows the most-logged categories (as many as fit, up to a cap);
-    // everything else lives in the MORE dropdown so the bar never scrolls.
+    // Toolbar shows every category that fits, most-logged first; the rest (plus the
+    // MORE-only ones) live in the MORE dropdown so the bar never scrolls.
     const rankedCategoryConfigs = useMemo(() => {
         const counts = new Map<Category, number>();
         for (const item of allLinkedUserItems) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
@@ -85,16 +86,11 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
             .map((id, index) => ({ config: getCategoryConfig(id), count: counts.get(id) ?? 0, index }))
             .sort((a, b) => b.count - a.count || a.index - b.index);
     }, [activeCategories, allLinkedUserItems]);
-    const toolbarCandidateConfigs = useMemo(() => {
-        // Never-logged categories stay in MORE once there are enough logged ones to fill the bar
-        const loggedCount = rankedCategoryConfigs.filter(r => r.count > 0).length;
-        return rankedCategoryConfigs
-            .filter(r => r.count > 0 || loggedCount < MIN_LOGGED_CATEGORIES_FOR_BAR)
-            .slice(0, MAX_TOOLBAR_CATEGORIES)
-            .map(r => r.config);
-    }, [rankedCategoryConfigs]);
+    const toolbarCandidateConfigs = useMemo(() => rankedCategoryConfigs
+        .filter(r => !isMoreOnlyCategory(r.config.id))
+        .map(r => r.config), [rankedCategoryConfigs]);
     const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
-    const [visibleToolbarCount, setVisibleToolbarCount] = useState(MAX_TOOLBAR_CATEGORIES);
+    const [visibleToolbarCount, setVisibleToolbarCount] = useState(Infinity);
     const [showMoreCategories, setShowMoreCategories] = useState(false);
     const toolbarCategoryConfigs = toolbarCandidateConfigs.slice(0, visibleToolbarCount);
     const moreCategoryConfigs = rankedCategoryConfigs
@@ -727,8 +723,8 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     return (
         <div className="mb-6 font-mono">
             <style>{`
-                .composer-text, .highlight-layer { font-size: 14px; }
-                @media (min-width: 640px) { .composer-text, .highlight-layer { font-size: 12px; } }
+                .composer-text, .highlight-layer { font-size: 15px; }
+                @media (min-width: 640px) { .composer-text, .highlight-layer { font-size: 13px; } }
                 ${onboardingActive ? ONBOARDING_PULSE_CSS : ''}
             `}</style>
 
@@ -814,7 +810,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                     pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
                                                 }
                                             }}
-                                            className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
+                                            className="block w-full text-left px-3 py-2 text-[11px] font-mono text-neutral-600 hover:bg-neutral-50">
                                             Convert to log entry
                                         </button>
                                     ) : !activeStatus?.published ? (
@@ -833,7 +829,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                     pushToast({ message: err instanceof Error ? err.message : 'Failed', tone: 'error' });
                                                 }
                                             }}
-                                            className="block w-full text-left px-3 py-2 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50">
+                                            className="block w-full text-left px-3 py-2 text-[11px] font-mono text-neutral-600 hover:bg-neutral-50">
                                             Baby bird
                                         </button>
                                     ) : null}
@@ -843,10 +839,10 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             {hasRealStatus && moveDateOptions.length > 0 && (
                                                 <>
                                                     <div className="border-t border-neutral-100 my-1" />
-                                                    <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Move to</div>
+                                                    <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-neutral-400">Move to</div>
                                                     {moveDateOptions.map(({ date, label, hasUnposted }) => (
                                                         <button key={date} type="button"
-                                                            className="block w-full text-left px-3 py-1.5 text-[10px] font-mono text-neutral-600 hover:bg-neutral-50"
+                                                            className="block w-full text-left px-3 py-1.5 text-[11px] font-mono text-neutral-600 hover:bg-neutral-50"
                                                             onClick={async () => {
                                                                 setShowComposerMenu(false);
                                                                 const warning = `Move this post to ${label}?`
@@ -867,9 +863,9 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             )}
                                             {/* Multi-day */}
                                             <div className="border-t border-neutral-100 my-1" />
-                                            <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">Multi-day</div>
+                                            <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-neutral-400">Multi-day</div>
                                             <button type="button"
-                                                className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${!currentBundle.length ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                                className={`block w-full text-left px-3 py-1.5 text-[11px] font-mono hover:bg-neutral-50 ${!currentBundle.length ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
                                                 onClick={async () => {
                                                     setShowComposerMenu(false);
                                                     if (!hasRealStatus) return;
@@ -887,7 +883,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                 if (hasConflict && !isSelected) return null;
                                                 return (
                                                     <button key={n} type="button"
-                                                        className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
+                                                        className={`block w-full text-left px-3 py-1.5 text-[11px] font-mono hover:bg-neutral-50 ${isSelected ? 'font-bold text-neutral-900' : 'text-neutral-600'}`}
                                                         onClick={async () => {
                                                             setShowComposerMenu(false);
                                                             try {
@@ -920,7 +916,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                     </button>
-                    <span className={`whitespace-nowrap text-[10px] ${draftBadgeTone}`}>{draftBadgeText}</span>
+                    <span className={`whitespace-nowrap text-[11px] ${draftBadgeTone}`}>{draftBadgeText}</span>
                     <div className="relative inline-flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
                         <span className="font-mono text-neutral-500 whitespace-nowrap select-none">
                             {activeStatus?.bundledDates?.length
@@ -954,7 +950,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 className="text-neutral-400 hover:text-neutral-700 text-xl leading-none w-7 h-7 flex items-center justify-center"
                             >×</button>
                         </div>
-                        <div className="px-4 py-4 space-y-4 text-[11px] text-neutral-600 leading-relaxed">
+                        <div className="px-4 py-4 space-y-4 text-[12px] text-neutral-600 leading-relaxed">
                             <p className="font-semibold text-neutral-800 text-xs uppercase tracking-widest">One Post, One Pile, Every Day!</p>
                             <p className="-mt-2">Each day gets one entry. Check the calendar to make sure you're on the right date before starting.</p>
 
@@ -1003,7 +999,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             <div className="border border-neutral-300">
                                 {/* URL display */}
                                 <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center gap-2">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">URL</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">URL</span>
                                     <input
                                         type="url"
                                         value={babyBirdUrlDraft}
@@ -1027,7 +1023,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                             href={babyBirdUrlDraft}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="text-[10px] text-neutral-400 hover:text-neutral-700 shrink-0"
+                                            className="text-[11px] text-neutral-400 hover:text-neutral-700 shrink-0"
                                             title="Open link"
                                         >
                                             ↗
@@ -1036,7 +1032,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 </div>
                                 {/* Link label input */}
                                 <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center gap-2">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">LABEL</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 shrink-0">LABEL</span>
                                     <input
                                         type="text"
                                         value={babyBirdLinkLabelDraft}
@@ -1074,7 +1070,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
                                 </div>
                                 {items.length > 0 && (
-                                    <span className="text-[9px] uppercase tracking-widest text-neutral-400 whitespace-nowrap">
+                                    <span className="text-[10px] uppercase tracking-widest text-neutral-400 whitespace-nowrap">
                                         {items.length} tag{items.length !== 1 ? 's' : ''} (pile only)
                                     </span>
                                 )}
@@ -1117,7 +1113,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                     }}
                                     disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges && babyBirdUrlDraft === (activeStatus?.babyBirdUrl || '') && babyBirdLinkLabelDraft === (activeStatus?.babyBirdLinkLabel || '')) || isFuturePost || isEditExpired}
                                     title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
-                                    className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                                    className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[11px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                                 >
                                     {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges || babyBirdUrlDraft !== (activeStatus?.babyBirdUrl || '') || babyBirdLinkLabelDraft !== (activeStatus?.babyBirdLinkLabel || '') ? 'UPDATE POST' : 'POSTED') : 'POST')}
                                 </button>
@@ -1174,14 +1170,14 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             <div className="ml-auto flex items-stretch min-w-0">
                                 {tagging.selectedText && (
                                     <div className="min-w-0 self-center overflow-hidden">
-                                        <div className="px-2 truncate text-[9px] uppercase tracking-widest text-neutral-600">
+                                        <div className="px-2 truncate text-[10px] uppercase tracking-widest text-neutral-600">
                                             TEXT SELECTED → TAP A CATEGORY
                                         </div>
                                     </div>
                                 )}
                                 {!tagging.selectedText && tagging.atPrefixText && (
                                     <div className="min-w-0 self-center overflow-hidden">
-                                        <div className="px-2 truncate text-[9px] uppercase tracking-widest text-neutral-500">
+                                        <div className="px-2 truncate text-[10px] uppercase tracking-widest text-neutral-500">
                                             @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
                                         </div>
                                     </div>
@@ -1213,7 +1209,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                                         onPointerDown={(e) => e.preventDefault()}
                                                         disabled={tagging.busy}
                                                         title={cat.label}
-                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
+                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-widest text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
                                                     >
                                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color || '#d4d4d4' }} />
                                                         {cat.shortLabel}
@@ -1276,7 +1272,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 <button
                                     type="button"
                                     onClick={handleDeletePhoto}
-                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-neutral-900 text-white rounded-full text-[10px] flex items-center justify-center hover:bg-red-600 transition-colors"
+                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-neutral-900 text-white rounded-full text-[11px] flex items-center justify-center hover:bg-red-600 transition-colors"
                                     title="Remove photo"
                                 >
                                     &times;
@@ -1287,7 +1283,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                                 type="button"
                                 onClick={() => photoInputRef.current?.click()}
                                 disabled={isUploadingPhoto || isFuturePost || isEditExpired}
-                                className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 {isUploadingPhoto ? 'UPLOADING...' : '+ PHOTO'}
                             </button>
@@ -1309,7 +1305,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             <HabitChecklist date={activeDate} bundledDates={activeStatus?.bundledDates} />
                         </div>
                         {items.length > 0 && items.some(i => !isItemFilled(i)) && (
-                            <span className="text-[9px] uppercase tracking-widest text-amber-700 whitespace-nowrap">
+                            <span className="text-[10px] uppercase tracking-widest text-amber-700 whitespace-nowrap">
                                 {items.filter(i => !isItemFilled(i)).length} unfilled
                             </span>
                         )}
@@ -1348,7 +1344,7 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                             }}
                             disabled={isPosting || (!!activeStatus?.published && !hasDraftChanges) || isFuturePost || isEditExpired}
                             title={isFuturePost ? "You can't post until this date arrives" : isEditExpired ? "Posts can't be edited after 30 days" : undefined}
-                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[10px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
+                            className={`ml-auto shrink-0 px-4 py-2.5 sm:py-2 text-[11px] font-bold uppercase tracking-widest transition-colors border whitespace-nowrap touch-manipulation select-none active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${isFuturePost || isEditExpired ? 'bg-neutral-400 text-white border-neutral-400' : activeStatus?.published ? 'bg-green-700 text-white border-green-700 hover:bg-green-800' : 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-700'}`}
                         >
                             {isPosting ? 'POSTING…' : (activeStatus?.published ? (hasDraftChanges ? 'UPDATE POST' : 'POSTED') : 'POST')}
                         </button>

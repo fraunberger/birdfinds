@@ -342,7 +342,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         </div>
 
                         <div className="p-4 space-y-6 overflow-y-auto flex-1">
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-500">Live Card Preview</div>
+                            <div className="text-[11px] uppercase tracking-widest text-neutral-500">Live Card Preview</div>
                             <div className="border border-neutral-300 p-3">
                                 <div className="flex gap-4">
                                     <div className="flex-1 space-y-4">
@@ -382,7 +382,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                                                 value={editingConfig.ratingLabel}
                                                 onChange={(e) => updateCategoryConfig(editingCategory, { ratingLabel: e.target.value })}
                                                 placeholder="Rating"
-                                                className="text-[10px] font-bold uppercase tracking-wide text-neutral-900 mt-0.5 w-full text-center bg-transparent outline-none"
+                                                className="text-[11px] font-bold uppercase tracking-wide text-neutral-900 mt-0.5 w-full text-center bg-transparent outline-none"
                                             />
                                         </div>
                                     </div>
@@ -406,7 +406,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         </div>
 
                         <div className="px-4 pb-4">
-                            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">Color</div>
+                            <div className="text-[11px] uppercase tracking-widest text-neutral-500 mb-2">Color</div>
                             <div className="flex flex-wrap gap-1.5">
                                 {[
                                     // Reds
@@ -457,7 +457,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                                         }}
                                     >
                                         {(editingConfig.color || '#d4d4d4') === c && (
-                                            <span className="text-[10px] font-bold" style={{ color: parseInt(c.slice(1), 16) > 0xaaaaaa ? '#000' : '#fff' }}>✓</span>
+                                            <span className="text-[11px] font-bold" style={{ color: parseInt(c.slice(1), 16) > 0xaaaaaa ? '#000' : '#fff' }}>✓</span>
                                         )}
                                     </button>
                                 ))}
@@ -572,7 +572,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                                 <button
                                     key={cat}
                                     onClick={() => setEditingCategory(cat)}
-                                    className="w-full text-left px-3 py-2 border border-neutral-300 text-[11px] uppercase tracking-wider text-neutral-600 hover:border-neutral-500"
+                                    className="w-full text-left px-3 py-2 border border-neutral-300 text-[12px] uppercase tracking-wider text-neutral-600 hover:border-neutral-500"
                                 >
                                     Edit {buildEditableConfig(cat).label} card layout
                                 </button>
@@ -586,7 +586,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
                             Toolbar Order
                         </label>
-                        <p className="text-[10px] text-neutral-400 uppercase tracking-widest mb-2">
+                        <p className="text-[11px] text-neutral-400 uppercase tracking-widest mb-2">
                             LINK is always first. First 6 below show as buttons; rest go in ▾ overflow.
                         </p>
                         <div className="space-y-1">
@@ -594,12 +594,12 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                                 const config = getCategoryConfig(cat);
                                 const isPinned = idx < 6;
                                 return (
-                                    <div key={cat} className={`flex items-center gap-2 px-2 py-1.5 border text-[11px] uppercase tracking-widest ${isPinned ? 'border-neutral-300 bg-white text-neutral-700' : 'border-neutral-200 bg-neutral-50 text-neutral-400'}`}>
+                                    <div key={cat} className={`flex items-center gap-2 px-2 py-1.5 border text-[12px] uppercase tracking-widest ${isPinned ? 'border-neutral-300 bg-white text-neutral-700' : 'border-neutral-200 bg-neutral-50 text-neutral-400'}`}>
                                         <span className="flex-1 truncate">
-                                            {isPinned && <span className="mr-1 text-[9px] text-neutral-400">{idx + 1}.</span>}
+                                            {isPinned && <span className="mr-1 text-[10px] text-neutral-400">{idx + 1}.</span>}
                                             {config.icon && <span className="mr-1">{config.icon}</span>}
                                             {config.label}
-                                            {!isPinned && <span className="ml-1 text-[9px]">(overflow)</span>}
+                                            {!isPinned && <span className="ml-1 text-[10px]">(overflow)</span>}
                                         </span>
                                         <div className="flex gap-1">
                                             <button
@@ -689,7 +689,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         >
                             <span className="text-sm">Public</span>
                             <span className="uppercase tracking-wider font-bold">Public Mode</span>
-                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            <span className="ml-auto text-[11px] text-neutral-400 normal-case tracking-normal">
                                 Anyone can view
                             </span>
                         </button>
@@ -702,7 +702,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         >
                             <span className="text-sm">Accounts</span>
                             <span className="uppercase tracking-wider font-bold">Accounts Only</span>
-                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            <span className="ml-auto text-[11px] text-neutral-400 normal-case tracking-normal">
                                 Signed-in users only
                             </span>
                         </button>
@@ -715,7 +715,7 @@ export function UserSetup({ onComplete, isOnboarding = false, showPrivacy = true
                         >
                             <span className="text-sm">Private</span>
                             <span className="uppercase tracking-wider font-bold">Private Mode</span>
-                            <span className="ml-auto text-[10px] text-neutral-400 normal-case tracking-normal">
+                            <span className="ml-auto text-[11px] text-neutral-400 normal-case tracking-normal">
                                 Only you can view
                             </span>
                         </button>

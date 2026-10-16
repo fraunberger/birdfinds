@@ -175,12 +175,12 @@ export function ComposerItemTable({
     return (
         <div className={`border bg-white overflow-x-auto transition-colors ${isLinkingMode ? 'border-amber-500 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]' : 'border-neutral-300'}`}>
             {isLinkingMode && (
-                <div className="px-2 py-1 border-b border-amber-300 bg-amber-50 text-[10px] font-bold uppercase tracking-widest text-amber-800">
+                <div className="px-2 py-1 border-b border-amber-300 bg-amber-50 text-[11px] font-bold uppercase tracking-widest text-amber-800">
                     Link mode active — tap any row to link
                 </div>
             )}
             <table className="w-full text-xs font-mono border-collapse">
-                <thead className="bg-neutral-100 text-neutral-600 uppercase text-[10px]">
+                <thead className="bg-neutral-100 text-neutral-600 uppercase text-[11px]">
                     <tr>
                         <th className="px-2 py-1 text-left border-b border-r border-neutral-300 w-14">Type</th>
                         <th className="px-2 py-1 text-left border-b border-r border-neutral-300">Title</th>
@@ -210,7 +210,7 @@ export function ComposerItemTable({
                                     className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
                                 >
                                     <td
-                                        className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                        className="px-2 py-1 border-b border-r border-neutral-200 text-[11px] font-bold"
                                         style={{ backgroundColor: config.color || undefined }}
                                         onPointerUp={(e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); handleGroupClick(); } }}
                                         onClick={(e) => { e.stopPropagation(); handleGroupClick(); }}
@@ -238,7 +238,7 @@ export function ComposerItemTable({
                                             — {episodes.map(ep => ep.subtitle?.replace(/\s*-\s*.*$/, '') || '?').join(', ')}
                                         </span>
                                         {isLinkingMode && (
-                                            <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
+                                            <span className="ml-2 inline-block text-[10px] uppercase tracking-widest text-amber-700">tap to link</span>
                                         )}
                                     </td>
                                     <td
@@ -246,7 +246,7 @@ export function ComposerItemTable({
                                         onPointerUp={(e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); handleGroupClick(); } }}
                                         onClick={(e) => { e.stopPropagation(); handleGroupClick(); }}
                                     >
-                                        {firstEp.rating ? <span>{firstEp.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
+                                        {firstEp.rating ? <span>{firstEp.rating}<span className="text-neutral-400 text-[9px]">/10</span></span> : '—'}
                                     </td>
                                     <td className="px-2 py-1 border-b border-neutral-200 text-center">
                                         <button
@@ -256,7 +256,7 @@ export function ComposerItemTable({
                                             disabled={anyRemoving}
                                             aria-label={`Delete ${showName} episodes`}
                                             title={`Delete all ${episodes.length} episodes`}
-                                            className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[12px] leading-none"
+                                            className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[13px] leading-none"
                                         >
                                             {anyRemoving ? '…' : '×'}
                                         </button>
@@ -274,7 +274,7 @@ export function ComposerItemTable({
                                 className={`cursor-pointer active:bg-neutral-100 touch-manipulation ${isLinkingMode ? 'bg-amber-50/40 hover:bg-amber-100/60' : 'hover:bg-neutral-50'}`}
                             >
                                 <td
-                                    className="px-2 py-1 border-b border-r border-neutral-200 text-[10px] font-bold"
+                                    className="px-2 py-1 border-b border-r border-neutral-200 text-[11px] font-bold"
                                     style={{ backgroundColor: config.color || undefined }}
                                     onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
                                     onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
@@ -297,7 +297,7 @@ export function ComposerItemTable({
                                             border: `1.5px solid ${config.color || '#d4d4d4'}`,
                                         }} />
                                         {!isLinked && (
-                                            <span className="font-normal text-neutral-400 tracking-wider text-[9px] uppercase">UNFILLED ·</span>
+                                            <span className="font-normal text-neutral-400 tracking-wider text-[10px] uppercase">UNFILLED ·</span>
                                         )}
                                         {item.category === 'beer' && !item.title.trim() ? (item.subtitle || 'Untitled') : item.title}
                                     </span>
@@ -306,7 +306,7 @@ export function ComposerItemTable({
                                         : item.subtitle && <span className="text-neutral-400 ml-1 font-normal">— {item.subtitle}</span>
                                     }
                                     {isLinkingMode && (
-                                        <span className="ml-2 inline-block text-[9px] uppercase tracking-widest text-amber-700">tap to link</span>
+                                        <span className="ml-2 inline-block text-[10px] uppercase tracking-widest text-amber-700">tap to link</span>
                                     )}
                                 </td>
                                 <td
@@ -314,7 +314,7 @@ export function ComposerItemTable({
                                     onPointerUp={async (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') { e.stopPropagation(); await handleRowAction(item); } }}
                                     onClick={async (e) => { e.stopPropagation(); await handleRowAction(item); }}
                                 >
-                                    {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[8px]">/10</span></span> : '—'}
+                                    {item.rating ? <span>{item.rating}<span className="text-neutral-400 text-[9px]">/10</span></span> : '—'}
                                 </td>
                                 <td className="px-2 py-1 border-b border-neutral-200 text-center">
                                     {!isMobileTagging && canLinkFromTable && (
@@ -324,7 +324,7 @@ export function ComposerItemTable({
                                                 try { await onLinkItem(item); }
                                                 catch (error: unknown) { pushToast({ message: `Failed to link item: ${getErrorMessage(error)}`, tone: 'error' }); }
                                             }}
-                                            className="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
+                                            className="text-[11px] uppercase tracking-widest text-neutral-400 hover:text-neutral-700 px-1"
                                             title={selectedPlainText.trim() ? `Link "${selectedPlainText.trim()}" to this item` : 'Insert into post text'}
                                         >
                                             link
@@ -337,7 +337,7 @@ export function ComposerItemTable({
                                         disabled={isRemoving}
                                         aria-label={`Delete ${item.title}`}
                                         title={`Delete ${item.title}`}
-                                        className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[12px] leading-none"
+                                        className="text-neutral-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 text-[13px] leading-none"
                                     >
                                         {isRemoving ? '…' : '×'}
                                     </button>
@@ -351,7 +351,7 @@ export function ComposerItemTable({
                             <select
                                 value={effectiveQuickAddCategory}
                                 onChange={(e) => setQuickAddCategory(e.target.value as Category)}
-                                className="w-full bg-transparent text-[10px] outline-none cursor-pointer px-1 py-1 text-neutral-500 h-full"
+                                className="w-full bg-transparent text-[11px] outline-none cursor-pointer px-1 py-1 text-neutral-500 h-full"
                             >
                                 {activeCategoryConfigs.map(c => (
                                     <option key={c.id} value={c.id}>{c.shortLabel}</option>
@@ -365,7 +365,7 @@ export function ComposerItemTable({
                                 onChange={(e) => setQuickAddTitle(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAddRow(); }}
                                 placeholder={effectiveQuickAddCategory === 'beer' ? 'Add brewery...' : 'Add new entry...'}
-                                className="w-full bg-transparent outline-none text-[14px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
+                                className="w-full bg-transparent outline-none text-[15px] sm:text-xs placeholder:text-neutral-300 px-1 py-1"
                             />
                         </td>
                         <td className="px-2 py-1 text-center" colSpan={2}>

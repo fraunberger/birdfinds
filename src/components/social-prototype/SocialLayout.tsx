@@ -290,7 +290,7 @@ export function SocialLayout() {
 
   if (authLoading || profileLoading) {
     return (
-      <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
         <div className="text-neutral-400 text-xs uppercase tracking-widest">Loading...</div>
       </div>
     );
@@ -322,7 +322,7 @@ export function SocialLayout() {
     : "/";
 
   return (
-    <div className="min-h-screen bg-white font-mono text-neutral-900">
+    <div className="bf-type min-h-screen bg-white font-mono text-neutral-900">
       <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 min-h-screen flex flex-col">
         <header className="relative z-40 flex items-center justify-between mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
           <div className="flex items-center gap-4">
@@ -340,11 +340,11 @@ export function SocialLayout() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-neutral-300" />
                   ) : (
-                    <span className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-[10px] font-bold text-neutral-500 border border-neutral-300">
+                    <span className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-[11px] font-bold text-neutral-500 border border-neutral-300">
                       {userDisplay.charAt(0).toUpperCase()}
                     </span>
                   )}
-                  <span className="text-[10px] uppercase tracking-widest text-neutral-500">{userDisplay}</span>
+                  <span className="text-[11px] uppercase tracking-widest text-neutral-500">{userDisplay}</span>
                 </Link>
                 <AccountMenu
                   pileHref={pileHref}
@@ -378,13 +378,13 @@ export function SocialLayout() {
 
         <main className="flex-grow">
           {!user && (
-            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[10px] uppercase tracking-widest text-neutral-600">
+            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[11px] uppercase tracking-widest text-neutral-600">
               Sign in to post and comment.
             </div>
           )}
 
           {showAbout && (
-            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[10px] uppercase tracking-widest text-neutral-600">
+            <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-[11px] uppercase tracking-widest text-neutral-600">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-bold text-neutral-700">About Birdfinds</p>
@@ -425,7 +425,7 @@ export function SocialLayout() {
                       router.replace("/");
                     }
                   }}
-                  className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                  className="text-[11px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
                 >
                   Close
                 </button>
@@ -436,10 +436,10 @@ export function SocialLayout() {
           {showOnboardingChecklist && (
             <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest">Finish Setting Up</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest">Finish Setting Up</p>
                 <button
                   onClick={handleDismissOnboardingChecklist}
-                  className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
+                  className="text-[11px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800"
                 >
                   Hide
                 </button>
@@ -458,7 +458,7 @@ export function SocialLayout() {
                   {stepThreeComplete ? "✓" : "□"} 3. Choose categories
                 </li>
               </ol>
-              <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest">
                 <Link href="/settings/profile-setup" className="border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 font-bold">
                   Continue Setup
                 </Link>
@@ -470,13 +470,13 @@ export function SocialLayout() {
             <>
               {needsFirstPost && (
                 <div className="mb-4 border border-neutral-300 bg-neutral-50 p-3 text-neutral-700">
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Your First Post</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest">Your First Post</p>
                   <div className="mt-2 space-y-1.5 text-xs text-neutral-600">
                     <p>
                       Open the composer below to write your first daily status. A quick walkthrough will explain how to tag your finds, fill out cards, and link items to your text.
                     </p>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest">
                     <button
                       onClick={() => {
                         const target = document.getElementById("first-post-composer");
@@ -514,7 +514,7 @@ export function SocialLayout() {
               href="https://birdpile.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
+              className="inline-block border border-neutral-300 px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-600 hover:text-neutral-900 hover:border-neutral-500"
             >
               Visit the Birdpile
             </a>
@@ -525,11 +525,11 @@ export function SocialLayout() {
 
       <nav className="fixed bottom-0 inset-x-0 border-t border-neutral-300 bg-white/95 backdrop-blur sm:hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-3">
-          <Link href="/" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Feed</Link>
-          <Link href={pileHref} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href="/" className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">Feed</Link>
+          <Link href={pileHref} className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">
             My Pile
           </Link>
-          <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">
             Menu
           </Link>
         </div>

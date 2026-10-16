@@ -65,7 +65,7 @@ export function AccountMenu({
         </div>
       </button>
       {totalBadgeCount > 0 && (
-        <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full text-white text-[9px] leading-[14px] text-center font-bold ${badgeClass}`}>
+        <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full text-white text-[10px] leading-[14px] text-center font-bold ${badgeClass}`}>
           {totalBadgeCount > 99 ? "99+" : totalBadgeCount}
         </span>
       )}
@@ -80,21 +80,21 @@ export function AccountMenu({
               }
               setOpen(false);
             }}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
+            className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100"
           >
             My Pile
           </Link>
           <Link
             href="/"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             Feed
           </Link>
           <div className="border-t border-neutral-200">
             <button
               onClick={() => setCommentsOpen((prev) => !prev)}
-              className={`flex w-full items-center justify-between px-3 py-2 text-[10px] uppercase tracking-widest hover:bg-neutral-100 ${
+              className={`flex w-full items-center justify-between px-3 py-2 text-[11px] uppercase tracking-widest hover:bg-neutral-100 ${
                 commentCount > 0
                   ? "bg-green-50 text-green-700"
                   : "text-neutral-700"
@@ -126,22 +126,22 @@ export function AccountMenu({
                     className="block w-full text-left px-3 py-2 border-t border-neutral-100 hover:bg-neutral-100"
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <div className="text-[10px] uppercase tracking-widest text-neutral-700 truncate">
+                      <div className="text-[11px] uppercase tracking-widest text-neutral-700 truncate">
                         {notification.fromUsername}
                       </div>
                       {notification.statusDate && (
-                        <div className="text-[9px] text-neutral-400 shrink-0 normal-case tracking-normal">
+                        <div className="text-[10px] text-neutral-400 shrink-0 normal-case tracking-normal">
                           {notification.statusDate}
                         </div>
                       )}
                     </div>
                     {notification.type === "on_commented_post" && (
-                      <div className="mt-0.5 text-[9px] uppercase tracking-widest text-neutral-400">
+                      <div className="mt-0.5 text-[10px] uppercase tracking-widest text-neutral-400">
                         also commented
                       </div>
                     )}
                     {notification.content && (
-                      <div className="mt-0.5 text-[10px] text-neutral-500 truncate normal-case tracking-normal">
+                      <div className="mt-0.5 text-[11px] text-neutral-500 truncate normal-case tracking-normal">
                         {notification.content.length > 55 ? `${notification.content.slice(0, 55)}…` : notification.content}
                       </div>
                     )}
@@ -150,7 +150,7 @@ export function AccountMenu({
                 {!showAllComments && commentNotifications.length > 2 && (
                   <button
                     onClick={() => setShowAllComments(true)}
-                    className="block w-full text-left px-3 py-2 border-t border-neutral-100 text-[10px] uppercase tracking-widest text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                    className="block w-full text-left px-3 py-2 border-t border-neutral-100 text-[11px] uppercase tracking-widest text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
                   >
                     View {commentNotifications.length - 2} more
                   </button>
@@ -158,7 +158,7 @@ export function AccountMenu({
               </>
             )}
             {commentsOpen && commentNotifications.length === 0 && (
-              <div className="px-3 py-2 border-t border-neutral-100 text-[10px] text-neutral-400 normal-case tracking-normal">
+              <div className="px-3 py-2 border-t border-neutral-100 text-[11px] text-neutral-400 normal-case tracking-normal">
                 No comments yet
               </div>
             )}
@@ -166,14 +166,14 @@ export function AccountMenu({
           <Link
             href="/settings/profile-setup"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             Profile Setup
           </Link>
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             Settings
           </Link>
@@ -181,7 +181,7 @@ export function AccountMenu({
             <Link
               href="/moderation"
               onClick={() => setOpen(false)}
-              className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+              className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
             >
               Moderation
             </Link>
@@ -197,7 +197,7 @@ export function AccountMenu({
                 router.push("/");
               }
             }}
-            className="block w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block w-full text-left px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             About Birdfinds
           </button>
@@ -206,7 +206,7 @@ export function AccountMenu({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             Visit the Birdpile
           </a>
@@ -217,7 +217,7 @@ export function AccountMenu({
               router.push("/");
               router.refresh();
             }}
-            className="block w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
+            className="block w-full text-left px-3 py-2 text-[11px] uppercase tracking-widest text-neutral-700 hover:bg-neutral-100 border-t border-neutral-200"
           >
             Sign out
           </button>

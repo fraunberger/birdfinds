@@ -101,7 +101,7 @@ export default function PilePage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white font-mono flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono flex items-center justify-center">
         <div className="text-xs uppercase tracking-widest text-neutral-400">Loading pile...</div>
       </div>
     );
@@ -109,7 +109,7 @@ export default function PilePage({
 
   if (notFound || !resolvedUser) {
     return (
-      <div className="min-h-screen bg-white font-mono flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono flex items-center justify-center">
         <div className="text-center">
           <p className="text-xs uppercase tracking-widest text-neutral-400 mb-4">Pile not found</p>
           <Link href="/" className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900">
@@ -121,7 +121,7 @@ export default function PilePage({
   }
 
   return (
-    <div className="min-h-screen bg-white font-mono text-neutral-900">
+    <div className="bf-type min-h-screen bg-white font-mono text-neutral-900">
       <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 pb-24 sm:pb-6">
         <header className="mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4 flex items-center justify-between">
           <Link href="/" className="relative w-14 h-9 block hover:opacity-80 transition-opacity">
@@ -145,17 +145,17 @@ export default function PilePage({
           onClickProfile={handleClickProfile}
           onSettings={() => router.push("/settings")}
         />
-        <footer className="mt-12 pt-6 border-t border-neutral-200 text-center text-[10px] uppercase tracking-widest text-neutral-300">
+        <footer className="mt-12 pt-6 border-t border-neutral-200 text-center text-[11px] uppercase tracking-widest text-neutral-300">
           Copyright Birdfinds {new Date().getFullYear()}
         </footer>
       </div>
       <nav className="fixed bottom-0 inset-x-0 border-t border-neutral-300 bg-white/95 backdrop-blur sm:hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-3">
-          <Link href="/" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Feed</Link>
-          <Link href={pileHref} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href="/" className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">Feed</Link>
+          <Link href={pileHref} className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">
             My Pile
           </Link>
-          <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">
+          <Link href={user ? "/settings" : "/"} className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">
             Menu
           </Link>
         </div>

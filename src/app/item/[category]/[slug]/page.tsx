@@ -330,14 +330,14 @@ export default function ItemPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white font-mono flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono flex items-center justify-center">
         <div className="text-xs uppercase tracking-widest text-neutral-400">Loading item...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white font-mono text-neutral-900">
+    <div className="bf-type min-h-screen bg-white font-mono text-neutral-900">
       <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 pb-24 sm:pb-6">
         <header className="mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4">
           <Link href="/" className="text-xs uppercase tracking-widest text-neutral-500 hover:text-neutral-900">
@@ -348,7 +348,7 @@ export default function ItemPage({
         <section className="border border-neutral-200 bg-white px-4 py-4 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '3px' }}>
           <div className="flex gap-4">
               <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
+              <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: categoryConfig.color }}>{categoryConfig.label}</p>
               <h1 className="text-xl font-bold uppercase tracking-tight">{title}</h1>
               {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-neutral-600">
@@ -400,7 +400,7 @@ export default function ItemPage({
                     <div key={ep.name} className="border border-neutral-200 bg-white px-4 py-3" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-xs font-bold text-neutral-800">{ep.name}</p>
-                        <div className="text-[10px] uppercase tracking-widest text-neutral-500 flex-shrink-0">
+                        <div className="text-[11px] uppercase tracking-widest text-neutral-500 flex-shrink-0">
                           {ep.count} {ep.count === 1 ? 'listener' : 'listeners'}
                           {ep.avg !== null ? ` · avg ${ep.avg.toFixed(1)}` : ''}
                         </div>
@@ -410,16 +410,16 @@ export default function ItemPage({
                           <div key={`${ep.name}-${u.userId}`} className="flex items-start justify-between gap-2">
                             <Link
                               href={`/pile/${encodeURIComponent(u.userId)}`}
-                              className="text-[11px] font-bold text-neutral-600 hover:text-neutral-900"
+                              className="text-[12px] font-bold text-neutral-600 hover:text-neutral-900"
                             >
                               @{u.username}
                             </Link>
                             <div className="text-right">
-                              <span className="text-[10px] uppercase tracking-widest text-neutral-400">
+                              <span className="text-[11px] uppercase tracking-widest text-neutral-400">
                                 {typeof u.rating === 'number' ? `${u.rating}/10` : 'no rating'}
                               </span>
                               {u.notes && (
-                                <p className="text-[10px] text-neutral-500 mt-0.5 max-w-xs text-right whitespace-pre-wrap">
+                                <p className="text-[11px] text-neutral-500 mt-0.5 max-w-xs text-right whitespace-pre-wrap">
                                   &ldquo;{u.notes}&rdquo;
                                 </p>
                               )}
@@ -445,11 +445,11 @@ export default function ItemPage({
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <Link
                           href={`/pile/${encodeURIComponent(u.userId)}`}
-                          className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900"
+                          className="text-[12px] font-bold text-neutral-700 hover:text-neutral-900"
                         >
                           @{u.username}
                         </Link>
-                        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+                        <span className="text-[11px] uppercase tracking-widest text-neutral-500">
                           {u.count} {u.count === 1 ? (categoryConfig.childLabel ?? 'item') : (categoryConfig.childLabel ? categoryConfig.childLabel + 's' : 'items')}
                         </span>
                       </div>
@@ -458,11 +458,11 @@ export default function ItemPage({
                           <div key={`${u.userId}-${idx}`} className="pt-1.5 border-t border-neutral-100 first:border-t-0 first:pt-0">
                             <p className="text-xs text-neutral-700 leading-tight">{ep.title}</p>
                             <div className="mt-0.5 flex items-start justify-between gap-2">
-                              <span className="text-[10px] uppercase tracking-widest text-neutral-400 shrink-0">
+                              <span className="text-[11px] uppercase tracking-widest text-neutral-400 shrink-0">
                                 {typeof ep.rating === 'number' ? `${ep.rating}/10` : '—'}
                               </span>
                               {ep.notes && (
-                                <p className="text-[10px] text-neutral-500 text-right whitespace-pre-wrap">
+                                <p className="text-[11px] text-neutral-500 text-right whitespace-pre-wrap">
                                   &ldquo;{ep.notes}&rdquo;
                                 </p>
                               )}
@@ -509,7 +509,7 @@ export default function ItemPage({
 
             return (
               <section key={u.username} className="border border-neutral-200 bg-white px-4 py-3 mb-4" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">@{u.username} — Reading Progress</p>
+                <p className="text-[11px] uppercase tracking-widest text-neutral-500 mb-2">@{u.username} — Reading Progress</p>
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
                   {/* Grid line at max */}
                   <line x1={PAD.l} y1={PAD.t} x2={W - PAD.r} y2={PAD.t} stroke="#e5e5e5" strokeWidth="1" />
@@ -533,7 +533,7 @@ export default function ItemPage({
                     </text>
                   ))}
                 </svg>
-                <div className="mt-1 flex gap-3 text-[10px] uppercase tracking-widest text-neutral-500">
+                <div className="mt-1 flex gap-3 text-[11px] uppercase tracking-widest text-neutral-500">
                   <span>{sorted.length} {sorted.length === 1 ? 'log' : 'logs'}</span>
                   {sorted.at(-1)?.total && <span>of {sorted.at(-1)!.total} pages</span>}
                   {sorted.some((l) => l.finished) && <span className="text-neutral-800">Finished</span>}
@@ -546,7 +546,7 @@ export default function ItemPage({
         {/* People You Follow — single-entity categories only */}
         {!isParentChildPage && followingIds.length > 0 && (
           <section className="border border-neutral-200 bg-white px-4 py-4 mb-4">
-            <h2 className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3">People You Follow</h2>
+            <h2 className="text-[11px] uppercase tracking-widest text-neutral-500 mb-3">People You Follow</h2>
             {friendReviews.length === 0 ? (
               <p className="text-xs text-neutral-400 uppercase tracking-widest">Nobody you follow has reviewed this yet.</p>
             ) : (
@@ -554,10 +554,10 @@ export default function ItemPage({
                 {friendReviews.map((review) => (
                   <div key={`friend-${review.item.id}`} className="border border-neutral-200 px-3 py-2" style={{ borderLeftColor: categoryConfig.color, borderLeftWidth: '2px' }}>
                     <div className="flex items-center justify-between">
-                      <Link href={`/pile/${encodeURIComponent(review.userId)}`} className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900">
+                      <Link href={`/pile/${encodeURIComponent(review.userId)}`} className="text-[12px] font-bold text-neutral-700 hover:text-neutral-900">
                         {review.username}
                       </Link>
-                      <span className="text-[10px] uppercase tracking-widest text-neutral-400">
+                      <span className="text-[11px] uppercase tracking-widest text-neutral-400">
                         {typeof review.item.rating === "number" ? `${review.item.rating}/10` : "No rating"}
                       </span>
                     </div>
@@ -588,11 +588,11 @@ export default function ItemPage({
                 <div className="flex items-center justify-between">
                   <Link
                     href={`/pile/${encodeURIComponent(review.userId)}`}
-                    className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900"
+                    className="text-[12px] font-bold text-neutral-700 hover:text-neutral-900"
                   >
                     {review.username}
                   </Link>
-                  <div className="text-[10px] text-neutral-400">
+                  <div className="text-[11px] text-neutral-400">
                     {new Date(review.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </div>
                 </div>
@@ -607,14 +607,14 @@ export default function ItemPage({
           </section>
         )}
 
-        <footer className="mt-12 pt-6 border-t border-neutral-200 text-center text-[10px] uppercase tracking-widest text-neutral-300">
+        <footer className="mt-12 pt-6 border-t border-neutral-200 text-center text-[11px] uppercase tracking-widest text-neutral-300">
           Copyright Birdfinds {new Date().getFullYear()}
         </footer>
       </div>
       <nav className="fixed bottom-0 inset-x-0 border-t border-neutral-300 bg-white/95 backdrop-blur sm:hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-2">
-          <Link href="/" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Feed</Link>
-          <Link href="/settings" className="py-2 text-center text-[10px] uppercase tracking-widest text-neutral-600">Menu</Link>
+          <Link href="/" className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">Feed</Link>
+          <Link href="/settings" className="py-2 text-center text-[11px] uppercase tracking-widest text-neutral-600">Menu</Link>
         </div>
       </nav>
     </div>

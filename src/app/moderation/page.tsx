@@ -115,7 +115,7 @@ export default function ModerationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
         <div className="text-neutral-400 text-xs uppercase tracking-widest">Loading...</div>
       </div>
     );
@@ -123,7 +123,7 @@ export default function ModerationPage() {
 
   if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
+      <div className="bf-type min-h-screen bg-white font-mono text-neutral-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-xs uppercase tracking-widest text-neutral-400 mb-3">Admin only</p>
           <Link href="/" className="text-xs uppercase tracking-widest text-neutral-600 hover:text-neutral-900">
@@ -142,7 +142,7 @@ export default function ModerationPage() {
       : "/settings";
 
   return (
-    <div className="min-h-screen bg-white font-mono text-neutral-900">
+    <div className="bf-type min-h-screen bg-white font-mono text-neutral-900">
       <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 pb-24 sm:pb-8">
         <header className="mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4 flex items-center justify-between">
           <Link href="/" className="relative w-14 h-9 block hover:opacity-80 transition-opacity">
@@ -164,20 +164,20 @@ export default function ModerationPage() {
             <h1 className="text-xs uppercase tracking-widest text-neutral-600">Moderation Queue</h1>
             <button
               onClick={() => void reload()}
-              className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+              className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
             >
               Refresh
             </button>
           </div>
 
           {fetching && (
-            <div className="border border-neutral-200 bg-neutral-50 px-3 py-4 text-[10px] uppercase tracking-widest text-neutral-400">
+            <div className="border border-neutral-200 bg-neutral-50 px-3 py-4 text-[11px] uppercase tracking-widest text-neutral-400">
               Loading reports...
             </div>
           )}
 
           {!fetching && reports.length === 0 && (
-            <div className="border border-dashed border-neutral-300 px-3 py-6 text-[10px] uppercase tracking-widest text-neutral-400 text-center">
+            <div className="border border-dashed border-neutral-300 px-3 py-6 text-[11px] uppercase tracking-widest text-neutral-400 text-center">
               No open reports
             </div>
           )}
@@ -187,14 +187,14 @@ export default function ModerationPage() {
               <div key={report.id} className="border border-neutral-300 bg-white p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                    <div className="text-[11px] uppercase tracking-widest text-neutral-500">
                       {report.targetType} reported by {report.reporter}
                     </div>
-                    <div className="text-[10px] text-neutral-400 mt-1">
+                    <div className="text-[11px] text-neutral-400 mt-1">
                       {new Date(report.createdAt).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-[10px] uppercase tracking-widest px-2 py-1 border border-neutral-200 text-neutral-500">
+                  <div className="text-[11px] uppercase tracking-widest px-2 py-1 border border-neutral-200 text-neutral-500">
                     {report.target?.isHidden ? "Hidden" : "Visible"}
                   </div>
                 </div>
@@ -208,13 +208,13 @@ export default function ModerationPage() {
                 <div className="mt-2 border border-neutral-200 p-2">
                   {report.target ? (
                     <>
-                      <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-1">
+                      <div className="text-[11px] uppercase tracking-widest text-neutral-500 mb-1">
                         Author: {report.target.username}
                       </div>
                       <p className="text-xs whitespace-pre-wrap text-neutral-800">{report.target.content}</p>
                     </>
                   ) : (
-                    <div className="text-[10px] uppercase tracking-widest text-neutral-400">
+                    <div className="text-[11px] uppercase tracking-widest text-neutral-400">
                       Target no longer exists.
                     </div>
                   )}
@@ -225,7 +225,7 @@ export default function ModerationPage() {
                     <button
                       onClick={() => void hideTarget(report)}
                       disabled={actingId === report.id}
-                      className="text-[10px] uppercase tracking-widest border border-red-200 text-red-600 px-2 py-1 hover:bg-red-50 disabled:opacity-50"
+                      className="text-[11px] uppercase tracking-widest border border-red-200 text-red-600 px-2 py-1 hover:bg-red-50 disabled:opacity-50"
                     >
                       Hide {report.targetType}
                     </button>
@@ -233,14 +233,14 @@ export default function ModerationPage() {
                   <button
                     onClick={() => void resolveReport(report.id)}
                     disabled={actingId === report.id}
-                    className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50"
+                    className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100 disabled:opacity-50"
                   >
                     Resolve
                   </button>
                   {report.target?.statusId && (
                     <button
                       onClick={() => router.push(`/pile/${encodeURIComponent(report.target?.username || "")}`)}
-                      className="text-[10px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
+                      className="text-[11px] uppercase tracking-widest border border-neutral-300 px-2 py-1 hover:bg-neutral-100"
                     >
                       View Pile
                     </button>
