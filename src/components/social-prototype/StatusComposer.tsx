@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { ConsumableItem, Status, useSocialStore, useUserProfile, Category, CATEGORY_CONFIGS, HIGHLIGHT_COLOR, getCategoryConfig } from '@/lib/social-prototype/store';
 import { ConsumableModal, ConsumableModalHandle } from './ConsumableModal';
 import { ComposerItemTable } from './ComposerItemTable';
@@ -17,6 +17,10 @@ interface StatusComposerProps {
     userCategories?: Category[];
     onEntryModeChange?: (isEntryMode: boolean) => void;
 }
+
+const MAX_TOOLBAR_CATEGORIES = 6;
+const MIN_LOGGED_CATEGORIES_FOR_BAR = 3;
+const TOOLBAR_BUTTON_CLASS = 'shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-neutral-200 transition-colors disabled:opacity-40';
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 const stripLeadingAtSymbol = (value: string) => value.replace(/^@+\s*/, '').trim();
@@ -69,13 +73,75 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
     useEffect(() => { onEntryModeChange?.(isExpanded); }, [isExpanded, onEntryModeChange]);
 
     // Active categories
-    const activeCategories = userCategories && userCategories.length > 0
+    const activeCategories = useMemo(() => userCategories && userCategories.length > 0
         ? userCategories
-        : Object.keys(CATEGORY_CONFIGS) as Category[];
-    // LINK is always first; all remaining categories scroll horizontally.
-    const linkConfig = getCategoryConfig('link');
-    const nonLinkConfigs = activeCategories.filter(c => c !== 'link').map(c => getCategoryConfig(c));
-    const toolbarCategoryConfigs = [linkConfig, ...nonLinkConfigs];
+        : Object.keys(CATEGORY_CONFIGS) as Category[], [userCategories]);
+    // Toolbar shows the most-logged categories (as many as fit, up to a cap);
+    // everything else lives in the MORE dropdown so the bar never scrolls.
+    const rankedCategoryConfigs = useMemo(() => {
+        const counts = new Map<Category, number>();
+        for (const item of allLinkedUserItems) counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+        return activeCategories
+            .map((id, index) => ({ config: getCategoryConfig(id), count: counts.get(id) ?? 0, index }))
+            .sort((a, b) => b.count - a.count || a.index - b.index);
+    }, [activeCategories, allLinkedUserItems]);
+    const toolbarCandidateConfigs = useMemo(() => {
+        // Never-logged categories stay in MORE once there are enough logged ones to fill the bar
+        const loggedCount = rankedCategoryConfigs.filter(r => r.count > 0).length;
+        return rankedCategoryConfigs
+            .filter(r => r.count > 0 || loggedCount < MIN_LOGGED_CATEGORIES_FOR_BAR)
+            .slice(0, MAX_TOOLBAR_CATEGORIES)
+            .map(r => r.config);
+    }, [rankedCategoryConfigs]);
+    const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
+    const [visibleToolbarCount, setVisibleToolbarCount] = useState(MAX_TOOLBAR_CATEGORIES);
+    const [showMoreCategories, setShowMoreCategories] = useState(false);
+    const toolbarCategoryConfigs = toolbarCandidateConfigs.slice(0, visibleToolbarCount);
+    const moreCategoryConfigs = rankedCategoryConfigs
+        .map(r => r.config)
+        .filter(c => !toolbarCategoryConfigs.some(t => t.id === c.id));
+    const hasMoreCategories = rankedCategoryConfigs.length > toolbarCandidateConfigs.length;
+
+    // Fit toolbar buttons to the bar's width using an invisible measuring row
+    useLayoutEffect(() => {
+        if (!toolbarEl) return;
+        const measureRow = toolbarEl.querySelector<HTMLElement>('[data-toolbar-measure]');
+        if (!measureRow) return;
+        const fit = () => {
+            const widths = Array.from(measureRow.children).map(el => el.getBoundingClientRect().width);
+            const moreWidth = widths.pop() ?? 0;
+            const available = toolbarEl.getBoundingClientRect().width;
+            if (!hasMoreCategories && widths.reduce((sum, w) => sum + w, 0) <= available) {
+                setVisibleToolbarCount(widths.length);
+                return;
+            }
+            let used = moreWidth;
+            let count = 0;
+            for (const w of widths) {
+                if (used + w > available) break;
+                used += w;
+                count++;
+            }
+            setVisibleToolbarCount(count);
+        };
+        fit();
+        const observer = new ResizeObserver(fit);
+        observer.observe(toolbarEl);
+        return () => observer.disconnect();
+    }, [toolbarEl, toolbarCandidateConfigs, hasMoreCategories]);
+
+    // Close MORE dropdown on outside tap (pointerdown — toolbar buttons cancel mousedown)
+    const moreCategoriesRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!showMoreCategories) return;
+        const handler = (e: PointerEvent) => {
+            if (moreCategoriesRef.current && !moreCategoriesRef.current.contains(e.target as Node)) {
+                setShowMoreCategories(false);
+            }
+        };
+        window.addEventListener('pointerdown', handler);
+        return () => window.removeEventListener('pointerdown', handler);
+    }, [showMoreCategories]);
     // The v2 prefix isolates drafts from legacy structures. The user.id used here is
     // provided by Clerk (prefixed 'user_...') not the Supabase database. Its sole purpose 
     // is to prevent drafts from leaking across accounts if multiple users share the same browser.
@@ -640,6 +706,22 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
         return () => document.removeEventListener('selectionchange', syncTextareaSelection);
     }, [handleTextSelection]);
 
+    const hasTagContext = !!(tagging.selectedText || tagging.atPrefixText);
+    const handleToolbarCategoryTap = (category: Category) => {
+        setSelectedPlainText('');
+        const hasRecentFallback = !!recentSelectionRef.current
+            && (Date.now() - recentSelectionRef.current.at) < 2500
+            && recentSelectionRef.current.text.trim().length > 0;
+        recentSelectionRef.current = null;
+        if (hasTagContext || hasRecentFallback) {
+            tagging.handleCategoryTap(category);
+        } else {
+            setActiveCategory(category);
+            setExistingItem(undefined);
+            setIsModalOpen(true);
+        }
+    };
+
     if (!isLoaded) return <div className="h-32 bg-neutral-100 mb-4 border border-neutral-300" />;
 
     return (
@@ -1069,52 +1151,89 @@ export function StatusComposer({ userCategories, onEntryModeChange }: StatusComp
                         <>
                     {/* Editor Container */}
                     <div className="border border-neutral-300">
-                        {/* ── Inline Category Toolbar — horizontally scrollable ── */}
-                        <div className="border-b border-neutral-200 bg-neutral-50 flex items-stretch overflow-x-auto">
-                            <div className="flex items-stretch min-w-max shrink-0">
-                                {toolbarCategoryConfigs.map(cat => {
-                                    const hasContext = !!(tagging.selectedText || tagging.atPrefixText);
-                                    return (
+                        {/* ── Inline Category Toolbar — most-used categories, the rest under MORE ── */}
+                        <div ref={setToolbarEl} className="relative border-b border-neutral-200 bg-neutral-50 flex items-stretch">
+                            <div className="flex items-stretch shrink-0">
+                                {toolbarCategoryConfigs.map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => handleToolbarCategoryTap(cat.id)}
+                                        onPointerDown={(e) => e.preventDefault()}
+                                        disabled={tagging.busy}
+                                        title={cat.label}
+                                        className={`${TOOLBAR_BUTTON_CLASS} border-r ${hasTagContext
+                                            ? 'text-neutral-900 hover:brightness-90'
+                                            : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
+                                            }`}
+                                        style={hasTagContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
+                                    >
+                                        {cat.shortLabel}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="ml-auto flex items-stretch min-w-0">
+                                {tagging.selectedText && (
+                                    <div className="min-w-0 self-center overflow-hidden">
+                                        <div className="px-2 truncate text-[9px] uppercase tracking-widest text-neutral-600">
+                                            TEXT SELECTED → TAP A CATEGORY
+                                        </div>
+                                    </div>
+                                )}
+                                {!tagging.selectedText && tagging.atPrefixText && (
+                                    <div className="min-w-0 self-center overflow-hidden">
+                                        <div className="px-2 truncate text-[9px] uppercase tracking-widest text-neutral-500">
+                                            @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
+                                        </div>
+                                    </div>
+                                )}
+                                {moreCategoryConfigs.length > 0 && (
+                                    <div ref={moreCategoriesRef} className="relative shrink-0 flex items-stretch">
                                         <button
-                                            key={cat.id}
-                                            onClick={() => {
-                                                setSelectedPlainText('');
-                                                const hasRecentFallback = !!recentSelectionRef.current
-                                                    && (Date.now() - recentSelectionRef.current.at) < 2500
-                                                    && recentSelectionRef.current.text.trim().length > 0;
-                                                recentSelectionRef.current = null;
-                                                if (hasContext || hasRecentFallback) {
-                                                    tagging.handleCategoryTap(cat.id);
-                                                } else {
-                                                    setActiveCategory(cat.id);
-                                                    setExistingItem(undefined);
-                                                    setIsModalOpen(true);
-                                                }
-                                            }}
+                                            type="button"
+                                            onClick={() => setShowMoreCategories(p => !p)}
                                             onPointerDown={(e) => e.preventDefault()}
                                             disabled={tagging.busy}
-                                            title={cat.label}
-                                            className={`shrink-0 px-2 py-1.5 text-[9px] font-bold uppercase tracking-widest whitespace-nowrap border-r border-neutral-200 transition-colors disabled:opacity-40 ${hasContext
-                                                ? 'text-neutral-900 hover:brightness-90'
-                                                : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
-                                                }`}
-                                            style={hasContext ? { backgroundColor: cat.color || '#d4d4d4' } : undefined}
+                                            aria-haspopup="menu"
+                                            aria-expanded={showMoreCategories}
+                                            className={`${TOOLBAR_BUTTON_CLASS} border-l ${showMoreCategories ? 'bg-neutral-100 text-neutral-700' : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'}`}
                                         >
-                                            {cat.shortLabel}
+                                            MORE ▾
                                         </button>
-                                    );
-                                })}
+                                        {showMoreCategories && (
+                                            <div role="menu" className="absolute right-0 top-full mt-px bg-white border border-neutral-300 shadow-md z-50 py-1 min-w-[140px]">
+                                                {moreCategoryConfigs.map(cat => (
+                                                    <button
+                                                        key={cat.id}
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={() => {
+                                                            setShowMoreCategories(false);
+                                                            handleToolbarCategoryTap(cat.id);
+                                                        }}
+                                                        onPointerDown={(e) => e.preventDefault()}
+                                                        disabled={tagging.busy}
+                                                        title={cat.label}
+                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
+                                                    >
+                                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color || '#d4d4d4' }} />
+                                                        {cat.shortLabel}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            {tagging.selectedText && (
-                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-600 whitespace-nowrap shrink-0">
-                                    TEXT SELECTED → TAP A CATEGORY
+                            {/* Invisible copy of the candidate buttons, MORE last, for measuring what fits.
+                                Clipped so its full width never adds horizontal page scroll. */}
+                            <div aria-hidden="true" className="absolute inset-0 overflow-hidden invisible pointer-events-none">
+                                <div data-toolbar-measure className="flex w-max">
+                                    {toolbarCandidateConfigs.map(cat => (
+                                        <span key={cat.id} className={`${TOOLBAR_BUTTON_CLASS} border-r`}>{cat.shortLabel}</span>
+                                    ))}
+                                    <span className={`${TOOLBAR_BUTTON_CLASS} border-l`}>MORE ▾</span>
                                 </div>
-                            )}
-                            {!tagging.selectedText && tagging.atPrefixText && (
-                                <div className="ml-auto flex items-center px-2 text-[9px] uppercase tracking-widest text-neutral-500 whitespace-nowrap shrink-0">
-                                    @: {tagging.atPrefixText.length > 20 ? tagging.atPrefixText.slice(0, 20) + '...' : tagging.atPrefixText}
-                                </div>
-                            )}
+                            </div>
                         </div>
 
                         {/* ── Textarea + Highlight (own relative container for perfect alignment) ── */}
