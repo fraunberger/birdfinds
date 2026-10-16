@@ -143,7 +143,7 @@ export default function ModerationPage() {
 
   return (
     <div className="min-h-screen bg-white font-mono text-neutral-900">
-      <div className="max-w-2xl mx-auto p-3 sm:p-6 pb-24 sm:pb-8">
+      <div className="max-w-2xl lg:max-w-3xl mx-auto p-3 sm:p-6 pb-24 sm:pb-8">
         <header className="mb-4 sm:mb-8 border-b border-neutral-300 pb-3 sm:pb-4 flex items-center justify-between">
           <Link href="/" className="relative w-14 h-9 block hover:opacity-80 transition-opacity">
             <Image src="/logo.svg" alt="BirdFinds" fill className="object-contain" priority />
